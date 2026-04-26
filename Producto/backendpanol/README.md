@@ -5,7 +5,7 @@ Implementa la historia **HU-74** usando Spring Boot + jOOQ + Flyway.
 ## Alcance funcional
 
 - CRUD de categorias (listar, crear, editar, desactivar, eliminar).
-- Solo usuarios con rol `COORDINADOR` pueden gestionar categorias.
+- Regla de negocio: solo `COORDINADOR` gestiona categorias (en esta etapa de integración UI los endpoints de categorias están temporalmente sin autenticación).
 - Nombre de categoria unico (case-insensitive) con validacion previa y fallback por constraint unico.
 - Una categoria desactivada mantiene su referencia historica en implementos.
 - Al desactivar: si existen implementos activos asociados, el backend responde advertencia (conflict) con conteo; se puede confirmar con `force=true`.
@@ -46,7 +46,7 @@ Todos los errores 4xx/5xx devuelven payload uniforme:
 
 - Resource Server JWT (`spring-boot-starter-oauth2-resource-server`).
 - Se acepta rol desde claims: `role`, `user_role`, `roles`, `app_metadata.role`, `app_metadata.roles`.
-- Rol requerido: `ROLE_COORDINADOR`.
+- Temporalmente, `/api/categorias/**` quedó en `permitAll` para facilitar pruebas del frontend sin login.
 
 ## jOOQ
 
@@ -98,3 +98,7 @@ docker compose up --build
 
 - `VITE_SUPABASE_URL=https://ekqbucfoygimzgxupdhm.supabase.co`
 - `VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_zz8M0TK5BSRjk00UMl9h6g_qgWycc02`
+
+## Documentación adicional
+
+- [`docs/BACKEND.md`](./docs/BACKEND.md)

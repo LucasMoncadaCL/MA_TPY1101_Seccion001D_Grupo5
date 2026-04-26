@@ -56,3 +56,9 @@ backendpanol/.env.local
 backendpanol/.env.*.local
 backendpanol/secrets/*.txt
 backendpanol/secrets/application-secrets.properties
+frontendpanol/.env
+frontendpanol/.env.local
+frontendpanol/.env.*.local
+frontendpanol/node_modules/
+frontendpanol/dist/
+.env

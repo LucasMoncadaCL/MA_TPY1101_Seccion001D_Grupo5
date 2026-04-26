@@ -1,0 +1,38 @@
+services:
+  backend:
+    build:
+      context: ./backendpanol
+      dockerfile: Dockerfile
+      args:
+        JOOQ_DB_URL: ${JOOQ_DB_URL}
+        JOOQ_DB_USER: ${JOOQ_DB_USER}
+        JOOQ_DB_PASSWORD: ${JOOQ_DB_PASSWORD}
+    container_name: panol-backend
+    restart: unless-stopped
+    env_file:
+      - ./backendpanol/.env.local
+    environment:
+      APP_PORT: ${BACKEND_INTERNAL_PORT:-8080}
+      DB_HOST: ${DB_HOST:-aws-1-us-east-1.pooler.supabase.com}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-postgres}
+      DB_USER: ${DB_USER:-postgres.ekqbucfoygimzgxupdhm}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSL_MODE: ${DB_SSL_MODE:-require}
+    ports:
+      - "${BACKEND_PORT:-18080}:8080"
+    volumes:
+      - ./backendpanol/secrets:/app/secrets:ro
+
+  frontend:
+    build:
+      context: ./frontendpanol
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:18080}
+    container_name: panol-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-18081}:80"

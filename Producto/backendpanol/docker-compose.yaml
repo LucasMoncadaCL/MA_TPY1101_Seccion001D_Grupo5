@@ -23,6 +23,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        JOOQ_DB_URL: ${JOOQ_DB_URL}
+        JOOQ_DB_USER: ${JOOQ_DB_USER}
+        JOOQ_DB_PASSWORD: ${JOOQ_DB_PASSWORD}
     container_name: panol-backend
     restart: unless-stopped
     depends_on:

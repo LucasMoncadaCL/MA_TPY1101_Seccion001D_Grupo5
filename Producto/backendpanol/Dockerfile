@@ -1,6 +1,13 @@
 FROM maven:3.9.9-eclipse-temurin-17 AS build
 WORKDIR /app
 
+ARG JOOQ_DB_URL
+ARG JOOQ_DB_USER
+ARG JOOQ_DB_PASSWORD
+ENV JOOQ_DB_URL=${JOOQ_DB_URL}
+ENV JOOQ_DB_USER=${JOOQ_DB_USER}
+ENV JOOQ_DB_PASSWORD=${JOOQ_DB_PASSWORD}
+
 COPY pom.xml mvnw mvnw.cmd ./
 COPY .mvn .mvn
 COPY src src
