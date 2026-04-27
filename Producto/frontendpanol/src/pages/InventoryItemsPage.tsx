@@ -1,27 +1,72 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { InventoryLayout } from "../components/layout/InventoryLayout";
 import { ImplementFormModal } from "../components/implements/ImplementFormModal";
-import { createImplement } from "../services/implementService";
+import { ImplementEditModal } from "../components/implements/ImplementEditModal";
+import { createImplement, fetchImplements, updateImplement } from "../services/implementService";
 import { getErrorMessage } from "../services/apiClient";
+import type { ImplementSummary } from "../types/implement";
 
 export function InventoryItemsPage() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<ImplementSummary | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [implementos, setImplementos] = useState<ImplementSummary[]>([]);
 
-  async function handleSubmit(payload: { name: string; categoryId: number | null }) {
+  const refreshImplements = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const rows = await fetchImplements();
+      setImplementos(rows);
+    } catch (error) {
+      setError(getErrorMessage(error, "No se pudo cargar el listado de implementos."));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshImplements();
+  }, [refreshImplements]);
+
+  async function handleSubmit(payload: { name: string; categoryId: number | null; locationId: number }) {
     setSaving(true);
     setError(null);
     setSuccess(null);
 
     try {
-      await createImplement({ name: payload.name, category_id: payload.categoryId });
+      await createImplement({ name: payload.name, category_id: payload.categoryId, location_id: payload.locationId });
+      await refreshImplements();
       setSuccess("Implemento creado correctamente.");
-      setIsOpen(false);
+      setIsCreateOpen(false);
     } catch (error) {
       setError(getErrorMessage(error, "No se pudo crear el implemento."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUpdate(payload: { id: number; name: string; categoryId: number | null; locationId: number }) {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await updateImplement(payload.id, {
+        name: payload.name,
+        category_id: payload.categoryId,
+        location_id: payload.locationId,
+      });
+      await refreshImplements();
+      setSuccess("Implemento actualizado correctamente.");
+      setEditing(null);
+    } catch (error) {
+      setError(getErrorMessage(error, "No se pudo actualizar el implemento."));
     } finally {
       setSaving(false);
     }
@@ -36,7 +81,7 @@ export function InventoryItemsPage() {
         </div>
 
         <div className="content-header__actions">
-          <button type="button" className="button" onClick={() => setIsOpen(true)}>
+          <button type="button" className="button" onClick={() => setIsCreateOpen(true)}>
             <Plus size={16} />
             Nuevo implemento
           </button>
@@ -51,17 +96,63 @@ export function InventoryItemsPage() {
           </div>
         </div>
 
+        {loading ? <div className="field-hint">Cargando implementos...</div> : null}
         {error ? <div className="error-banner">{error}</div> : null}
         {success ? <div className="success-banner">{success}</div> : null}
 
-        <p className="empty-state">No hay listado implementado en esta vista.</p>
+        <div className="table-wrapper">
+          <table className="category-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Categoria</th>
+                <th>Ubicacion</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {implementos.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td>{row.name}</td>
+                  <td>
+                    {row.category
+                      ? `${row.category.name}${row.category.active ? "" : " [Categoria inactiva]"}`
+                      : "Sin categoria"}
+                  </td>
+                  <td>{row.location ? row.location.name : "Sin ubicacion"}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        type="button"
+                        className="button button--table button--ghost"
+                        onClick={() => setEditing(row)}
+                      >
+                        Editar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <ImplementFormModal
-        isOpen={isOpen}
+        isOpen={isCreateOpen}
         saving={saving}
-        onClose={() => setIsOpen(false)}
+        onClose={() => setIsCreateOpen(false)}
         onSubmit={handleSubmit}
+      />
+
+      <ImplementEditModal
+        implement={editing}
+        isOpen={Boolean(editing)}
+        saving={saving}
+        onClose={() => setEditing(null)}
+        onSubmit={handleUpdate}
       />
     </InventoryLayout>
   );
