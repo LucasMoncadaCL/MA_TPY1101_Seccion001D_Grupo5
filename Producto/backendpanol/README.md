@@ -30,6 +30,10 @@ Compatibilidad:
 
 - `GET /api/categorias?incluirInactivas=true|false`
 
+Selector (HU-75):
+
+- `GET /api/categorias/active` (solo activas; requiere rol `COORDINADOR`)
+
 ## Formato de errores backend
 
 Todos los errores 4xx/5xx devuelven payload uniforme:

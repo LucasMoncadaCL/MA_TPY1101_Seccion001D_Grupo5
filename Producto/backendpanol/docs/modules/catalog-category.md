@@ -9,6 +9,7 @@ Gestionar el ciclo de vida de categorias de implementos (crear, listar, editar, 
 - HU-74: gestion de categorias
   - listar para gestion
   - listar para selector
+  - listar activas para selector de producto (PSD-92)
   - crear categoria
   - editar categoria
   - desactivar categoria (con `force`)
@@ -42,6 +43,9 @@ Capas:
 ## Decisiones tecnicas relevantes
 
 1. Persistencia con jOOQ en `infrastructure`.
+2. Endpoint liviano para selector de producto:
+   - `GET /api/categorias/active` retorna solo `id` y `name`
+   - requiere JWT + rol `COORDINADOR`
 2. Validacion de nombre unico:
    - verificacion previa case-insensitive
    - fallback por manejo de unique violation SQLSTATE `23505`
