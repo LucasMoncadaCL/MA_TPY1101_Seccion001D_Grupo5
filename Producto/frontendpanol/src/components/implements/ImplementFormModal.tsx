@@ -1,23 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { fetchActiveCategories } from "../../services/activeCategoryService";
+import { fetchLocations } from "../../services/locationService";
 import { getErrorMessage } from "../../services/apiClient";
 import type { ActiveCategoryOption } from "../../types/categoryActive";
+import type { LocationOption } from "../../types/location";
 
 interface ImplementFormModalProps {
   isOpen: boolean;
   saving: boolean;
   onClose: () => void;
-  onSubmit: (payload: { name: string; categoryId: number | null }) => Promise<void>;
+  onSubmit: (payload: { name: string; categoryId: number | null; locationId: number }) => Promise<void>;
 }
 
 export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: ImplementFormModalProps) {
   const [name, setName] = useState("");
   const [categoryIdRaw, setCategoryIdRaw] = useState<string>("");
+  const [locationIdRaw, setLocationIdRaw] = useState<string>("");
 
   const [categories, setCategories] = useState<ActiveCategoryOption[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
+
+  const [locations, setLocations] = useState<LocationOption[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -26,9 +33,14 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
 
     setName("");
     setCategoryIdRaw("");
+    setLocationIdRaw("");
     setCategories([]);
     setCategoriesError(null);
     setLoadingCategories(true);
+
+    setLocations([]);
+    setLocationsError(null);
+    setLoadingLocations(true);
 
     fetchActiveCategories()
       .then((result) => setCategories(result))
@@ -36,6 +48,13 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
         setCategoriesError(getErrorMessage(error, "No se pudo cargar las categorias."));
       })
       .finally(() => setLoadingCategories(false));
+
+    fetchLocations()
+      .then((result) => setLocations(result))
+      .catch((error) => {
+        setLocationsError(getErrorMessage(error, "No se pudo cargar las ubicaciones."));
+      })
+      .finally(() => setLoadingLocations(false));
   }, [isOpen]);
 
   const isSelectDisabled = useMemo(() => {
@@ -61,6 +80,29 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
     return null;
   }, [categories.length, categoriesError, loadingCategories]);
 
+  const isLocationSelectDisabled = useMemo(() => {
+    if (loadingLocations) {
+      return true;
+    }
+    if (locationsError) {
+      return true;
+    }
+    return locations.length === 0;
+  }, [loadingLocations, locations.length, locationsError]);
+
+  const locationEmptyText = useMemo(() => {
+    if (loadingLocations) {
+      return "Cargando ubicaciones...";
+    }
+    if (locationsError) {
+      return locationsError;
+    }
+    if (locations.length === 0) {
+      return "No hay ubicaciones disponibles";
+    }
+    return null;
+  }, [loadingLocations, locations.length, locationsError]);
+
   if (!isOpen) {
     return null;
   }
@@ -70,8 +112,17 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
 
     const normalizedName = name.trim();
     const categoryId = categoryIdRaw.trim() ? Number(categoryIdRaw) : null;
+    const locationId = locationIdRaw.trim() ? Number(locationIdRaw) : NaN;
 
-    await onSubmit({ name: normalizedName, categoryId: Number.isFinite(categoryId) ? categoryId : null });
+    if (!Number.isFinite(locationId)) {
+      return;
+    }
+
+    await onSubmit({
+      name: normalizedName,
+      categoryId: Number.isFinite(categoryId) ? categoryId : null,
+      locationId,
+    });
   }
 
   return (
@@ -119,11 +170,46 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
           ) : null}
           {categoriesError ? <p className="field-error">{categoriesError}</p> : null}
 
+          <label htmlFor="implement-location">Ubicacion</label>
+          <select
+            id="implement-location"
+            value={locationIdRaw}
+            onChange={(event) => setLocationIdRaw(event.target.value)}
+            disabled={isLocationSelectDisabled}
+            required
+          >
+            {loadingLocations ? (
+              <option value="">Cargando ubicaciones...</option>
+            ) : locations.length === 0 ? (
+              <option value="">No hay ubicaciones disponibles</option>
+            ) : (
+              <>
+                <option value="" disabled>
+                  Selecciona una ubicacion
+                </option>
+                {locations.map((location) => (
+                  <option key={location.id} value={String(location.id)}>
+                    {location.name}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+
+          {locationEmptyText && locations.length === 0 && !loadingLocations ? (
+            <p className="field-hint">{locationEmptyText}</p>
+          ) : null}
+          {locationsError ? <p className="field-error">{locationsError}</p> : null}
+
           <div className="modal-actions">
             <button type="button" className="button button--ghost" onClick={onClose}>
               Cancelar
             </button>
-            <button type="submit" className="button" disabled={saving || name.trim().length === 0}>
+            <button
+              type="submit"
+              className="button"
+              disabled={saving || name.trim().length === 0 || locationIdRaw.trim().length === 0 || locations.length === 0}
+            >
               {saving ? "Guardando..." : "Guardar"}
             </button>
           </div>
