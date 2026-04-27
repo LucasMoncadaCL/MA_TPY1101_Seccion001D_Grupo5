@@ -47,9 +47,9 @@ export function InventoryCategoriesPage() {
     setModal({ type: "none" });
   }
 
-  async function handleSubmitForm(name: string) {
+  async function handleSubmitForm(name: string, description: string) {
     if (modal.type === "create") {
-      const ok = await create(name);
+      const ok = await create(name, description);
       if (ok) {
         closeModal();
       }
@@ -57,7 +57,7 @@ export function InventoryCategoriesPage() {
     }
 
     if (modal.type === "edit" && modal.category) {
-      const ok = await update(modal.category.id, name);
+      const ok = await update(modal.category.id, name, description);
       if (ok) {
         closeModal();
       }

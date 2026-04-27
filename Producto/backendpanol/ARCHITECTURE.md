@@ -1,40 +1,62 @@
-# Arquitectura Backend (Monolito Modular)
+# Arquitectura Backend
 
-Este backend sigue un enfoque de monolito modular para facilitar una futura migracion a microservicios.
+## Definicion
 
-## Capas principales
+Este backend sigue un enfoque de:
 
-- `bootstrap`: configuracion de arranque (security, wiring global).
-- `modules`: dominio funcional dividido por modulos de negocio.
-- `shared`: utilidades transversales y tipos comunes de error/API.
-- `jooq` (generado en `target`): metamodelo SQL de la base relacional.
+- Monolito modular
+- Hexagonal por modulo (ports & adapters)
+- Comunicacion entre modulos por contratos/eventos
 
-## Reglas de dependencia
+Objetivo: mantener simplicidad operativa hoy (un deploy) y dejar preparado el codigo para extraccion progresiva a microservicios.
 
-1. `modules/*` no debe depender de `bootstrap/*`.
-2. Los modulos se comunican por contratos (services/interfaces/eventos), evitando acceso directo arbitrario entre modulos.
-3. `shared/*` no debe contener logica de dominio; solo cross-cutting estable.
-4. El acceso a BD de cada modulo debe quedar dentro de su carpeta `infrastructure`.
+## Capas globales del proyecto
 
-## Modulos actuales
+- `bootstrap`: configuracion de arranque y wiring transversal.
+- `modules`: dominio funcional por contexto de negocio.
+- `shared`: cross-cutting estable (errores, seguridad, utilidades transversales).
+- `target/generated-sources/jooq`: codigo generado desde PostgreSQL para persistencia type-safe.
 
-- `catalog/category`
+## Estructura esperada por modulo
 
-## Proxima expansion sugerida
+Cada modulo debe mantener esta separacion:
 
+- `api`: adapters de entrada (REST).
+- `application`: casos de uso/orquestacion.
+- `domain`: modelo y contratos del dominio (sin acoplamiento a framework en el ideal objetivo).
+- `infrastructure`: adapters de salida (repositorios, clientes externos, jOOQ).
+
+## Reglas de dependencia (vigentes)
+
+1. `modules/*` no depende de `bootstrap/*` (validado con ArchUnit).
+2. `shared/*` no depende de `modules/*` (validado con ArchUnit).
+3. La persistencia de cada modulo se implementa en `infrastructure`.
+4. Se evita acoplamiento directo arbitrario entre modulos.
+
+Referencia de tests: `src/test/java/com/panol_project/backendpanol/ArchitectureTest.java`.
+
+## Estado actual del backend
+
+- Modulo implementado: `modules/catalog/category`.
+- Capas presentes en ese modulo: `api`, `application`, `domain`, `infrastructure`.
+- Seguridad y errores transversales ya centralizados en `bootstrap` y `shared`.
+
+## Modulos objetivo (roadmap)
+
+- `identity_access`
 - `catalog/implement`
+- `locations`
 - `inventory`
 - `loans`
-- `identity-access`
-- `locations`
+- `notifications`
 - `reporting`
+- `audit`
+- `ai_assistant` (adapter/proxy hacia servicio externo)
 
-## Migracion futura a microservicios
+## Documentacion complementaria
 
-Cada modulo puede separarse progresivamente extrayendo:
-
-- API del modulo
-- logica de aplicacion
-- repositorios y contratos de persistencia
-
-manteniendo contratos HTTP/eventos estables entre componentes.
+- `docs/architecture/00-overview.md`
+- `docs/modules/catalog-category.md`
+- `docs/BACKEND.md`
+- `docs/ENVIRONMENT.md`
+- `docs/DEPLOYMENT.md`

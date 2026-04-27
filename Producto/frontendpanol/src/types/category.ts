@@ -1,9 +1,9 @@
 export interface Categoria {
   id: number;
   nombre: string;
+  descripcion: string | null;
   activa: boolean;
   createdAt: string;
-  updatedAt: string | null;
 }
 
 export interface CategoriaAssociationSummary {
@@ -14,6 +14,7 @@ export interface CategoriaAssociationSummary {
 
 export interface CategoriaPayload {
   nombre: string;
+  descripcion: string | null;
 }
 
 export interface DeactivateConflict {

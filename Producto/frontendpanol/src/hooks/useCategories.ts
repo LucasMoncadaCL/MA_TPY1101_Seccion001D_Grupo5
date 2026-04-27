@@ -58,11 +58,11 @@ export function useCategories() {
     }
   }, []);
 
-  const create = useCallback(async (nombre: string) => {
+  const create = useCallback(async (nombre: string, descripcion: string) => {
     setState((prev) => ({ ...prev, saving: true, fieldError: null, error: null }));
 
     try {
-      await createCategoria({ nombre });
+      await createCategoria({ nombre, descripcion: descripcion.trim() || null });
       await load();
     } catch (error) {
       const apiError = getApiErrorPayload(error);
@@ -83,11 +83,11 @@ export function useCategories() {
     return true;
   }, [load]);
 
-  const update = useCallback(async (id: number, nombre: string) => {
+  const update = useCallback(async (id: number, nombre: string, descripcion: string) => {
     setState((prev) => ({ ...prev, saving: true, fieldError: null, error: null }));
 
     try {
-      await updateCategoria(id, { nombre });
+      await updateCategoria(id, { nombre, descripcion: descripcion.trim() || null });
       await load();
     } catch (error) {
       const apiError = getApiErrorPayload(error);

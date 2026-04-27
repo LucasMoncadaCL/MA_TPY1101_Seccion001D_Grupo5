@@ -1,10 +1,11 @@
 package com.panol_project.backendpanol.modules.catalog.category.api;
 
 import com.panol_project.backendpanol.modules.catalog.category.application.CategoriaService;
-import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaAssociationSummaryResponse;
-import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaResponse;
-import com.panol_project.backendpanol.modules.catalog.category.domain.CreateCategoriaRequest;
-import com.panol_project.backendpanol.modules.catalog.category.domain.UpdateCategoriaRequest;
+import com.panol_project.backendpanol.modules.catalog.category.api.dto.CategoriaAssociationSummaryResponse;
+import com.panol_project.backendpanol.modules.catalog.category.api.dto.CategoriaResponse;
+import com.panol_project.backendpanol.modules.catalog.category.api.dto.CreateCategoriaRequest;
+import com.panol_project.backendpanol.modules.catalog.category.api.dto.UpdateCategoriaRequest;
+import com.panol_project.backendpanol.modules.catalog.category.domain.Categoria;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -33,17 +34,19 @@ public class CategoriaController {
 
     @GetMapping("/gestion")
     List<CategoriaResponse> listarGestion() {
-        return service.listarGestion();
+        return service.listarGestion().stream().map(this::toResponse).toList();
     }
 
     @GetMapping("/selector")
     List<CategoriaResponse> listarSelector() {
-        return service.listarSelector();
+        return service.listarSelector().stream().map(this::toResponse).toList();
     }
 
     @GetMapping
     List<CategoriaResponse> listarCompatibilidad(@RequestParam(defaultValue = "true") boolean incluirInactivas) {
-        return incluirInactivas ? service.listarGestion() : service.listarSelector();
+        return incluirInactivas
+                ? service.listarGestion().stream().map(this::toResponse).toList()
+                : service.listarSelector().stream().map(this::toResponse).toList();
     }
 
     @GetMapping("/{id}/asociaciones")
@@ -61,12 +64,12 @@ public class CategoriaController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     CategoriaResponse crear(@Valid @RequestBody CreateCategoriaRequest request) {
-        return service.crear(request.nombre());
+        return toResponse(service.crear(request.nombre(), request.descripcion()));
     }
 
     @PutMapping("/{id}")
     CategoriaResponse editar(@PathVariable Integer id, @Valid @RequestBody UpdateCategoriaRequest request) {
-        return service.editar(id, request.nombre());
+        return toResponse(service.editar(id, request.nombre(), request.descripcion()));
     }
 
     @PatchMapping("/{id}/desactivar")
@@ -74,12 +77,22 @@ public class CategoriaController {
             @PathVariable Integer id,
             @RequestParam(defaultValue = "false") boolean force
     ) {
-        return service.desactivar(id, force);
+        return toResponse(service.desactivar(id, force));
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void eliminar(@PathVariable Integer id) {
         service.eliminar(id);
+    }
+
+    private CategoriaResponse toResponse(Categoria categoria) {
+        return new CategoriaResponse(
+                categoria.id(),
+                categoria.nombre(),
+                categoria.descripcion(),
+                categoria.activa(),
+                categoria.createdAt()
+        );
     }
 }

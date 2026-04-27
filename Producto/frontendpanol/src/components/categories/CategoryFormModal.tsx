@@ -9,7 +9,7 @@ interface CategoryFormModalProps {
   saving: boolean;
   fieldError: string | null;
   onClose: () => void;
-  onSubmit: (name: string) => Promise<void>;
+  onSubmit: (name: string, description: string) => Promise<void>;
 }
 
 export function CategoryFormModal({
@@ -22,6 +22,7 @@ export function CategoryFormModal({
   onSubmit,
 }: CategoryFormModalProps) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
 
   useEffect(() => {
     if (!isOpen) {
@@ -29,7 +30,8 @@ export function CategoryFormModal({
     }
 
     setName(category?.nombre ?? "");
-  }, [category?.nombre, isOpen]);
+    setDescription(category?.descripcion ?? "");
+  }, [category?.nombre, category?.descripcion, isOpen]);
 
   if (!isOpen) {
     return null;
@@ -37,7 +39,7 @@ export function CategoryFormModal({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await onSubmit(name.trim());
+    await onSubmit(name.trim(), description);
   }
 
   return (
@@ -55,6 +57,15 @@ export function CategoryFormModal({
             placeholder="Ej: Equipos clínicos"
             maxLength={100}
             required
+          />
+          <label htmlFor="category-description">Descripción</label>
+          <textarea
+            id="category-description"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Ej: Equipamiento para prácticas clínicas."
+            maxLength={255}
+            rows={3}
           />
           {fieldError ? <p className="field-error">{fieldError}</p> : null}
 

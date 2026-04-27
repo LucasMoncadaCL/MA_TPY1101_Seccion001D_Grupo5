@@ -8,9 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.panol_project.backendpanol.jooq.tables.records.CategoryRecord;
-import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaResponse;
-import com.panol_project.backendpanol.modules.catalog.category.infrastructure.CategoriaRepository;
+import com.panol_project.backendpanol.modules.catalog.category.domain.Categoria;
+import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaRepository;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.ConflictException;
 import java.time.OffsetDateTime;
@@ -38,7 +37,7 @@ class CategoriaServiceTest {
     void crearDebeFallarConBadRequestSiNombreDuplicado() {
         when(repository.existsByNombre("Reactivos", null)).thenReturn(true);
 
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.crear("Reactivos"));
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.crear("Reactivos", null));
 
         assertEquals("CATEGORY_NAME_DUPLICATE", ex.getCode());
         assertEquals("Ya existe una categoria con el nombre 'Reactivos'", ex.getMessage());
@@ -46,11 +45,7 @@ class CategoriaServiceTest {
 
     @Test
     void desactivarDebeRetornarConflictSiHayImplementsActivosSinForce() {
-        CategoryRecord record = new CategoryRecord();
-        record.setId(10);
-        record.setName("Reactivos");
-        record.setActive(true);
-        record.setCreatedAt(OffsetDateTime.now());
+        Categoria record = new Categoria(10, "Reactivos", null, true, OffsetDateTime.now());
 
         when(repository.findById(10)).thenReturn(Optional.of(record));
         when(repository.countActiveImplementsByCategoryId(10)).thenReturn(3);
@@ -63,11 +58,7 @@ class CategoriaServiceTest {
 
     @Test
     void eliminarDebeFallarSiTieneImplementsAsociados() {
-        CategoryRecord record = new CategoryRecord();
-        record.setId(7);
-        record.setName("Insumos");
-        record.setActive(true);
-        record.setCreatedAt(OffsetDateTime.now());
+        Categoria record = new Categoria(7, "Insumos", null, true, OffsetDateTime.now());
 
         when(repository.findById(7)).thenReturn(Optional.of(record));
         when(repository.countImplementsByCategoryId(7)).thenReturn(2);
@@ -90,25 +81,15 @@ class CategoriaServiceTest {
 
     @Test
     void desactivarConForceDebeDesactivarYRetornarCategoria() {
-        CategoryRecord active = new CategoryRecord();
-        active.setId(5);
-        active.setName("Activa");
-        active.setActive(true);
-        active.setCreatedAt(OffsetDateTime.now());
+        Categoria active = new Categoria(5, "Activa", null, true, OffsetDateTime.now());
 
         when(repository.findById(5)).thenReturn(Optional.of(active));
         when(repository.countActiveImplementsByCategoryId(5)).thenReturn(1);
-        when(repository.toResponse(active)).thenReturn(new CategoriaResponse(
-                5,
-                "Activa",
-                false,
-                active.getCreatedAt(),
-                null
-        ));
 
-        CategoriaResponse response = service.desactivar(5, true);
+        Categoria response = service.desactivar(5, true);
 
         assertEquals(5, response.id());
+        assertEquals(false, response.activa());
         verify(repository).deactivate(eq(5));
     }
 }

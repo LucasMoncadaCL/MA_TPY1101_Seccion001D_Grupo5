@@ -34,7 +34,8 @@ a {
 }
 
 button,
-input {
+input,
+textarea {
   font-family: inherit;
 }
 
@@ -422,6 +423,16 @@ input {
   border-radius: 10px;
   padding: 11px 10px;
   font-size: 0.95rem;
+}
+
+.modal textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 10px;
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 84px;
 }
 
 .field-error {

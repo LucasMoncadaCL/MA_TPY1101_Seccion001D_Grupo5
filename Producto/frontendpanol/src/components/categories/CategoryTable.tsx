@@ -39,6 +39,7 @@ export function CategoryTable({
         <thead>
           <tr>
             <th>Nombre</th>
+            <th>Descripción</th>
             <th>Estado</th>
             <th>Implementos asociados</th>
             <th>Creación</th>
@@ -56,6 +57,7 @@ export function CategoryTable({
                 <td>
                   <strong>{category.nombre}</strong>
                 </td>
+                <td>{category.descripcion?.trim() ? category.descripcion : "Sin descripción"}</td>
                 <td>
                   <span className={category.activa ? "badge badge--active" : "badge badge--inactive"}>
                     {category.activa ? "Activa" : "Inactiva"}
@@ -100,4 +102,3 @@ export function CategoryTable({
     </div>
   );
 }
-

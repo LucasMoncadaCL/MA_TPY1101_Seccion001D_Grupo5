@@ -133,6 +133,9 @@ docker compose up --build
 
 ## Documentación adicional
 
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+- [`docs/architecture/00-overview.md`](./docs/architecture/00-overview.md)
+- [`docs/modules/catalog-category.md`](./docs/modules/catalog-category.md)
 - [`docs/BACKEND.md`](./docs/BACKEND.md)
 - [`docs/ENVIRONMENT.md`](./docs/ENVIRONMENT.md)
 - [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)

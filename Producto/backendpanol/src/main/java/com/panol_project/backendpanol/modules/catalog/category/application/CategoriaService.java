@@ -1,8 +1,7 @@
 package com.panol_project.backendpanol.modules.catalog.category.application;
 
-import com.panol_project.backendpanol.jooq.tables.records.CategoryRecord;
-import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaResponse;
-import com.panol_project.backendpanol.modules.catalog.category.infrastructure.CategoriaRepository;
+import com.panol_project.backendpanol.modules.catalog.category.domain.Categoria;
+import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaRepository;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.ConflictException;
 import com.panol_project.backendpanol.shared.error.NotFoundException;
@@ -22,22 +21,23 @@ public class CategoriaService {
     }
 
     @Transactional(readOnly = true)
-    public List<CategoriaResponse> listarGestion() {
+    public List<Categoria> listarGestion() {
         return repository.findAll(true);
     }
 
     @Transactional(readOnly = true)
-    public List<CategoriaResponse> listarSelector() {
-        return repository.findOnlyActive();
+    public List<Categoria> listarSelector() {
+        return repository.findAll(false);
     }
 
     @Transactional
-    public CategoriaResponse crear(String nombre) {
+    public Categoria crear(String nombre, String descripcion) {
         String normalizedName = normalizeNombre(nombre);
+        String normalizedDescription = normalizeDescripcion(descripcion);
         validateNombreUnico(normalizedName, null);
 
         try {
-            return repository.create(normalizedName);
+            return repository.create(normalizedName, normalizedDescription);
         } catch (DataIntegrityViolationException ex) {
             if (isUniqueViolation(ex)) {
                 throw duplicateNameError(normalizedName);
@@ -47,14 +47,15 @@ public class CategoriaService {
     }
 
     @Transactional
-    public CategoriaResponse editar(Integer id, String nombre) {
-        CategoryRecord categoria = requireCategoria(id);
+    public Categoria editar(Integer id, String nombre, String descripcion) {
+        Categoria categoria = requireCategoria(id);
         String normalizedName = normalizeNombre(nombre);
+        String normalizedDescription = normalizeDescripcion(descripcion);
 
-        validateNombreUnico(normalizedName, categoria.getId());
+        validateNombreUnico(normalizedName, categoria.id());
 
         try {
-            return repository.updateNombre(id, normalizedName);
+            return repository.updateNombre(id, normalizedName, normalizedDescription);
         } catch (DataIntegrityViolationException ex) {
             if (isUniqueViolation(ex)) {
                 throw duplicateNameError(normalizedName);
@@ -64,10 +65,10 @@ public class CategoriaService {
     }
 
     @Transactional
-    public CategoriaResponse desactivar(Integer id, boolean force) {
-        CategoryRecord categoria = requireCategoria(id);
-        if (!Boolean.TRUE.equals(categoria.getActive())) {
-            return repository.toResponse(categoria);
+    public Categoria desactivar(Integer id, boolean force) {
+        Categoria categoria = requireCategoria(id);
+        if (!Boolean.TRUE.equals(categoria.activa())) {
+            return categoria;
         }
 
         int activeImplements = repository.countActiveImplementsByCategoryId(id);
@@ -79,8 +80,13 @@ public class CategoriaService {
         }
 
         repository.deactivate(id);
-        categoria.setActive(false);
-        return repository.toResponse(categoria);
+        return new Categoria(
+                categoria.id(),
+                categoria.nombre(),
+                categoria.descripcion(),
+                false,
+                categoria.createdAt()
+        );
     }
 
     @Transactional
@@ -125,13 +131,21 @@ public class CategoriaService {
         }
     }
 
-    private CategoryRecord requireCategoria(Integer id) {
+    private Categoria requireCategoria(Integer id) {
         return repository.findById(id)
                 .orElseThrow(() -> new NotFoundException("CATEGORY_NOT_FOUND", "Categoria no encontrada"));
     }
 
     private String normalizeNombre(String nombre) {
         return nombre == null ? "" : nombre.trim();
+    }
+
+    private String normalizeDescripcion(String descripcion) {
+        if (descripcion == null) {
+            return null;
+        }
+        String normalized = descripcion.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private BadRequestException duplicateNameError(String nombre) {
