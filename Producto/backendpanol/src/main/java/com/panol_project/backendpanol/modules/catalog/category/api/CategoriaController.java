@@ -6,6 +6,7 @@ import com.panol_project.backendpanol.modules.catalog.category.api.dto.Categoria
 import com.panol_project.backendpanol.modules.catalog.category.api.dto.CreateCategoriaRequest;
 import com.panol_project.backendpanol.modules.catalog.category.api.dto.UpdateCategoriaRequest;
 import com.panol_project.backendpanol.modules.catalog.category.domain.Categoria;
+import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaActiveSelectorResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -42,6 +43,13 @@ public class CategoriaController {
         return service.listarSelector().stream().map(this::toResponse).toList();
     }
 
+    @GetMapping("/active")
+    List<CategoriaActiveSelectorResponse> listarActivasParaSelectorProducto() {
+        return service.listarSelector().stream()
+                .map(categoria -> new CategoriaActiveSelectorResponse(categoria.id(), categoria.nombre()))
+                .toList();
+    }
+
     @GetMapping
     List<CategoriaResponse> listarCompatibilidad(@RequestParam(defaultValue = "true") boolean incluirInactivas) {
         return incluirInactivas
@@ -75,8 +83,7 @@ public class CategoriaController {
     @PatchMapping("/{id}/desactivar")
     CategoriaResponse desactivar(
             @PathVariable Integer id,
-            @RequestParam(defaultValue = "false") boolean force
-    ) {
+            @RequestParam(defaultValue = "false") boolean force) {
         return toResponse(service.desactivar(id, force));
     }
 
@@ -92,7 +99,6 @@ public class CategoriaController {
                 categoria.nombre(),
                 categoria.descripcion(),
                 categoria.activa(),
-                categoria.createdAt()
-        );
+                categoria.createdAt());
     }
 }
