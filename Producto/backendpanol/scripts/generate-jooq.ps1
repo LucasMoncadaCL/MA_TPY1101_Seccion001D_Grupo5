@@ -46,9 +46,12 @@ function Import-KeyValueFile {
 Import-KeyValueFile -Path ".env.local"
 Import-KeyValueFile -Path "secrets/application-secrets.properties"
 
-if (-not $env:JOOQ_DB_PASSWORD -and $env:DB_PASSWORD) {
-    # Fallback util cuando se reutiliza la misma credencial para runtime y jOOQ.
-    $env:JOOQ_DB_PASSWORD = $env:DB_PASSWORD
+if (-not $env:JOOQ_DB_PASSWORD) {
+    if ($env:DB_SUPABASE_PASSWORD) {
+        $env:JOOQ_DB_PASSWORD = $env:DB_SUPABASE_PASSWORD
+    } elseif ($env:DB_DOCKER_PASSWORD) {
+        $env:JOOQ_DB_PASSWORD = $env:DB_DOCKER_PASSWORD
+    }
 }
 
 $missing = @()

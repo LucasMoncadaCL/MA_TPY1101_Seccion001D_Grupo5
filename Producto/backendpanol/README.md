@@ -74,11 +74,32 @@ JOOQ_DB_PASSWORD=tu_password_db
 ## Variables y secrets
 
 1. Copiar `.env.local.example` a `.env.local`.
-2. Crear `secrets/db_password.txt` (para docker postgres).
-3. Crear `secrets/application-secrets.properties` con secretos backend, por ejemplo:
+2. Definir `APP_DB_ENV=docker|supabase`.
+3. Completar variables del entorno elegido:
+   - `DB_DOCKER_*` si `APP_DB_ENV=docker`
+   - `DB_SUPABASE_*` si `APP_DB_ENV=supabase`
+4. Crear `secrets/db_password.txt` (para docker postgres local).
+5. Crear `secrets/application-secrets.properties` con secretos backend, por ejemplo:
 
 ```properties
-DB_PASSWORD=replace_me
+DB_DOCKER_PASSWORD=replace_me
+DB_SUPABASE_PASSWORD=replace_me
+```
+
+## Ejecucion por entorno
+
+Postgres Docker local:
+
+```bash
+# en .env.local
+APP_DB_ENV=docker
+```
+
+Supabase real:
+
+```bash
+# en .env.local
+APP_DB_ENV=supabase
 ```
 
 ## Flyway y esquema existente
@@ -114,3 +135,4 @@ docker compose up --build
 
 - [`docs/BACKEND.md`](./docs/BACKEND.md)
 - [`docs/ENVIRONMENT.md`](./docs/ENVIRONMENT.md)
+- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)

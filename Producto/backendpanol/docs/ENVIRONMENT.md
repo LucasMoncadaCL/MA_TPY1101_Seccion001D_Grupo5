@@ -1,188 +1,155 @@
 # Entorno y Secrets del Backend
 
-Este documento explica que archivos debes crear/configurar al clonar el repositorio, para que sirve cada variable y cual es la diferencia entre `.env` y `.env.local`.
+Este documento explica como configurar variables y secretos del backend, incluyendo la separacion de entornos de base de datos con `APP_DB_ENV`.
 
-## Resumen rapido post-clone
+## Selector de entorno de BD
 
-1. Copiar `backendpanol/.env.local.example` a `backendpanol/.env.local`.
-2. Crear `backendpanol/secrets/application-secrets.properties`.
-3. Crear `backendpanol/secrets/db_password.txt`.
-4. Completar valores sensibles:
-   - `DB_PASSWORD` en `application-secrets.properties`.
-   - `JOOQ_DB_PASSWORD` en `.env.local` (si usaras codegen jOOQ).
-   - Password para Postgres Docker en `db_password.txt` (si usaras docker compose local con Postgres).
+La variable principal es:
 
-## Diferencia entre `.env` y `.env.local`
+- `APP_DB_ENV=docker` -> el backend usa `DB_DOCKER_*`
+- `APP_DB_ENV=supabase` -> el backend usa `DB_SUPABASE_*`
 
-### `backendpanol/.env.local`
+Si no se define, el valor por defecto es `docker`.
 
-- Uso: variables locales del backend.
-- Donde se usa:
-  - `docker compose` de `backendpanol` lo carga explicitamente con `env_file: .env.local`.
-  - Tambien sirve como referencia para ejecutar backend en local.
-- Estado en git: ignorado (`.gitignore`), no se versiona.
+Importante:
 
-### `backendpanol/.env.example`
+- `APP_DB_ENV` solo decide a que base se conecta la aplicacion.
+- No decide si Docker Compose crea o no el contenedor `postgres`.
 
-- Uso: plantilla publica para saber que variables existen.
-- Estado en git: versionado.
+## Archivos que debes crear al clonar
+
+1. Copiar `.env.local.example` a `.env.local`.
+2. Crear `secrets/application-secrets.properties`.
+3. Crear `secrets/db_password.txt` (solo si usaras docker compose con postgres local).
+
+## Que contiene cada archivo
+
+### `.env.example`
+
+- Plantilla versionada del backend.
+- Muestra todas las variables soportadas.
 - No debe contener secretos reales.
 
-### `Producto/.env`
+### `.env.local.example`
 
-- Uso: archivo de entorno para `docker compose` del nivel `Producto` (backend + frontend).
-- Se crea copiando `Producto/.env.example`.
-- Estado en git: normalmente local, no se debe subir con secretos reales.
+- Plantilla para crear `.env.local`.
+- Incluye variables para ambos entornos (`docker` y `supabase`).
 
-### `Producto/.env.example`
+### `.env.local`
 
-- Uso: plantilla para el compose de `Producto`.
-- Incluye placeholders (`replace_me`) y valores de ejemplo.
+- Archivo local no versionado.
+- Define `APP_DB_ENV` y valores concretos para `DB_DOCKER_*` o `DB_SUPABASE_*`.
+- Tambien contiene `JOOQ_DB_*` para codegen.
 
-## Variables del backend (`backendpanol/.env.local`)
+### `secrets/application-secrets.properties`
 
-### Runtime
+- Secretos de runtime de Spring (`spring.config.import`).
+- Ejemplo:
 
-- `APP_PORT`: puerto HTTP del backend (`server.port`).
-
-### Base de datos de runtime (Spring datasource)
-
-- `DB_HOST`: host de PostgreSQL.
-- `DB_PORT`: puerto de PostgreSQL.
-- `DB_NAME`: nombre de base de datos.
-- `DB_USER`: usuario de base de datos.
-- `DB_SSL_MODE`: modo SSL de PostgreSQL (`disable`, `require`, etc).
-- `DB_PASSWORD`: password de runtime del datasource.
-  - Recomendado: definirlo en `secrets/application-secrets.properties`, no en `.env.local`.
-
-### Seguridad JWT
-
-- `JWT_ISSUER_URI`: issuer esperado por Spring Security para validar JWT.
-- `SUPABASE_URL` (opcional): fallback para construir issuer si no hay `JWT_ISSUER_URI`.
-- `VITE_SUPABASE_URL`: fallback adicional para issuer y configuracion compartida.
-- `VITE_SUPABASE_PUBLISHABLE_KEY`: clave publica del proyecto Supabase (no es service role key).
-
-### jOOQ Code Generation (build-time)
-
-- `JOOQ_DB_URL`: JDBC URL para introspeccion del esquema al generar clases jOOQ.
-- `JOOQ_DB_USER`: usuario para codegen jOOQ.
-- `JOOQ_DB_PASSWORD`: password para codegen jOOQ.
-
-Nota: estas 3 variables son usadas por Maven (`jooq-codegen-maven`) durante `generate-sources`/`compile`.
-
-## Ejecucion de jOOQ
-
-Esta seccion aplica cuando necesitas regenerar las clases de jOOQ desde la base PostgreSQL (por cambios de esquema o primera compilacion en una maquina nueva).
-
-### Requisitos
-
-1. JDK 21 activo (`java -version`).
-2. Credenciales jOOQ validas:
-   - `JOOQ_DB_URL`
-   - `JOOQ_DB_USER`
-   - `JOOQ_DB_PASSWORD`
-3. Acceso de red a la base configurada en `JOOQ_DB_URL`.
-
-### Como ejecutarlo
-
-Desde `Producto/backendpanol`:
-
-```bash
-./mvnw generate-sources
+```properties
+DB_DOCKER_PASSWORD=replace_me
+DB_SUPABASE_PASSWORD=replace_me
 ```
 
-Comando recomendado en PowerShell (carga `.env.local` y `secrets/application-secrets.properties` automaticamente):
+Puedes guardar solo la que corresponda al entorno activo.
+
+### `secrets/db_password.txt`
+
+- Password del contenedor `postgres` en `backendpanol/docker-compose.yaml`.
+- Se consume como Docker secret (`POSTGRES_PASSWORD_FILE`).
+
+## Variables de runtime del backend
+
+### Comunes
+
+- `APP_PORT`: puerto HTTP del backend.
+- `JWT_ISSUER_URI`: issuer JWT.
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`: valores de integracion.
+
+### Entorno Docker local (`APP_DB_ENV=docker`)
+
+- `DB_DOCKER_HOST`
+- `DB_DOCKER_PORT`
+- `DB_DOCKER_NAME`
+- `DB_DOCKER_USER`
+- `DB_DOCKER_PASSWORD`
+- `DB_DOCKER_SSL_MODE`
+
+### Entorno Supabase (`APP_DB_ENV=supabase`)
+
+- `DB_SUPABASE_HOST`
+- `DB_SUPABASE_PORT`
+- `DB_SUPABASE_NAME`
+- `DB_SUPABASE_USER`
+- `DB_SUPABASE_PASSWORD`
+- `DB_SUPABASE_SSL_MODE`
+
+## jOOQ codegen (build-time)
+
+Independiente de `APP_DB_ENV`, jOOQ usa:
+
+- `JOOQ_DB_URL`
+- `JOOQ_DB_USER`
+- `JOOQ_DB_PASSWORD`
+
+Comando recomendado en PowerShell:
 
 ```powershell
 .\scripts\generate-jooq.ps1
 ```
 
-En PowerShell (si quieres setear variables solo para esa sesion):
+Ese script carga automaticamente `.env.local` y `secrets/application-secrets.properties` antes de ejecutar `mvnw.cmd generate-sources`.
 
-```powershell
-$env:JOOQ_DB_URL="jdbc:postgresql://host:5432/postgres?sslmode=require"
-$env:JOOQ_DB_USER="usuario"
-$env:JOOQ_DB_PASSWORD="password"
-./mvnw generate-sources
-```
+## Estado actual de migraciones y baseline
 
-En Windows tambien puedes usar:
+En este proyecto:
 
-```powershell
-.\mvnw.cmd generate-sources
-```
+- `V1__baseline.sql` es un baseline marker (no-op), no crea tablas.
+- El esquema fuente historico existe en Supabase.
+- jOOQ no crea schema; solo genera clases Java desde una BD existente.
 
-### Cuando se ejecuta automaticamente
+Consecuencia:
 
-- El plugin de jOOQ esta en fase Maven `generate-sources`.
-- Por eso tambien corre al hacer `./mvnw compile` o `./mvnw package`.
+- Si usas `APP_DB_ENV=supabase`, la app funciona con esquema existente.
+- Si usas `APP_DB_ENV=docker` con una BD vacia, no se crean tablas mientras no existan migraciones SQL reales (`V2__*.sql`, `V3__*.sql`, etc.) o un bootstrap inicial.
 
-### Donde quedan los archivos generados
+Recomendacion:
 
-- Ruta generada: `backendpanol/target/generated-sources/jooq`
-- Paquete base: `com.panol_project.backendpanol.jooq`
+1. Definir un bootstrap inicial para local (dump/schema inicial o primera migracion estructural).
+2. Desde ahi, versionar solo cambios incrementales con Flyway.
 
-Si el IDE sigue mostrando imports en rojo despues de generar, recarga el proyecto Maven para que tome `target/generated-sources/jooq` como source root.
+## Diferencia entre `.env` y `.env.local`
 
-### Errores comunes y causa probable
+- `backendpanol/.env.local`: entorno local del backend.
+- `Producto/.env`: entorno del `docker-compose` de nivel `Producto` (backend + frontend).
 
-- `Cannot execute query. No JDBC Connection configured`
-  - Falta alguna `JOOQ_DB_*` o tiene valor invalido.
-- `release version 21 not supported`
-  - Maven esta usando un JDK menor a 21.
-- Timeout o conexion rechazada a Postgres
-  - URL/puerto/firewall incorrecto o credenciales sin permiso de introspeccion.
+En `Producto/.env` tambien puedes setear `APP_DB_ENV` y variables `DB_*` para el contenedor backend del stack completo.
 
-## Archivos de secrets en `backendpanol/secrets/`
+## Flujo recomendado segun entorno
 
-### `application-secrets.properties`
+### Usar Postgres Docker local
 
-- Cargado por Spring via `spring.config.import=optional:file:./secrets/application-secrets.properties`.
-- Uso: secretos solo backend (por ejemplo `DB_PASSWORD`, opcionalmente `JWT_ISSUER_URI`).
-- Estado en git: ignorado y no versionado.
+1. `APP_DB_ENV=docker` en `.env.local`.
+2. Completar `DB_DOCKER_*`.
+3. Definir `DB_DOCKER_PASSWORD` en `secrets/application-secrets.properties`.
+4. Crear `secrets/db_password.txt` con la password de postgres local.
 
-Ejemplo:
+### Usar Supabase real
 
-```properties
-DB_PASSWORD=replace_me
-# JWT_ISSUER_URI=https://tu-proyecto.supabase.co/auth/v1
-```
-
-### `db_password.txt`
-
-- Uso: password del contenedor `postgres` en `backendpanol/docker-compose.yaml`.
-- Se monta como Docker secret (`POSTGRES_PASSWORD_FILE=/run/secrets/db_password`).
-- Estado en git: ignorado y no versionado.
-
-## Mapa de carga de configuracion
-
-1. Spring Boot toma variables de entorno (`DB_HOST`, `DB_PORT`, etc).
-2. Spring importa `./secrets/application-secrets.properties` si existe.
-3. Para datasource:
-   - URL: `jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSL_MODE}`
-   - Usuario: `${DB_USER}`
-   - Password: `${DB_PASSWORD}`
-4. Para JWT issuer:
-   - Primero `JWT_ISSUER_URI`.
-   - Si no existe: `${SUPABASE_URL}/auth/v1`.
-   - Si tampoco existe: `${VITE_SUPABASE_URL}/auth/v1`.
+1. `APP_DB_ENV=supabase` en `.env.local` o `Producto/.env`.
+2. Completar `DB_SUPABASE_*`.
+3. Definir `DB_SUPABASE_PASSWORD` en `secrets/application-secrets.properties`.
 
 ## Que se versiona y que no
 
 Se versiona:
 
-- `backendpanol/.env.example`
-- `backendpanol/.env.local.example`
-- `backendpanol/secrets/README.md`
+- `.env.example`
+- `.env.local.example`
+- `secrets/README.md`
 
 No se versiona:
 
-- `backendpanol/.env.local`
-- `backendpanol/secrets/application-secrets.properties`
-- `backendpanol/secrets/*.txt` (incluye `db_password.txt`)
-
-## Recomendaciones
-
-1. No reutilizar el mismo password en `db_password.txt`, `DB_PASSWORD` y `JOOQ_DB_PASSWORD` en ambientes reales.
-2. Nunca subir secretos reales a Git.
-3. Rotar inmediatamente credenciales que hayan sido compartidas por chat, commit o captura.
+- `.env.local`
+- `secrets/application-secrets.properties`
+- `secrets/*.txt`

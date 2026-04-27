@@ -49,3 +49,10 @@ Formato uniforme:
 - Comando manual: `./mvnw generate-sources` (o `mvnw.cmd generate-sources` en Windows).
 - Los fuentes generados quedan en `target/generated-sources/jooq`.
 - Referencia detallada: `docs/ENVIRONMENT.md` (seccion "Ejecucion de jOOQ").
+
+## Seleccion de entorno de BD
+
+- El backend ahora selecciona entorno con `APP_DB_ENV`.
+- Valores soportados:
+  - `docker`: usa `DB_DOCKER_*`
+  - `supabase`: usa `DB_SUPABASE_*`

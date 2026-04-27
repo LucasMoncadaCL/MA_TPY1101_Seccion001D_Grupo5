@@ -7,6 +7,7 @@ Required files:
 - application-secrets.properties: backend-only secrets loaded by Spring Boot (`spring.config.import`).
 
 Example `application-secrets.properties`:
-DB_PASSWORD=replace_me
+DB_DOCKER_PASSWORD=replace_me
+DB_SUPABASE_PASSWORD=replace_me
 # Optional if needed:
 # JWT_ISSUER_URI=https://your-project.supabase.co/auth/v1

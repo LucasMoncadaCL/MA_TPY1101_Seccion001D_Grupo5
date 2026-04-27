@@ -4,15 +4,15 @@ services:
     container_name: panol-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-panol}
-      POSTGRES_USER: ${DB_USER:-panol_user}
+      POSTGRES_DB: ${DB_DOCKER_NAME:-panol}
+      POSTGRES_USER: ${DB_DOCKER_USER:-panol_user}
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_DOCKER_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-panol_user} -d ${DB_NAME:-panol}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_DOCKER_USER:-panol_user} -d ${DB_DOCKER_NAME:-panol}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,7 +35,8 @@ services:
     env_file:
       - .env.local
     environment:
-      DB_HOST: postgres
+      APP_DB_ENV: ${APP_DB_ENV:-docker}
+      DB_DOCKER_HOST: postgres
     volumes:
       - ./secrets:/app/secrets:ro
     ports:

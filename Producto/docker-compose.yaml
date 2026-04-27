@@ -12,13 +12,20 @@ services:
     env_file:
       - ./backendpanol/.env.local
     environment:
+      APP_DB_ENV: ${APP_DB_ENV:-supabase}
       APP_PORT: ${BACKEND_INTERNAL_PORT:-8080}
-      DB_HOST: ${DB_HOST:-aws-1-us-east-1.pooler.supabase.com}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-postgres}
-      DB_USER: ${DB_USER:-postgres.ekqbucfoygimzgxupdhm}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_SSL_MODE: ${DB_SSL_MODE:-require}
+      DB_DOCKER_HOST: ${DB_DOCKER_HOST:-postgres}
+      DB_DOCKER_PORT: ${DB_DOCKER_PORT:-5432}
+      DB_DOCKER_NAME: ${DB_DOCKER_NAME:-panol}
+      DB_DOCKER_USER: ${DB_DOCKER_USER:-panol_user}
+      DB_DOCKER_PASSWORD: ${DB_DOCKER_PASSWORD:-replace_me}
+      DB_DOCKER_SSL_MODE: ${DB_DOCKER_SSL_MODE:-disable}
+      DB_SUPABASE_HOST: ${DB_SUPABASE_HOST:-aws-1-us-east-1.pooler.supabase.com}
+      DB_SUPABASE_PORT: ${DB_SUPABASE_PORT:-5432}
+      DB_SUPABASE_NAME: ${DB_SUPABASE_NAME:-postgres}
+      DB_SUPABASE_USER: ${DB_SUPABASE_USER:-postgres.ekqbucfoygimzgxupdhm}
+      DB_SUPABASE_PASSWORD: ${DB_SUPABASE_PASSWORD}
+      DB_SUPABASE_SSL_MODE: ${DB_SUPABASE_SSL_MODE:-require}
     ports:
       - "${BACKEND_PORT:-18080}:8080"
     volumes:
