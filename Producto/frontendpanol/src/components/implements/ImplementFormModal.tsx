@@ -1,22 +1,56 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { fetchActiveCategories } from "../../services/activeCategoryService";
+import { getApiErrorPayload, getErrorMessage } from "../../services/apiClient";
 import { fetchLocations } from "../../services/locationService";
-import { getErrorMessage } from "../../services/apiClient";
 import type { ActiveCategoryOption } from "../../types/categoryActive";
 import type { LocationOption } from "../../types/location";
+
+type ItemType = "consumable" | "reusable" | "individual";
+
+interface CreateImplementFormPayload {
+  name: string;
+  categoryId: number;
+  itemType: ItemType;
+  locationId: number;
+  description: string | null;
+  minStock: number;
+  observations: string | null;
+}
 
 interface ImplementFormModalProps {
   isOpen: boolean;
   saving: boolean;
   onClose: () => void;
-  onSubmit: (payload: { name: string; categoryId: number | null; locationId: number }) => Promise<void>;
+  onSubmit: (payload: CreateImplementFormPayload) => Promise<void>;
 }
+
+interface FieldErrors {
+  name?: string;
+  categoryId?: string;
+  itemType?: string;
+  locationId?: string;
+  minStock?: string;
+  description?: string;
+  observations?: string;
+  form?: string;
+}
+
+const ITEM_TYPE_OPTIONS: Array<{ value: ItemType; label: string }> = [
+  { value: "consumable", label: "Consumible" },
+  { value: "reusable", label: "Reutilizable" },
+  { value: "individual", label: "Individual" },
+];
 
 export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: ImplementFormModalProps) {
   const [name, setName] = useState("");
-  const [categoryIdRaw, setCategoryIdRaw] = useState<string>("");
-  const [locationIdRaw, setLocationIdRaw] = useState<string>("");
+  const [categoryIdRaw, setCategoryIdRaw] = useState("");
+  const [itemTypeRaw, setItemTypeRaw] = useState<ItemType | "">("");
+  const [locationIdRaw, setLocationIdRaw] = useState("");
+  const [description, setDescription] = useState("");
+  const [minStockRaw, setMinStockRaw] = useState("");
+  const [observations, setObservations] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const [categories, setCategories] = useState<ActiveCategoryOption[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -33,11 +67,16 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
 
     setName("");
     setCategoryIdRaw("");
+    setItemTypeRaw("");
     setLocationIdRaw("");
+    setDescription("");
+    setMinStockRaw("");
+    setObservations("");
+    setFieldErrors({});
+
     setCategories([]);
     setCategoriesError(null);
     setLoadingCategories(true);
-
     setLocations([]);
     setLocationsError(null);
     setLoadingLocations(true);
@@ -57,159 +96,246 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
       .finally(() => setLoadingLocations(false));
   }, [isOpen]);
 
-  const isSelectDisabled = useMemo(() => {
-    if (loadingCategories) {
-      return true;
-    }
-    if (categoriesError) {
-      return true;
-    }
-    return categories.length === 0;
-  }, [categories.length, categoriesError, loadingCategories]);
+  const isCategoryDisabled = useMemo(
+    () => loadingCategories || Boolean(categoriesError) || categories.length === 0,
+    [categories.length, categoriesError, loadingCategories],
+  );
 
-  const emptyText = useMemo(() => {
-    if (loadingCategories) {
-      return "Cargando categorias...";
-    }
-    if (categoriesError) {
-      return categoriesError;
-    }
-    if (categories.length === 0) {
-      return "No hay categorias disponibles";
-    }
-    return null;
-  }, [categories.length, categoriesError, loadingCategories]);
-
-  const isLocationSelectDisabled = useMemo(() => {
-    if (loadingLocations) {
-      return true;
-    }
-    if (locationsError) {
-      return true;
-    }
-    return locations.length === 0;
-  }, [loadingLocations, locations.length, locationsError]);
-
-  const locationEmptyText = useMemo(() => {
-    if (loadingLocations) {
-      return "Cargando ubicaciones...";
-    }
-    if (locationsError) {
-      return locationsError;
-    }
-    if (locations.length === 0) {
-      return "No hay ubicaciones disponibles";
-    }
-    return null;
-  }, [loadingLocations, locations.length, locationsError]);
+  const isLocationDisabled = useMemo(
+    () => loadingLocations || Boolean(locationsError) || locations.length === 0,
+    [loadingLocations, locations.length, locationsError],
+  );
 
   if (!isOpen) {
     return null;
   }
 
+  function validateClientSide(): FieldErrors {
+    const errors: FieldErrors = {};
+    const categoryId = categoryIdRaw.trim() ? Number(categoryIdRaw) : NaN;
+    const locationId = locationIdRaw.trim() ? Number(locationIdRaw) : NaN;
+    const minStock = minStockRaw.trim() ? Number(minStockRaw) : NaN;
+
+    if (name.trim().length === 0) {
+      errors.name = "El nombre es obligatorio.";
+    }
+    if (!Number.isFinite(categoryId)) {
+      errors.categoryId = "La categoria es obligatoria.";
+    }
+    if (itemTypeRaw.trim().length === 0) {
+      errors.itemType = "El tipo de implemento es obligatorio.";
+    }
+    if (!Number.isFinite(locationId)) {
+      errors.locationId = "La ubicacion es obligatoria.";
+    }
+    if (!Number.isFinite(minStock) || minStock <= 0 || !Number.isInteger(minStock)) {
+      errors.minStock = "El stock minimo debe ser un entero positivo.";
+    }
+
+    return errors;
+  }
+
+  function mapApiErrorToFields(message: string): FieldErrors {
+    const normalized = message.toLowerCase();
+    const errors: FieldErrors = {};
+
+    if (normalized.includes("nombre")) {
+      errors.name = message;
+      return errors;
+    }
+    if (normalized.includes("categoria")) {
+      errors.categoryId = message;
+      return errors;
+    }
+    if (normalized.includes("tipo")) {
+      errors.itemType = message;
+      return errors;
+    }
+    if (normalized.includes("ubicacion")) {
+      errors.locationId = message;
+      return errors;
+    }
+    if (normalized.includes("stock minimo")) {
+      errors.minStock = message;
+      return errors;
+    }
+    if (normalized.includes("descripcion")) {
+      errors.description = message;
+      return errors;
+    }
+    if (normalized.includes("observaciones")) {
+      errors.observations = message;
+      return errors;
+    }
+
+    errors.form = message;
+    return errors;
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFieldErrors({});
 
-    const normalizedName = name.trim();
-    const categoryId = categoryIdRaw.trim() ? Number(categoryIdRaw) : null;
-    const locationId = locationIdRaw.trim() ? Number(locationIdRaw) : NaN;
-
-    if (!Number.isFinite(locationId)) {
+    const clientErrors = validateClientSide();
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
       return;
     }
 
-    await onSubmit({
-      name: normalizedName,
-      categoryId: Number.isFinite(categoryId) ? categoryId : null,
-      locationId,
-    });
+    const categoryId = Number(categoryIdRaw);
+    const locationId = Number(locationIdRaw);
+    const minStock = Number(minStockRaw);
+
+    try {
+      await onSubmit({
+        name: name.trim(),
+        categoryId,
+        itemType: itemTypeRaw as ItemType,
+        locationId,
+        description: description.trim() ? description.trim() : null,
+        minStock,
+        observations: observations.trim() ? observations.trim() : null,
+      });
+    } catch (error) {
+      const payload = getApiErrorPayload(error);
+      const message = payload?.message ?? getErrorMessage(error, "No se pudo crear el implemento.");
+      setFieldErrors(mapApiErrorToFields(message));
+    }
   }
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
       <div className="modal">
         <h3>Nuevo implemento</h3>
-        <p>Completa la informacion del producto. La categoria puede quedar vacia.</p>
+        <p>Completa la informacion del producto.</p>
+        {fieldErrors.form ? <p className="field-error">{fieldErrors.form}</p> : null}
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="implement-name">Nombre</label>
           <input
             id="implement-name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+              setFieldErrors((current) => ({ ...current, name: undefined }));
+            }}
             placeholder="Ej: Guantes latex"
-            maxLength={100}
+            maxLength={120}
             required
           />
+          {fieldErrors.name ? <p className="field-error">{fieldErrors.name}</p> : null}
 
           <label htmlFor="implement-category">Categoria</label>
           <select
             id="implement-category"
             value={categoryIdRaw}
-            onChange={(event) => setCategoryIdRaw(event.target.value)}
-            disabled={isSelectDisabled}
+            onChange={(event) => {
+              setCategoryIdRaw(event.target.value);
+              setFieldErrors((current) => ({ ...current, categoryId: undefined }));
+            }}
+            disabled={isCategoryDisabled}
           >
-            {loadingCategories ? (
-              <option value="">Cargando categorias...</option>
-            ) : categories.length === 0 ? (
-              <option value="">No hay categorias disponibles</option>
-            ) : (
-              <>
-                <option value="">Sin categoria</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={String(category.id)}>
-                    {category.name}
-                  </option>
-                ))}
-              </>
-            )}
+            <option value="" disabled>
+              Selecciona una categoria
+            </option>
+            {categories.map((category) => (
+              <option key={category.id} value={String(category.id)}>
+                {category.name}
+              </option>
+            ))}
           </select>
-
-          {emptyText && categories.length === 0 && !loadingCategories ? (
-            <p className="field-hint">{emptyText}</p>
-          ) : null}
           {categoriesError ? <p className="field-error">{categoriesError}</p> : null}
+          {fieldErrors.categoryId ? <p className="field-error">{fieldErrors.categoryId}</p> : null}
+
+          <label htmlFor="implement-item-type">Tipo de implemento</label>
+          <select
+            id="implement-item-type"
+            value={itemTypeRaw}
+            onChange={(event) => {
+              setItemTypeRaw(event.target.value as ItemType | "");
+              setFieldErrors((current) => ({ ...current, itemType: undefined }));
+            }}
+          >
+            <option value="" disabled>
+              Selecciona un tipo
+            </option>
+            {ITEM_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.itemType ? <p className="field-error">{fieldErrors.itemType}</p> : null}
 
           <label htmlFor="implement-location">Ubicacion</label>
           <select
             id="implement-location"
             value={locationIdRaw}
-            onChange={(event) => setLocationIdRaw(event.target.value)}
-            disabled={isLocationSelectDisabled}
-            required
+            onChange={(event) => {
+              setLocationIdRaw(event.target.value);
+              setFieldErrors((current) => ({ ...current, locationId: undefined }));
+            }}
+            disabled={isLocationDisabled}
           >
-            {loadingLocations ? (
-              <option value="">Cargando ubicaciones...</option>
-            ) : locations.length === 0 ? (
-              <option value="">No hay ubicaciones disponibles</option>
-            ) : (
-              <>
-                <option value="" disabled>
-                  Selecciona una ubicacion
-                </option>
-                {locations.map((location) => (
-                  <option key={location.id} value={String(location.id)}>
-                    {location.name}
-                  </option>
-                ))}
-              </>
-            )}
+            <option value="" disabled>
+              Selecciona una ubicacion
+            </option>
+            {locations.map((location) => (
+              <option key={location.id} value={String(location.id)}>
+                {location.name}
+              </option>
+            ))}
           </select>
-
-          {locationEmptyText && locations.length === 0 && !loadingLocations ? (
-            <p className="field-hint">{locationEmptyText}</p>
-          ) : null}
           {locationsError ? <p className="field-error">{locationsError}</p> : null}
+          {fieldErrors.locationId ? <p className="field-error">{fieldErrors.locationId}</p> : null}
+
+          <label htmlFor="implement-description">Descripcion</label>
+          <textarea
+            id="implement-description"
+            value={description}
+            onChange={(event) => {
+              setDescription(event.target.value);
+              setFieldErrors((current) => ({ ...current, description: undefined }));
+            }}
+            placeholder="Descripcion opcional"
+            maxLength={255}
+          />
+          {fieldErrors.description ? <p className="field-error">{fieldErrors.description}</p> : null}
+
+          <label htmlFor="implement-min-stock">Stock minimo</label>
+          <input
+            id="implement-min-stock"
+            type="number"
+            min={1}
+            step={1}
+            value={minStockRaw}
+            onChange={(event) => {
+              setMinStockRaw(event.target.value);
+              setFieldErrors((current) => ({ ...current, minStock: undefined }));
+            }}
+            placeholder="Ej: 5"
+            required
+          />
+          {fieldErrors.minStock ? <p className="field-error">{fieldErrors.minStock}</p> : null}
+
+          <label htmlFor="implement-observations">Observaciones</label>
+          <textarea
+            id="implement-observations"
+            value={observations}
+            onChange={(event) => {
+              setObservations(event.target.value);
+              setFieldErrors((current) => ({ ...current, observations: undefined }));
+            }}
+            placeholder="Observaciones opcionales"
+            maxLength={500}
+          />
+          {fieldErrors.observations ? <p className="field-error">{fieldErrors.observations}</p> : null}
 
           <div className="modal-actions">
             <button type="button" className="button button--ghost" onClick={onClose}>
               Cancelar
             </button>
-            <button
-              type="submit"
-              className="button"
-              disabled={saving || name.trim().length === 0 || locationIdRaw.trim().length === 0 || locations.length === 0}
-            >
+            <button type="submit" className="button" disabled={saving}>
               {saving ? "Guardando..." : "Guardar"}
             </button>
           </div>

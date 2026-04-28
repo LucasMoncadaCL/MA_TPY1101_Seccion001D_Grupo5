@@ -99,6 +99,11 @@ public class ImplementService {
     }
 
     @Transactional(readOnly = true)
+    public Integer obtenerStockMinimo(Integer implementId) {
+        return repository.findMinStockByImplementId(implementId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
     public List<ImplementSummary> listar() {
         return repository.findAllSummaries();
     }

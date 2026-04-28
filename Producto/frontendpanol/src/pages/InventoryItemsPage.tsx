@@ -34,18 +34,33 @@ export function InventoryItemsPage() {
     refreshImplements();
   }, [refreshImplements]);
 
-  async function handleSubmit(payload: { name: string; categoryId: number | null; locationId: number }) {
+  async function handleSubmit(payload: {
+    name: string;
+    categoryId: number;
+    itemType: "consumable" | "reusable" | "individual";
+    locationId: number;
+    description: string | null;
+    minStock: number;
+    observations: string | null;
+  }) {
     setSaving(true);
     setError(null);
     setSuccess(null);
 
     try {
-      await createImplement({ name: payload.name, category_id: payload.categoryId, location_id: payload.locationId });
-      await refreshImplements();
-      setSuccess("Implemento creado correctamente.");
+      const created = await createImplement({
+        name: payload.name,
+        category_id: payload.categoryId,
+        item_type: payload.itemType,
+        location_id: payload.locationId,
+        description: payload.description,
+        min_stock: payload.minStock,
+        observations: payload.observations,
+      });
       setIsCreateOpen(false);
+      window.location.hash = `#/inventory/implementos/${created.id}`;
     } catch (error) {
-      setError(getErrorMessage(error, "No se pudo crear el implemento."));
+      throw error;
     } finally {
       setSaving(false);
     }
@@ -77,7 +92,7 @@ export function InventoryItemsPage() {
       <section className="content-header">
         <div>
           <h1>Inventario</h1>
-          <p>Alta de producto (HU-13).</p>
+          <p>Alta de producto.</p>
         </div>
 
         <div className="content-header__actions">
@@ -92,7 +107,7 @@ export function InventoryItemsPage() {
         <div className="panel__head">
           <div>
             <h2>Implementos</h2>
-            <p>Usa "Nuevo implemento" para crear un producto con categoria opcional.</p>
+            <p>Usa "Nuevo implemento" para crear un producto con categoria y ubicacion obligatorias.</p>
           </div>
         </div>
 
@@ -131,6 +146,9 @@ export function InventoryItemsPage() {
                       >
                         Editar
                       </button>
+                      <a className="button button--table button--ghost" href={`#/inventory/implementos/${row.id}`}>
+                        Ver ficha
+                      </a>
                     </div>
                   </td>
                 </tr>
