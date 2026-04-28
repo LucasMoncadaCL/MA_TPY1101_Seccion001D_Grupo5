@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -116,6 +117,29 @@ class ImplementCreateEndpointSecurityTest {
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("La ubicacion es obligatoria")));
 
         verify(service, never()).crear(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void getImplementDebeRetornarStockMinimoCuandoExiste() throws Exception {
+        OffsetDateTime now = OffsetDateTime.now();
+        when(service.obtener(7)).thenReturn(new Implemento(
+                7,
+                "Jeringa",
+                "Desc",
+                2,
+                10,
+                ImplementItemType.REUSABLE,
+                true,
+                now,
+                now
+        ));
+        when(service.obtenerStockMinimo(7)).thenReturn(5);
+
+        mvc.perform(get("/api/implements/7")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COORDINADOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.min_stock").value(5));
     }
 
     private CreateImplementRequest validRequest() {

@@ -49,12 +49,16 @@ public class ImplementController {
 
     @PutMapping("/{id}")
     ImplementResponse editar(@PathVariable Integer id, @Valid @RequestBody UpdateImplementRequest request) {
-        return toResponse(service.editar(id, request.name(), request.description(), request.categoryId(), request.locationId()));
+        Implemento updated = service.editar(id, request.name(), request.description(), request.categoryId(), request.locationId());
+        Integer minStock = service.obtenerStockMinimo(updated.id());
+        return toResponse(updated, minStock, null);
     }
 
     @GetMapping("/{id}")
     ImplementResponse obtener(@PathVariable Integer id) {
-        return toResponse(service.obtener(id));
+        Implemento implemento = service.obtener(id);
+        Integer minStock = service.obtenerStockMinimo(implemento.id());
+        return toResponse(implemento, minStock, null);
     }
 
     @GetMapping
