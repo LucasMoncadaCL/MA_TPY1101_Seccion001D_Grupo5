@@ -8,6 +8,7 @@ public record Implemento(
         String descripcion,
         Integer categoriaId,
         Integer locationId,
+        ImplementItemType itemType,
         Boolean activo,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt

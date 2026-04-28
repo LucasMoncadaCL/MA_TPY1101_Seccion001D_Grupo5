@@ -13,7 +13,16 @@ public interface ImplementRepository {
 
     boolean existsActiveByNameIgnoreCaseAndIdNot(String nombre, Integer excludedId);
 
-    Implemento create(String nombre, String descripcion, Integer categoriaId, Integer locationId);
+    Implemento create(
+            String nombre,
+            String descripcion,
+            Integer categoriaId,
+            Integer locationId,
+            ImplementItemType itemType,
+            String observations
+    );
 
     Implemento update(Integer id, String nombre, String descripcion, Integer categoriaId, Integer locationId);
+
+    int updateMinStockByImplementId(Integer implementId, Integer minStock);
 }

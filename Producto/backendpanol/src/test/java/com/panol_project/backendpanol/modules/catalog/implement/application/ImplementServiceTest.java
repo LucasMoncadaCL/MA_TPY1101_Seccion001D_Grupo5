@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.panol_project.backendpanol.modules.catalog.category.application.CategoriaService;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementRepository;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
 import com.panol_project.backendpanol.modules.catalog.location.application.LocationService;
@@ -43,16 +44,19 @@ class ImplementServiceTest {
     }
 
     @Test
-    void crearDebePermitirCategoriaNull() {
-        Implemento created = new Implemento(1, "Guantes", null, null, 10, true, OffsetDateTime.now(), OffsetDateTime.now());
+    void crearDebeValidarLocationYActualizarStockMinimo() {
+        OffsetDateTime now = OffsetDateTime.now();
+        Implemento created = new Implemento(1, "Guantes", null, 5, 10, ImplementItemType.REUSABLE, true, now, now);
 
-        when(repository.create("Guantes", null, null, 10)).thenReturn(created);
+        when(repository.create("Guantes", null, 5, 10, ImplementItemType.REUSABLE, null)).thenReturn(created);
+        when(repository.updateMinStockByImplementId(1, 3)).thenReturn(1);
 
-        Implemento result = service.crear("Guantes", null, null, 10);
+        Implemento result = service.crear("Guantes", null, 5, 10, "reusable", 3, " ");
 
         assertEquals(1, result.id());
-        verify(categoriaService).validarCategoriaActivaParaImplemento(null);
+        verify(categoriaService).validarCategoriaActivaParaImplemento(5);
         verify(locationService).validarLocationExistente(10);
+        verify(repository).updateMinStockByImplementId(1, 3);
     }
 
     @Test
@@ -62,8 +66,27 @@ class ImplementServiceTest {
                 "No se puede asignar una categoria inactiva al implemento"
         )).when(categoriaService).validarCategoriaActivaParaImplemento(99);
 
-        assertThrows(BadRequestException.class, () -> service.crear("Guantes", null, 99, 10));
+        assertThrows(BadRequestException.class, () ->
+                service.crear("Guantes", null, 99, 10, "consumable", 5, null));
         verify(repository, never()).create(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
+    }
+
+    @Test
+    void crearDebeFallarSiItemTypeNoEsValido() {
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                service.crear("Guantes", null, 5, 10, "otro", 5, null));
+
+        assertEquals("IMPLEMENT_ITEM_TYPE_INVALID", ex.getCode());
+        verify(repository, never()).create(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
@@ -75,11 +98,14 @@ class ImplementServiceTest {
     void crearDebeFallarConBadRequestSiNombreActivoYaExiste() {
         when(repository.existsActiveByNameIgnoreCase("Guantes")).thenReturn(true);
 
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.crear("Guantes", null, null, 10));
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                service.crear("Guantes", null, 5, 10, "consumable", 4, null));
 
         assertEquals("IMPLEMENT_NAME_DUPLICATE", ex.getCode());
         assertEquals("Ya existe un producto con el nombre 'Guantes'", ex.getMessage());
         verify(repository, never()).create(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
@@ -89,15 +115,31 @@ class ImplementServiceTest {
 
     @Test
     void crearDebeRetornarBadRequestSiNombreDuplicadoPorConstraintUnico() {
-        when(repository.create("Guantes", null, null, 10)).thenThrow(new DataIntegrityViolationException(
-                "unique violation",
-                new SQLException("duplicate key", "23505")
-        ));
+        when(repository.create("Guantes", null, 5, 10, ImplementItemType.CONSUMABLE, null))
+                .thenThrow(new DataIntegrityViolationException(
+                        "unique violation",
+                        new SQLException("duplicate key", "23505")
+                ));
 
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.crear("Guantes", null, null, 10));
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                service.crear("Guantes", null, 5, 10, "consumable", 3, null));
 
         assertEquals("IMPLEMENT_NAME_DUPLICATE", ex.getCode());
         assertEquals("Ya existe un producto con el nombre 'Guantes'", ex.getMessage());
+    }
+
+    @Test
+    void crearDebeFallarSiNoSeEncuentraStockAsociado() {
+        OffsetDateTime now = OffsetDateTime.now();
+        Implemento created = new Implemento(1, "Guantes", null, 5, 10, ImplementItemType.CONSUMABLE, true, now, now);
+
+        when(repository.create("Guantes", null, 5, 10, ImplementItemType.CONSUMABLE, null)).thenReturn(created);
+        when(repository.updateMinStockByImplementId(1, 2)).thenReturn(0);
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                service.crear("Guantes", null, 5, 10, "consumable", 2, null));
+
+        assertEquals("IMPLEMENT_STOCK_NOT_FOUND", ex.getCode());
     }
 
     @Test
@@ -109,8 +151,9 @@ class ImplementServiceTest {
 
     @Test
     void editarDebeValidarCategoriaSiExisteImplemento() {
-        Implemento existing = new Implemento(10, "Existente", null, null, 10, true, OffsetDateTime.now(), OffsetDateTime.now());
-        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, true, OffsetDateTime.now(), OffsetDateTime.now());
+        OffsetDateTime now = OffsetDateTime.now();
+        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, true, now, now);
+        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, true, now, now);
 
         when(repository.findById(10)).thenReturn(Optional.of(existing));
         when(repository.update(10, "Nuevo", null, 2, 10)).thenReturn(updated);
@@ -124,11 +167,12 @@ class ImplementServiceTest {
 
     @Test
     void editarDebeFallarConBadRequestSiNombreActivoExisteEnOtroImplemento() {
-        Implemento existing = new Implemento(10, "Existente", null, null, 10, true, OffsetDateTime.now(), OffsetDateTime.now());
+        OffsetDateTime now = OffsetDateTime.now();
+        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, true, now, now);
         when(repository.findById(10)).thenReturn(Optional.of(existing));
         when(repository.existsActiveByNameIgnoreCaseAndIdNot("Guantes", 10)).thenReturn(true);
 
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.editar(10, "Guantes", null, null, 10));
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.editar(10, "Guantes", null, 2, 10));
 
         assertEquals("IMPLEMENT_NAME_DUPLICATE", ex.getCode());
         assertEquals("Ya existe un producto con el nombre 'Guantes'", ex.getMessage());

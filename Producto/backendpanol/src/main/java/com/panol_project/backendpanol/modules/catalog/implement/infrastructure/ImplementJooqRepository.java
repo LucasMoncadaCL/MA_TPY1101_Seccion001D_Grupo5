@@ -3,8 +3,11 @@ package com.panol_project.backendpanol.modules.catalog.implement.infrastructure;
 import static com.panol_project.backendpanol.jooq.tables.Category.CATEGORY;
 import static com.panol_project.backendpanol.jooq.tables.Implement.IMPLEMENT;
 import static com.panol_project.backendpanol.jooq.tables.Location.LOCATION;
+import static com.panol_project.backendpanol.jooq.tables.Stock.STOCK;
 
+import com.panol_project.backendpanol.jooq.enums.ItemTypeEnum;
 import com.panol_project.backendpanol.jooq.tables.records.ImplementRecord;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementRepository;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementCategorySummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementLocationSummary;
@@ -13,6 +16,7 @@ import com.panol_project.backendpanol.modules.catalog.implement.domain.Implement
 import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
@@ -96,12 +100,21 @@ public class ImplementJooqRepository implements ImplementRepository {
     }
 
     @Override
-    public Implemento create(String nombre, String descripcion, Integer categoriaId, Integer locationId) {
+    public Implemento create(
+            String nombre,
+            String descripcion,
+            Integer categoriaId,
+            Integer locationId,
+            ImplementItemType itemType,
+            String observations
+    ) {
         return dsl.insertInto(IMPLEMENT)
                 .set(IMPLEMENT.NAME, nombre)
                 .set(IMPLEMENT.DESCRIPTION, descripcion)
                 .set(IMPLEMENT.CATEGORY_ID, categoriaId)
                 .set(IMPLEMENT.LOCATION_ID, locationId)
+                .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
+                .set(DSL.field(DSL.name("observations"), String.class), observations)
                 .returning()
                 .fetchOptional()
                 .map(this::toDomain)
@@ -123,6 +136,14 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .orElseThrow();
     }
 
+    @Override
+    public int updateMinStockByImplementId(Integer implementId, Integer minStock) {
+        return dsl.update(STOCK)
+                .set(STOCK.MIN_STOCK, minStock)
+                .where(STOCK.IMPLEMENT_ID.eq(implementId))
+                .execute();
+    }
+
     private Implemento toDomain(ImplementRecord record) {
         return new Implemento(
                 record.getId(),
@@ -130,9 +151,20 @@ public class ImplementJooqRepository implements ImplementRepository {
                 record.getDescription(),
                 record.getCategoryId(),
                 record.getLocationId(),
+                toDomainItemType(record.getItemType()),
                 record.getActive(),
                 record.getCreatedAt(),
                 record.getUpdatedAt()
         );
+    }
+
+    private ImplementItemType toDomainItemType(ItemTypeEnum itemType) {
+        return itemType == null
+                ? null
+                : ImplementItemType.fromLiteral(itemType.getLiteral()).orElse(null);
+    }
+
+    private ItemTypeEnum toJooqItemType(ImplementItemType itemType) {
+        return ItemTypeEnum.lookupLiteral(Objects.requireNonNull(itemType, "itemType").literal());
     }
 }
