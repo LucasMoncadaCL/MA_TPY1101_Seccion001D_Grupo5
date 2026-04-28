@@ -374,6 +374,11 @@ textarea {
   color: #61708d;
 }
 
+.badge--warn {
+  background: #fff4df;
+  color: #9f6503;
+}
+
 .empty-state {
   border: 1px dashed var(--line);
   border-radius: 12px;
@@ -495,6 +500,13 @@ textarea {
 .detail-card p {
   margin: 0 0 8px;
   color: var(--text-soft);
+}
+
+.detail-stock-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 1100px) {

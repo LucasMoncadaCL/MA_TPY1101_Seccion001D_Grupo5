@@ -57,6 +57,11 @@ export function InventoryItemsPage() {
         min_stock: payload.minStock,
         observations: payload.observations,
       });
+      try {
+        window.sessionStorage.setItem("inventory.justCreatedImplementId", String(created.id));
+      } catch {
+        // Si el storage no esta disponible, el flujo principal de creacion debe continuar.
+      }
       setIsCreateOpen(false);
       window.location.hash = `#/inventory/implementos/${created.id}`;
     } catch (error) {

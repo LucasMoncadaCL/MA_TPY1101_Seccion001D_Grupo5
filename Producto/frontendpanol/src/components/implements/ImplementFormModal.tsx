@@ -316,6 +316,9 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
             placeholder="Ej: 5"
             required
           />
+          <p className="field-hint">
+            El stock inicial del producto será 0. Para agregar unidades usa el ingreso de lote.
+          </p>
           {fieldErrors.minStock ? <p className="field-error">{fieldErrors.minStock}</p> : null}
 
           <label htmlFor="implement-observations">Observaciones</label>

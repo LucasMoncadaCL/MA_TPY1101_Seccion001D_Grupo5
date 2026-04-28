@@ -15,6 +15,7 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
   const [catalog, setCatalog] = useState<ImplementSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showInitialStockHint, setShowInitialStockHint] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -29,6 +30,20 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
         setError(getErrorMessage(requestError, "No se pudo cargar la ficha del producto."));
       })
       .finally(() => setLoading(false));
+  }, [implementId]);
+
+  useEffect(() => {
+    try {
+      const marker = window.sessionStorage.getItem("inventory.justCreatedImplementId");
+      const markerId = marker ? Number(marker) : NaN;
+      const isJustCreated = Number.isFinite(markerId) && markerId === implementId;
+      setShowInitialStockHint(isJustCreated);
+      if (isJustCreated) {
+        window.sessionStorage.removeItem("inventory.justCreatedImplementId");
+      }
+    } catch {
+      setShowInitialStockHint(false);
+    }
   }, [implementId]);
 
   const summaryMatch = useMemo(
@@ -103,6 +118,12 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
                 <strong>Stock minimo:</strong>{" "}
                 {implement.min_stock === null ? "No informado" : implement.min_stock}
               </p>
+              {showInitialStockHint ? (
+                <p className="detail-stock-hint">
+                  <strong>Stock disponible:</strong> 0{" "}
+                  <span className="badge badge--warn">Ingresa un lote</span>
+                </p>
+              ) : null}
               <p>
                 <strong>Observaciones:</strong> {implement.observations ?? "Sin observaciones"}
               </p>
