@@ -11,6 +11,7 @@ import com.panol_project.backendpanol.modules.catalog.implement.domain.Implement
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,8 +33,18 @@ public class ImplementController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('COORDINADOR')")
     ImplementResponse crear(@Valid @RequestBody CreateImplementRequest request) {
-        return toResponse(service.crear(request.name(), request.description(), request.categoryId(), request.locationId()));
+        Implemento created = service.crear(
+                request.name(),
+                request.description(),
+                request.categoryId(),
+                request.locationId(),
+                request.itemType(),
+                request.minStock(),
+                request.observations()
+        );
+        return toResponse(created, request.minStock(), request.observations());
     }
 
     @PutMapping("/{id}")
@@ -69,12 +80,19 @@ public class ImplementController {
     }
 
     private ImplementResponse toResponse(Implemento implemento) {
+        return toResponse(implemento, null, null);
+    }
+
+    private ImplementResponse toResponse(Implemento implemento, Integer minStock, String observations) {
         return new ImplementResponse(
                 implemento.id(),
                 implemento.nombre(),
                 implemento.descripcion(),
+                implemento.itemType() == null ? null : implemento.itemType().literal(),
                 implemento.categoriaId(),
                 implemento.locationId(),
+                minStock,
+                observations,
                 implemento.activo(),
                 implemento.createdAt(),
                 implemento.updatedAt()

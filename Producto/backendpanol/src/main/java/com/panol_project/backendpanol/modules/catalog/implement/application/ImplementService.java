@@ -1,6 +1,7 @@
 package com.panol_project.backendpanol.modules.catalog.implement.application;
 
 import com.panol_project.backendpanol.modules.catalog.category.application.CategoriaService;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementRepository;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
@@ -31,15 +32,40 @@ public class ImplementService {
     }
 
     @Transactional
-    public Implemento crear(String nombre, String descripcion, Integer categoriaId, Integer locationId) {
+    public Implemento crear(
+            String nombre,
+            String descripcion,
+            Integer categoriaId,
+            Integer locationId,
+            String itemType,
+            Integer minStock,
+            String observations
+    ) {
         categoriaService.validarCategoriaActivaParaImplemento(categoriaId);
-        locationService.validarLocationExistente(locationId);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
+        String normalizedObservations = normalizeObservations(observations);
+        ImplementItemType normalizedItemType = parseItemType(itemType);
+        locationService.validarLocationExistente(locationId);
         validateUniqueActiveNameForCreate(normalizedName);
 
         try {
-            return repository.create(normalizedName, normalizedDescription, categoriaId, locationId);
+            Implemento created = repository.create(
+                    normalizedName,
+                    normalizedDescription,
+                    categoriaId,
+                    locationId,
+                    normalizedItemType,
+                    normalizedObservations
+            );
+            int updatedStocks = repository.updateMinStockByImplementId(created.id(), minStock);
+            if (updatedStocks == 0) {
+                throw new BadRequestException(
+                        "IMPLEMENT_STOCK_NOT_FOUND",
+                        "No se encontro stock asociado al implemento creado"
+                );
+            }
+            return created;
         } catch (DataIntegrityViolationException ex) {
             if (isUniqueViolation(ex)) {
                 throw duplicateNameException(normalizedName);
@@ -94,6 +120,14 @@ public class ImplementService {
         return normalized.isEmpty() ? null : normalized;
     }
 
+    private String normalizeObservations(String observations) {
+        if (observations == null) {
+            return null;
+        }
+        String normalized = observations.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
     private void validateUniqueActiveNameForCreate(String normalizedName) {
         if (repository.existsActiveByNameIgnoreCase(normalizedName)) {
             throw duplicateNameException(normalizedName);
@@ -111,6 +145,14 @@ public class ImplementService {
                 "IMPLEMENT_NAME_DUPLICATE",
                 "Ya existe un producto con el nombre '" + normalizedName + "'"
         );
+    }
+
+    private ImplementItemType parseItemType(String itemType) {
+        return ImplementItemType.fromLiteral(itemType)
+                .orElseThrow(() -> new BadRequestException(
+                        "IMPLEMENT_ITEM_TYPE_INVALID",
+                        "El tipo de implemento debe ser consumable, reusable o individual"
+                ));
     }
 
     private boolean isUniqueViolation(Throwable throwable) {
