@@ -1,5 +1,6 @@
 locals {
   env_suffix = var.environment
+  frontend_origin = var.frontend_domain != "" ? "https://${var.frontend_domain}" : "https://panol-frontend-${local.env_suffix}-${data.google_project.current.number}.${var.region}.run.app"
 
   common_labels = {
     environment = var.environment
@@ -11,18 +12,22 @@ locals {
     APP_DB_ENV           = "supabase"
     APP_PORT             = "8080"
     APP_SECURITY_ENABLED = "true"
+    FRONTEND_ORIGIN      = local.frontend_origin
+    CORS_ALLOWED_ORIGINS = local.frontend_origin
     DB_SUPABASE_HOST     = var.supabase_db_host
     DB_SUPABASE_PORT     = tostring(var.supabase_db_port)
     DB_SUPABASE_NAME     = var.supabase_db_name
     DB_SUPABASE_USER     = var.supabase_db_user
     DB_SUPABASE_SSL_MODE = var.supabase_db_ssl_mode
-    }, var.frontend_domain != "" ? {
-    FRONTEND_ORIGIN = "https://${var.frontend_domain}"
-  } : {})
+  })
 
   frontend_env = {
     VITE_API_BASE_URL = var.backend_domain != "" ? "https://${var.backend_domain}" : module.backend_service.service_uri
   }
+}
+
+data "google_project" "current" {
+  project_id = var.gcp_project_id
 }
 
 module "artifact_registry" {
