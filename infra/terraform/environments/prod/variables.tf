@@ -90,3 +90,8 @@ variable "frontend_concurrency" {
   type    = number
   default = 80
 }
+
+variable "runtime_sa_user_members" {
+  type    = list(string)
+  default = []
+}

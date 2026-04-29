@@ -49,6 +49,7 @@ module "runtime_iam" {
   environment                  = var.environment
   service_account_name         = "panol-runtime"
   service_account_display_name = "Panol Runtime ${upper(var.environment)}"
+  service_account_user_members = var.runtime_sa_user_members
   roles = [
     "roles/secretmanager.secretAccessor",
     "roles/logging.logWriter",
