@@ -87,6 +87,7 @@ jobs:
           JOOQ_DB_PASSWORD: panol_ci
         run: |
           cd Producto/backendpanol
+          chmod +x ./mvnw
           ./mvnw -q -DskipTests generate-sources
 
       - name: Build backend image
