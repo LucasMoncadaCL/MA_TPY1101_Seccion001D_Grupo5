@@ -170,4 +170,13 @@ class ImplementServiceTest {
                 org.mockito.ArgumentMatchers.any()
         );
     }
+
+    @Test
+    void listarDebeAplicarFiltrosCombinados() {
+        when(repository.findAllSummaries("Guante", 3)).thenReturn(java.util.List.of());
+
+        service.listar("  Guante ", 3);
+
+        verify(repository).findAllSummaries("Guante", 3);
+    }
 }
