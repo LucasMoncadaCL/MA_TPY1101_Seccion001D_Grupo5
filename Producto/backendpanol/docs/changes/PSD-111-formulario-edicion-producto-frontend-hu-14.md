@@ -8,7 +8,7 @@ Se implementó el formulario de edición de producto accesible desde la **ficha 
 
 El flujo permite:
 
-- cargar los datos actuales del producto (`GET /api/implements/{id}`) y **pre-poblar** el formulario
+- cargar los dtos actuales del producto (`GET /api/implements/{id}`) y **pre-poblar** el formulario
 - editar y guardar los campos requeridos por HU-14 mediante `PUT /api/implements/{id}`
 - mostrar errores inline por campo
 - deshabilitar el botón Guardar mientras la petición está en curso
