@@ -53,7 +53,7 @@ class ImplementServiceTest {
     @Test
     void crearDebeValidarLocationYActualizarStockMinimo() {
         OffsetDateTime now = OffsetDateTime.now();
-        Implemento created = new Implemento(1, "Guantes", null, 5, 10, ImplementItemType.REUSABLE, true, now, now);
+        Implemento created = new Implemento(1, "Guantes", null, 5, 10, ImplementItemType.REUSABLE, null, true, now, now);
 
         when(categoriaRepository.findActiveById(5)).thenReturn(Optional.of(new Categoria(5, "Cat", null, true, now)));
         when(locationRepository.existsById(10)).thenReturn(true);
@@ -146,41 +146,71 @@ class ImplementServiceTest {
     void editarDebeFallarSiImplementoNoExiste() {
         when(repository.findById(10)).thenReturn(Optional.empty());
 
-        assertThrows(NotFoundException.class, () -> service.editar(10, "X", null, null, 10));
+        assertThrows(NotFoundException.class, () -> service.editar(10, "X", null, null, 10, "reusable", 1, null));
     }
 
     @Test
     void editarDebeValidarCategoriaSiExisteImplemento() {
         OffsetDateTime now = OffsetDateTime.now();
-        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, true, now, now);
-        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, true, now, now);
+        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, null, true, now, now);
+        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, "Obs", true, now, now);
 
         when(categoriaRepository.findActiveById(2)).thenReturn(Optional.of(new Categoria(2, "Cat", null, true, now)));
         when(locationRepository.existsById(10)).thenReturn(true);
         when(repository.findById(10)).thenReturn(Optional.of(existing));
-        when(repository.update(10, "Nuevo", null, 2, 10)).thenReturn(updated);
+        when(repository.update(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, "Obs")).thenReturn(updated);
+        when(repository.updateMinStockByImplementId(10, 1)).thenReturn(1);
 
-        Implemento result = service.editar(10, "Nuevo", null, 2, 10);
+        Implemento result = service.editar(10, "Nuevo", null, 2, 10, "reusable", 1, "Obs");
 
         assertEquals(2, result.categoriaId());
         verify(categoriaRepository).findActiveById(2);
         verify(locationRepository).existsById(10);
+        verify(repository).updateMinStockByImplementId(10, 1);
+    }
+
+    @Test
+    void editarDebeFallarSiImplementoEstaInactivo() {
+        OffsetDateTime now = OffsetDateTime.now();
+        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, null, false, now, now);
+        when(repository.findById(10)).thenReturn(Optional.of(existing));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                service.editar(10, "Nuevo", null, 2, 10, "reusable", 1, null));
+
+        assertEquals("IMPLEMENT_INACTIVE", ex.getCode());
+        assertEquals("No se puede editar un producto inactivo", ex.getMessage());
+        verify(repository, never()).update(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
+        verify(repository, never()).updateMinStockByImplementId(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
     }
 
     @Test
     void editarDebeFallarConBadRequestSiNombreActivoExisteEnOtroImplemento() {
         OffsetDateTime now = OffsetDateTime.now();
-        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, true, now, now);
+        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, null, true, now, now);
         when(categoriaRepository.findActiveById(2)).thenReturn(Optional.of(new Categoria(2, "Cat", null, true, now)));
         when(locationRepository.existsById(10)).thenReturn(true);
         when(repository.findById(10)).thenReturn(Optional.of(existing));
         when(repository.existsActiveByNameIgnoreCaseAndIdNot("Guantes", 10)).thenReturn(true);
 
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.editar(10, "Guantes", null, 2, 10));
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.editar(10, "Guantes", null, 2, 10, "reusable", 1, null));
 
         assertEquals("IMPLEMENT_NAME_DUPLICATE", ex.getCode());
         assertEquals("Ya existe un producto con el nombre 'Guantes'", ex.getMessage());
         verify(repository, never()).update(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),

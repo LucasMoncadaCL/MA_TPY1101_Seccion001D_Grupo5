@@ -3,6 +3,8 @@ package com.panol_project.backendpanol.modules.catalog.implement.api.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record UpdateImplementRequest(
@@ -15,6 +17,19 @@ public record UpdateImplementRequest(
         Integer categoryId,
         @NotNull(message = "La ubicacion es obligatoria")
         @JsonProperty("location_id")
-        Integer locationId
+        Integer locationId,
+        @JsonProperty("item_type")
+        @NotBlank(message = "El tipo de implemento es obligatorio")
+        @Pattern(
+                regexp = "^(consumable|reusable|individual)$",
+                message = "El tipo de implemento debe ser consumable, reusable o individual"
+        )
+        String itemType,
+        @JsonProperty("min_stock")
+        @NotNull(message = "El stock minimo es obligatorio")
+        @Positive(message = "El stock minimo debe ser un entero positivo")
+        Integer minStock,
+        @Size(max = 500, message = "Las observaciones no pueden superar 500 caracteres")
+        String observations
 ) {
 }

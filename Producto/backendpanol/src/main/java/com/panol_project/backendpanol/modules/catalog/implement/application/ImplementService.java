@@ -69,16 +69,40 @@ public class ImplementService {
     }
 
     @Transactional
-    public Implemento editar(Integer id, String nombre, String descripcion, Integer categoriaId, Integer locationId) {
-        requireImplement(id);
+    public Implemento editar(
+            Integer id,
+            String nombre,
+            String descripcion,
+            Integer categoriaId,
+            Integer locationId,
+            String itemType,
+            Integer minStock,
+            String observations
+    ) {
+        Implemento existing = requireImplement(id);
+        if (!Boolean.TRUE.equals(existing.activo())) {
+            throw new BadRequestException("IMPLEMENT_INACTIVE", "No se puede editar un producto inactivo");
+        }
         categoriaService.validarCategoriaActivaParaImplemento(categoriaId);
         locationService.validarLocationExistente(locationId);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
+        String normalizedObservations = normalizeObservations(observations);
+        ImplementItemType normalizedItemType = parseItemType(itemType);
         validateUniqueActiveNameForUpdate(normalizedName, id);
 
         try {
-            return repository.update(id, normalizedName, normalizedDescription, categoriaId, locationId);
+            Implemento updated = repository.update(
+                    id,
+                    normalizedName,
+                    normalizedDescription,
+                    categoriaId,
+                    locationId,
+                    normalizedItemType,
+                    normalizedObservations
+            );
+            repository.updateMinStockByImplementId(updated.id(), minStock);
+            return updated;
         } catch (DataIntegrityViolationException ex) {
             if (isUniqueViolation(ex)) {
                 throw duplicateNameException(normalizedName);

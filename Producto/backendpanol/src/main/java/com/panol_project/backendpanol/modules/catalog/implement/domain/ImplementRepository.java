@@ -24,7 +24,15 @@ public interface ImplementRepository {
             String observations
     );
 
-    Implemento update(Integer id, String nombre, String descripcion, Integer categoriaId, Integer locationId);
+    Implemento update(
+            Integer id,
+            String nombre,
+            String descripcion,
+            Integer categoriaId,
+            Integer locationId,
+            ImplementItemType itemType,
+            String observations
+    );
 
     int updateMinStockByImplementId(Integer implementId, Integer minStock);
 

@@ -12,9 +12,10 @@ ENV JOOQ_DB_PASSWORD=${JOOQ_DB_PASSWORD}
 COPY pom.xml mvnw mvnw.cmd ./
 COPY .mvn .mvn
 COPY src src
+COPY target/generated-sources/jooq target/generated-sources/jooq
 
 RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests package
+RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests -Djooq.codegen.skip=true package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
