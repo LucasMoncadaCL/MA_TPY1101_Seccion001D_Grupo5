@@ -1,0 +1,20 @@
+﻿gcp_project_id           = "replace-me-prod-project"
+region                   = "us-central1"
+environment              = "prod"
+artifact_registry_location = "us-central1"
+
+backend_image            = "us-central1-docker.pkg.dev/replace-me-prod-project/panol-apps-prod/backend:latest"
+frontend_image           = "us-central1-docker.pkg.dev/replace-me-prod-project/panol-apps-prod/frontend:latest"
+
+supabase_db_host         = "aws-1-us-east-1.pooler.supabase.com"
+supabase_db_port         = 5432
+supabase_db_name         = "postgres"
+supabase_db_user         = "postgres.replace_me"
+
+backend_domain           = ""
+frontend_domain          = ""
+
+backend_min_instances    = 1
+backend_max_instances    = 5
+frontend_min_instances   = 1
+frontend_max_instances   = 5
