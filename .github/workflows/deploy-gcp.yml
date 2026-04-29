@@ -1,0 +1,263 @@
+﻿name: Deploy GCP (Cloud Run + Terraform)
+
+on:
+  push:
+    branches: ["dev"]
+    paths:
+      - "infra/terraform/**"
+      - "Producto/backendpanol/**"
+      - "Producto/frontendpanol/**"
+      - ".github/workflows/deploy-gcp.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+      rotate_secrets:
+        description: "Rotate secret versions before deploy"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TF_IN_AUTOMATION: "true"
+
+concurrency:
+  group: deploy-gcp-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-dev:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_DEV }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "repo=${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION_DEV }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID_DEV }}/panol-apps-dev" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Docker auth for Artifact Registry
+        run: |
+          gcloud auth configure-docker "${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION_DEV }}-docker.pkg.dev" --quiet
+
+      - name: Terraform init (dev)
+        working-directory: infra/terraform/environments/dev
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.GCP_TFSTATE_BUCKET_DEV }}" \
+            -backend-config="prefix=terraform/state"
+
+      - name: Bootstrap infra (registry + secrets + IAM)
+        working-directory: infra/terraform/environments/dev
+        env:
+          TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID_DEV }}
+          TF_VAR_region: ${{ vars.GCP_REGION_DEV }}
+          TF_VAR_environment: dev
+          TF_VAR_artifact_registry_location: ${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION_DEV }}
+          TF_VAR_backend_image: ${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.tag }}
+          TF_VAR_frontend_image: ${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.tag }}
+          TF_VAR_supabase_db_host: ${{ vars.SUPABASE_DB_HOST_DEV }}
+          TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_DEV }}
+          TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_DEV }}
+          TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_DEV }}
+          TF_VAR_backend_domain: ""
+          TF_VAR_frontend_domain: ""
+        run: |
+          terraform apply -auto-approve \
+            -target=module.artifact_registry \
+            -target=module.secret_manager \
+            -target=module.runtime_iam
+
+      - name: Push secret versions (dev)
+        if: github.event_name == 'workflow_dispatch' && inputs.rotate_secrets == true
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID_DEV }}
+          DB_SUPABASE_PASSWORD: ${{ secrets.DB_SUPABASE_PASSWORD_DEV }}
+          JWT_ISSUER_URI: ${{ secrets.JWT_ISSUER_URI_DEV }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY_DEV }}
+        run: |
+          printf "%s" "$DB_SUPABASE_PASSWORD" | gcloud secrets versions add DB_SUPABASE_PASSWORD --project "$GCP_PROJECT_ID" --data-file=-
+          printf "%s" "$JWT_ISSUER_URI" | gcloud secrets versions add JWT_ISSUER_URI --project "$GCP_PROJECT_ID" --data-file=-
+          printf "%s" "$VITE_SUPABASE_PUBLISHABLE_KEY" | gcloud secrets versions add VITE_SUPABASE_PUBLISHABLE_KEY --project "$GCP_PROJECT_ID" --data-file=-
+
+      - name: Build backend image
+        run: |
+          docker build \
+            --build-arg JOOQ_DB_URL="jdbc:postgresql://${{ vars.SUPABASE_DB_HOST_DEV }}:${{ vars.SUPABASE_DB_PORT_DEV }}/${{ vars.SUPABASE_DB_NAME_DEV }}?sslmode=require" \
+            --build-arg JOOQ_DB_USER="${{ vars.SUPABASE_DB_USER_DEV }}" \
+            --build-arg JOOQ_DB_PASSWORD="${{ secrets.DB_SUPABASE_PASSWORD_DEV }}" \
+            -t "${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.tag }}" \
+            ./Producto/backendpanol
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            --build-arg VITE_API_BASE_URL="https://placeholder.invalid" \
+            -t "${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.tag }}" \
+            ./Producto/frontendpanol
+
+      - name: Push images
+        run: |
+          docker push "${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.tag }}"
+          docker push "${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.tag }}"
+
+      - name: Terraform apply full (dev)
+        working-directory: infra/terraform/environments/dev
+        env:
+          TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID_DEV }}
+          TF_VAR_region: ${{ vars.GCP_REGION_DEV }}
+          TF_VAR_environment: dev
+          TF_VAR_artifact_registry_location: ${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION_DEV }}
+          TF_VAR_backend_image: ${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.tag }}
+          TF_VAR_frontend_image: ${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.tag }}
+          TF_VAR_supabase_db_host: ${{ vars.SUPABASE_DB_HOST_DEV }}
+          TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_DEV }}
+          TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_DEV }}
+          TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_DEV }}
+          TF_VAR_backend_domain: ""
+          TF_VAR_frontend_domain: ""
+          TF_VAR_backend_min_instances: "0"
+          TF_VAR_backend_max_instances: "1"
+          TF_VAR_frontend_min_instances: "0"
+          TF_VAR_frontend_max_instances: "1"
+        run: terraform apply -auto-approve
+
+  deploy-prod:
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_PROD }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_PROD }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "repo=${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION_PROD }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID_PROD }}/panol-apps-prod" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Docker auth for Artifact Registry
+        run: |
+          gcloud auth configure-docker "${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION_PROD }}-docker.pkg.dev" --quiet
+
+      - name: Terraform init (prod)
+        working-directory: infra/terraform/environments/prod
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.GCP_TFSTATE_BUCKET_PROD }}" \
+            -backend-config="prefix=terraform/state"
+
+      - name: Bootstrap infra (registry + secrets + IAM)
+        working-directory: infra/terraform/environments/prod
+        env:
+          TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID_PROD }}
+          TF_VAR_region: ${{ vars.GCP_REGION_PROD }}
+          TF_VAR_environment: prod
+          TF_VAR_artifact_registry_location: ${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION_PROD }}
+          TF_VAR_backend_image: ${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.tag }}
+          TF_VAR_frontend_image: ${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.tag }}
+          TF_VAR_supabase_db_host: ${{ vars.SUPABASE_DB_HOST_PROD }}
+          TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_PROD }}
+          TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_PROD }}
+          TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_PROD }}
+          TF_VAR_backend_domain: ""
+          TF_VAR_frontend_domain: ""
+        run: |
+          terraform apply -auto-approve \
+            -target=module.artifact_registry \
+            -target=module.secret_manager \
+            -target=module.runtime_iam
+
+      - name: Push secret versions (prod)
+        if: inputs.rotate_secrets == true
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID_PROD }}
+          DB_SUPABASE_PASSWORD: ${{ secrets.DB_SUPABASE_PASSWORD_PROD }}
+          JWT_ISSUER_URI: ${{ secrets.JWT_ISSUER_URI_PROD }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY_PROD }}
+        run: |
+          printf "%s" "$DB_SUPABASE_PASSWORD" | gcloud secrets versions add DB_SUPABASE_PASSWORD --project "$GCP_PROJECT_ID" --data-file=-
+          printf "%s" "$JWT_ISSUER_URI" | gcloud secrets versions add JWT_ISSUER_URI --project "$GCP_PROJECT_ID" --data-file=-
+          printf "%s" "$VITE_SUPABASE_PUBLISHABLE_KEY" | gcloud secrets versions add VITE_SUPABASE_PUBLISHABLE_KEY --project "$GCP_PROJECT_ID" --data-file=-
+
+      - name: Build backend image
+        run: |
+          docker build \
+            --build-arg JOOQ_DB_URL="jdbc:postgresql://${{ vars.SUPABASE_DB_HOST_PROD }}:${{ vars.SUPABASE_DB_PORT_PROD }}/${{ vars.SUPABASE_DB_NAME_PROD }}?sslmode=require" \
+            --build-arg JOOQ_DB_USER="${{ vars.SUPABASE_DB_USER_PROD }}" \
+            --build-arg JOOQ_DB_PASSWORD="${{ secrets.DB_SUPABASE_PASSWORD_PROD }}" \
+            -t "${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.tag }}" \
+            ./Producto/backendpanol
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            --build-arg VITE_API_BASE_URL="https://placeholder.invalid" \
+            -t "${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.tag }}" \
+            ./Producto/frontendpanol
+
+      - name: Push images
+        run: |
+          docker push "${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.tag }}"
+          docker push "${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.tag }}"
+
+      - name: Terraform apply full (prod)
+        working-directory: infra/terraform/environments/prod
+        env:
+          TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID_PROD }}
+          TF_VAR_region: ${{ vars.GCP_REGION_PROD }}
+          TF_VAR_environment: prod
+          TF_VAR_artifact_registry_location: ${{ vars.GCP_ARTIFACT_REGISTRY_LOCATION_PROD }}
+          TF_VAR_backend_image: ${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.tag }}
+          TF_VAR_frontend_image: ${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.tag }}
+          TF_VAR_supabase_db_host: ${{ vars.SUPABASE_DB_HOST_PROD }}
+          TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_PROD }}
+          TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_PROD }}
+          TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_PROD }}
+          TF_VAR_backend_domain: ""
+          TF_VAR_frontend_domain: ""
+          TF_VAR_backend_min_instances: "1"
+          TF_VAR_backend_max_instances: "5"
+          TF_VAR_frontend_min_instances: "1"
+          TF_VAR_frontend_max_instances: "5"
+        run: terraform apply -auto-approve

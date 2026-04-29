@@ -1,2 +1,8 @@
 ﻿# IDE
 .idea/
+
+# Repo-local gcloud auth
+.gcloud-local/
+
+# Local helper scripts
+scripts/
