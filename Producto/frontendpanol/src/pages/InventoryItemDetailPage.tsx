@@ -3,6 +3,7 @@ import { InventoryLayout } from "../components/layout/InventoryLayout";
 import { getErrorMessage } from "../services/apiClient";
 import { fetchImplementById } from "../services/implementService";
 import type { ImplementDetail } from "../types/implement";
+import { ImplementEditModal } from "../components/implements/ImplementEditModal";
 
 const ITEM_TYPE_LABELS: Record<"consumable" | "reusable" | "individual", string> = {
   consumable: "Consumible",
@@ -14,11 +15,14 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
   const [implement, setImplement] = useState<ImplementDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [showInitialStockHint, setShowInitialStockHint] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     fetchImplementById(implementId)
       .then((detail) => setImplement(detail))
@@ -82,12 +86,16 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
           <a className="button button--ghost" href="#/inventory/implementos">
             Volver al listado
           </a>
+          <button type="button" className="button" onClick={() => setIsEditing(true)} disabled={loading || !implement}>
+            Editar
+          </button>
         </div>
       </section>
 
       <section className="panel">
         {loading ? <div className="field-hint">Cargando ficha...</div> : null}
         {error ? <div className="error-banner">{error}</div> : null}
+        {success ? <div className="success-banner">{success}</div> : null}
 
         {implement && !loading ? (
           <div className="detail-grid">
@@ -127,6 +135,16 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
           </div>
         ) : null}
       </section>
+
+      <ImplementEditModal
+        implementId={implementId}
+        isOpen={isEditing}
+        onClose={() => setIsEditing(false)}
+        onSaved={(updated) => {
+          setImplement(updated);
+          setSuccess("Producto actualizado correctamente.");
+        }}
+      />
     </InventoryLayout>
   );
 }

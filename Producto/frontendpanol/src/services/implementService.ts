@@ -25,8 +25,9 @@ export async function createImplement(payload: ImplementCreatePayload): Promise<
 export async function updateImplement(
   implementId: number,
   payload: ImplementUpdatePayload,
-): Promise<void> {
-  await apiClient.put(`/api/implements/${implementId}`, payload);
+): Promise<ImplementDetail> {
+  const response = await apiClient.put<ImplementDetail>(`/api/implements/${implementId}`, payload);
+  return response.data;
 }
 
 export async function fetchImplementById(implementId: number): Promise<ImplementDetail> {

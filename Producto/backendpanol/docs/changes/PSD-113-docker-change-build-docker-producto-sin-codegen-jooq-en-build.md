@@ -1,4 +1,4 @@
-# PSD-111 - Build Docker (Producto) sin depender de jOOQ codegen en build
+# PSD-113 - Docker-change: Build Docker (Producto) sin depender de jOOQ codegen en build
 
 Fecha: 2026-04-29
 
@@ -65,4 +65,3 @@ docker compose --env-file .\\backendpanol\\.env.local up -d
 
 - Este cambio hace el build **más determinístico**, ya que deja de depender de conectividad DB durante la construcción de la imagen.
 - jOOQ codegen sigue existiendo, pero se mueve a un paso previo (fuera del Docker build).
-

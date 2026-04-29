@@ -258,6 +258,15 @@ public class ImplementJooqRepository implements ImplementRepository {
     }
 
     private Implemento toDomain(ImplementRecord record) {
+        String observations = null;
+        try {
+            observations = record.get(IMPLEMENT_OBSERVATIONS);
+        } catch (IllegalArgumentException ignored) {
+            // Cuando el codegen de jOOQ no incluye la columna "observations" en ImplementRecord,
+            // el record no contiene ese Field y record.get(Field) lanza IllegalArgumentException.
+            // En ese caso, exponemos observations como null para evitar 500.
+        }
+
         return new Implemento(
                 record.getId(),
                 record.getName(),
@@ -265,7 +274,7 @@ public class ImplementJooqRepository implements ImplementRepository {
                 record.getCategoryId(),
                 record.getLocationId(),
                 toDomainItemType(record.getItemType()),
-                record.get(IMPLEMENT_OBSERVATIONS),
+                observations,
                 record.getActive(),
                 record.getCreatedAt(),
                 record.getUpdatedAt()
