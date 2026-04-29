@@ -19,13 +19,12 @@ public class LocationJooqRepository implements LocationRepository {
 
     @Override
     public List<LocationOption> findAll() {
-        return dsl.select(LOCATION.ID, LOCATION.NAME, LOCATION.DESCRIPTION)
+        return dsl.select(LOCATION.ID, LOCATION.NAME)
                 .from(LOCATION)
                 .orderBy(LOCATION.NAME.asc())
                 .fetch(record -> new LocationOption(
                         record.get(LOCATION.ID),
-                        record.get(LOCATION.NAME),
-                        record.get(LOCATION.DESCRIPTION)
+                        record.get(LOCATION.NAME)
                 ));
     }
 

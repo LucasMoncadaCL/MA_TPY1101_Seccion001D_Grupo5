@@ -1,4 +1,4 @@
-# PSD-113 - Docker-change: Build Docker (Producto) sin depender de jOOQ codegen en build
+# Docker-change: Build Docker (Producto) sin depender de jOOQ codegen en build
 
 Fecha: 2026-04-29
 
@@ -8,7 +8,7 @@ Se ajustó el build Docker del backend para que **no falle** cuando el jOOQ code
 
 La estrategia es:
 
-1) El codegen de jOOQ se genera **fuera** del build (local/CI) y queda versionado como artefacto en `target/generated-sources/jooq`.
+1) El codegen de jOOQ se genera **fuera** del build (local/CI) y queda disponible como artefacto en `target/generated-sources/jooq`.
 2) El `Dockerfile` copia esas fuentes generadas y ejecuta el build con `-Djooq.codegen.skip=true`.
 
 ## Problema que resuelve
@@ -56,12 +56,13 @@ Si no existe, primero genera jOOQ fuera del build (según el flujo normal del pr
 Desde `Producto/`:
 
 ```powershell
-docker compose --env-file .\\backendpanol\\.env.local build backend
-docker compose --env-file .\\backendpanol\\.env.local build frontend
-docker compose --env-file .\\backendpanol\\.env.local up -d
+docker compose build backend
+docker compose build frontend
+docker compose up -d
 ```
 
 ## Notas
 
 - Este cambio hace el build **más determinístico**, ya que deja de depender de conectividad DB durante la construcción de la imagen.
 - jOOQ codegen sigue existiendo, pero se mueve a un paso previo (fuera del Docker build).
+
