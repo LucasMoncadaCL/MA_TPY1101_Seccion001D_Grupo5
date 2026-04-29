@@ -1,4 +1,4 @@
-﻿resource "google_cloud_run_v2_service" "this" {
+resource "google_cloud_run_v2_service" "this" {
   project  = var.project_id
   location = var.region
   name     = var.service_name
@@ -7,8 +7,8 @@
   labels = var.labels
 
   template {
-    service_account = var.service_account_email
-    timeout         = "${var.timeout_seconds}s"
+    service_account                  = var.service_account_email
+    timeout                          = "${var.timeout_seconds}s"
     max_instance_request_concurrency = var.max_instance_request_concurrency
 
     scaling {

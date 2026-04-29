@@ -1,4 +1,4 @@
-﻿resource "google_artifact_registry_repository" "this" {
+resource "google_artifact_registry_repository" "this" {
   project       = var.project_id
   location      = var.location
   repository_id = var.repository_id

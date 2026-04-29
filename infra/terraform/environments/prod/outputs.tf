@@ -1,4 +1,4 @@
-﻿output "backend_url" {
+output "backend_url" {
   value = module.backend_service.service_uri
 }
 

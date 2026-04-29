@@ -1,4 +1,4 @@
-﻿resource "google_service_account" "runtime" {
+resource "google_service_account" "runtime" {
   project      = var.project_id
   account_id   = "${var.service_account_name}-${var.environment}"
   display_name = var.service_account_display_name
