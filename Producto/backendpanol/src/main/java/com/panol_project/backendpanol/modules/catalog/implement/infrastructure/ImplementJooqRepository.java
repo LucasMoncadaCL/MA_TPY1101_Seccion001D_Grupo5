@@ -174,7 +174,7 @@ public class ImplementJooqRepository implements ImplementRepository {
                 dsl.selectOne()
                         .from(IMPLEMENT)
                         .where(IMPLEMENT.ACTIVE.isTrue()
-                                .and(DSL.lower(IMPLEMENT.NAME).eq(nombre.toLowerCase(Locale.ROOT))))
+                                .and(IMPLEMENT.NAME.likeIgnoreCase(nombre)))
         );
     }
 
@@ -185,7 +185,7 @@ public class ImplementJooqRepository implements ImplementRepository {
                         .from(IMPLEMENT)
                         .where(IMPLEMENT.ACTIVE.isTrue()
                                 .and(IMPLEMENT.ID.ne(excludedId))
-                                .and(DSL.lower(IMPLEMENT.NAME).eq(nombre.toLowerCase(Locale.ROOT))))
+                                .and(IMPLEMENT.NAME.likeIgnoreCase(nombre)))
         );
     }
 

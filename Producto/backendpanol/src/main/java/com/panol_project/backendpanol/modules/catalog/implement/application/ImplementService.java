@@ -160,7 +160,7 @@ public class ImplementService {
     private BadRequestException duplicateNameException(String normalizedName) {
         return new BadRequestException(
                 "IMPLEMENT_NAME_DUPLICATE",
-                "Ya existe un producto con el nombre '" + normalizedName + "'"
+                String.format("Ya existe un producto con el nombre '%s'", normalizedName)
         );
     }
 
