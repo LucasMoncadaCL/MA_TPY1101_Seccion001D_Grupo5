@@ -87,6 +87,7 @@ jobs:
           TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_DEV }}
           TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_DEV }}
           TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_DEV }}
+          TF_VAR_runtime_sa_user_members: '["serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}"]'
           TF_VAR_backend_domain: ""
           TF_VAR_frontend_domain: ""
         run: |
@@ -141,6 +142,7 @@ jobs:
           TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_DEV }}
           TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_DEV }}
           TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_DEV }}
+          TF_VAR_runtime_sa_user_members: '["serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}"]'
           TF_VAR_backend_domain: ""
           TF_VAR_frontend_domain: ""
           TF_VAR_backend_min_instances: "0"
@@ -200,6 +202,7 @@ jobs:
           TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_PROD }}
           TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_PROD }}
           TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_PROD }}
+          TF_VAR_runtime_sa_user_members: '["serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_PROD }}"]'
           TF_VAR_backend_domain: ""
           TF_VAR_frontend_domain: ""
         run: |
@@ -254,6 +257,7 @@ jobs:
           TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_PROD }}
           TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_PROD }}
           TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_PROD }}
+          TF_VAR_runtime_sa_user_members: '["serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_PROD }}"]'
           TF_VAR_backend_domain: ""
           TF_VAR_frontend_domain: ""
           TF_VAR_backend_min_instances: "1"
