@@ -49,7 +49,7 @@ public class ImplementController {
                 request.observations()
         );
         // No resolvemos categoria aqui: la UI se apoya en GET /api/implements/{id} para la ficha.
-        return toResponse(created, null, service.obtenerStockMinimo(created.id()), request.observations());
+        return toResponse(created, null, request.minStock(), request.observations());
     }
 
     @PutMapping("/{id}")
