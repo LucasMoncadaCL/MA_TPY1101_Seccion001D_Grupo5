@@ -19,6 +19,7 @@ import com.panol_project.backendpanol.modules.catalog.implement.domain.Implement
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementLocationSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementStockSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
 import com.panol_project.backendpanol.shared.error.security.RestAccessDeniedHandler;
 import com.panol_project.backendpanol.shared.error.security.RestAuthenticationEntryPoint;
@@ -91,8 +92,11 @@ class ImplementCreateEndpointSecurityTest {
         when(service.obtenerSummary(1)).thenReturn(new ImplementSummary(
                 1,
                 "Guantes",
+                "Desc",
+                true,
                 new ImplementCategorySummary(2, "Categoria", true),
-                new ImplementLocationSummary(10, "Ubicacion", null)
+                new ImplementLocationSummary(10, "Ubicacion", null),
+                new ImplementStockSummary(null, 3, null, null, null, null)
         ));
 
         mvc.perform(post("/api/implements")
