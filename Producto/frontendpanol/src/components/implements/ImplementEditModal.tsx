@@ -1,30 +1,52 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { fetchActiveCategories } from "../../services/activeCategoryService";
+import { getApiErrorPayload, getErrorMessage } from "../../services/apiClient";
+import { fetchImplementById, updateImplement } from "../../services/implementService";
 import { fetchLocations } from "../../services/locationService";
-import { getErrorMessage } from "../../services/apiClient";
 import type { ActiveCategoryOption } from "../../types/categoryActive";
 import type { LocationOption } from "../../types/location";
-import type { ImplementSummary } from "../../types/implement";
+import type { ImplementDetail } from "../../types/implement";
 
-interface ImplementEditModalProps {
-  implement: ImplementSummary | null;
-  isOpen: boolean;
-  saving: boolean;
-  onClose: () => void;
-  onSubmit: (payload: { id: number; name: string; categoryId: number | null; locationId: number }) => Promise<void>;
+type ItemType = "consumable" | "reusable" | "individual";
+
+interface FieldErrors {
+  name?: string;
+  categoryId?: string;
+  itemType?: string;
+  locationId?: string;
+  minStock?: string;
+  description?: string;
+  observations?: string;
+  form?: string;
 }
 
-export function ImplementEditModal({
-  implement,
-  isOpen,
-  saving,
-  onClose,
-  onSubmit,
-}: ImplementEditModalProps) {
+const ITEM_TYPE_OPTIONS: Array<{ value: ItemType; label: string }> = [
+  { value: "consumable", label: "Consumible" },
+  { value: "reusable", label: "Reutilizable" },
+  { value: "individual", label: "Individual" },
+];
+
+interface ImplementEditModalProps {
+  implementId: number | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSaved?: (updated: ImplementDetail) => void | Promise<void>;
+}
+
+export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: ImplementEditModalProps) {
+  const [loadingImplement, setLoadingImplement] = useState(false);
+  const [implement, setImplement] = useState<ImplementDetail | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
   const [name, setName] = useState("");
   const [categoryIdRaw, setCategoryIdRaw] = useState<string>("");
+  const [itemTypeRaw, setItemTypeRaw] = useState<ItemType | "">("");
   const [locationIdRaw, setLocationIdRaw] = useState<string>("");
+  const [description, setDescription] = useState("");
+  const [minStockRaw, setMinStockRaw] = useState("");
+  const [observations, setObservations] = useState("");
 
   const [categories, setCategories] = useState<ActiveCategoryOption[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -34,19 +56,41 @@ export function ImplementEditModal({
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [locationsError, setLocationsError] = useState<string | null>(null);
 
-  const currentCategoryId = implement?.category?.id ?? null;
-  const currentCategoryName = implement?.category?.name ?? null;
-  const currentCategoryActive = implement?.category?.active ?? true;
-
-  const currentLocationId = implement?.location?.id ?? null;
-  const currentLocationName = implement?.location?.name ?? null;
-
   useEffect(() => {
-    if (!isOpen || !implement) {
+    if (!isOpen || implementId == null) {
       return;
     }
 
-    setName(implement.name);
+    setFieldErrors({});
+    setSaving(false);
+
+    setLoadingImplement(true);
+    setImplement(null);
+
+    fetchImplementById(implementId)
+      .then((detail) => {
+        setImplement(detail);
+        setName(detail.name ?? "");
+        setCategoryIdRaw(detail.categoryId == null ? "" : String(detail.categoryId));
+        setItemTypeRaw(detail.item_type ?? "");
+        setLocationIdRaw(detail.locationId == null ? "" : String(detail.locationId));
+        setDescription(detail.description ?? "");
+        setMinStockRaw(detail.min_stock == null ? "" : String(detail.min_stock));
+        setObservations(detail.observations ?? "");
+      })
+      .catch((error) => {
+        setFieldErrors({
+          form: getErrorMessage(error, "No se pudo cargar el implemento."),
+        });
+      })
+      .finally(() => setLoadingImplement(false));
+  }, [implementId, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     setCategories([]);
     setCategoriesError(null);
     setLoadingCategories(true);
@@ -56,149 +100,230 @@ export function ImplementEditModal({
     setLoadingLocations(true);
 
     fetchActiveCategories()
-      .then((result) => {
-        setCategories(result);
-
-        if (!implement.category) {
-          setCategoryIdRaw("");
-          return;
-        }
-
-        const existsActive = result.some((category) => category.id === implement.category?.id);
-        if (existsActive) {
-          setCategoryIdRaw(String(implement.category.id));
-          return;
-        }
-
-        setCategoryIdRaw(String(implement.category.id));
-      })
-      .catch((error) => {
-        setCategoriesError(getErrorMessage(error, "No se pudo cargar las categorias."));
-        setCategoryIdRaw(implement.category ? String(implement.category.id) : "");
-      })
+      .then((result) => setCategories(result))
+      .catch((error) => setCategoriesError(getErrorMessage(error, "No se pudo cargar las categorias.")))
       .finally(() => setLoadingCategories(false));
 
     fetchLocations()
-      .then((result) => {
-        setLocations(result);
-        setLocationIdRaw(implement.location ? String(implement.location.id) : "");
-      })
-      .catch((error) => {
-        setLocationsError(getErrorMessage(error, "No se pudo cargar las ubicaciones."));
-        setLocationIdRaw(implement.location ? String(implement.location.id) : "");
-      })
+      .then((result) => setLocations(result))
+      .catch((error) => setLocationsError(getErrorMessage(error, "No se pudo cargar las ubicaciones.")))
       .finally(() => setLoadingLocations(false));
-  }, [implement, isOpen]);
+  }, [isOpen]);
 
-  const showInactiveCurrentCategory = useMemo(() => {
+  const isCategoryDisabled = useMemo(
+    () => loadingCategories || Boolean(categoriesError) || categories.length === 0,
+    [categories.length, categoriesError, loadingCategories],
+  );
+
+  const isLocationDisabled = useMemo(
+    () => loadingLocations || Boolean(locationsError) || locations.length === 0,
+    [loadingLocations, locations.length, locationsError],
+  );
+
+  const currentCategoryInactive = useMemo(() => {
     if (!implement?.category) {
       return false;
     }
-    return !currentCategoryActive && !categories.some((category) => category.id === currentCategoryId);
-  }, [categories, currentCategoryActive, currentCategoryId, implement?.category]);
+    return !implement.category.active;
+  }, [implement?.category]);
 
-  const isSelectDisabled = useMemo(() => {
-    if (loadingCategories) {
-      return true;
-    }
-    if (categoriesError) {
+  const isUsingInactiveCategory = useMemo(() => {
+    if (!currentCategoryInactive) {
       return false;
     }
-    if (categories.length === 0 && !showInactiveCurrentCategory) {
-      return true;
-    }
-    return false;
-  }, [categories.length, categoriesError, loadingCategories, showInactiveCurrentCategory]);
-
-  const helperText = useMemo(() => {
-    if (loadingCategories) {
-      return "Cargando categorias...";
-    }
-    if (categories.length === 0 && !showInactiveCurrentCategory) {
-      return "No hay categorias disponibles";
-    }
-    return null;
-  }, [categories.length, loadingCategories, showInactiveCurrentCategory]);
-
-  const showMissingCurrentLocation = useMemo(() => {
-    if (!implement?.location) {
+    const currentId = implement?.category?.id;
+    if (currentId == null) {
       return false;
     }
-    return !locations.some((location) => location.id === currentLocationId);
-  }, [currentLocationId, implement?.location, locations]);
+    return categoryIdRaw.trim() === String(currentId);
+  }, [categoryIdRaw, currentCategoryInactive, implement?.category?.id]);
 
-  const isLocationSelectDisabled = useMemo(() => {
-    if (loadingLocations) {
-      return true;
+  const categoryInactiveError = useMemo(() => {
+    if (!currentCategoryInactive) {
+      return null;
     }
-    if (locationsError) {
-      return false;
+    if (!isUsingInactiveCategory) {
+      return null;
     }
-    return locations.length === 0 && !showMissingCurrentLocation;
-  }, [loadingLocations, locations.length, locationsError, showMissingCurrentLocation]);
+    return "La categoría actual está inactiva. Debes seleccionar una categoría activa para guardar.";
+  }, [currentCategoryInactive, isUsingInactiveCategory]);
 
-  const locationHelperText = useMemo(() => {
-    if (loadingLocations) {
-      return "Cargando ubicaciones...";
+  const inactiveCategoryOption = useMemo(() => {
+    if (!currentCategoryInactive || !implement?.category) {
+      return null;
     }
-    if (locations.length === 0 && !showMissingCurrentLocation) {
-      return "No hay ubicaciones disponibles";
-    }
-    return null;
-  }, [loadingLocations, locations.length, showMissingCurrentLocation]);
+    return {
+      id: implement.category.id,
+      name: implement.category.name,
+    };
+  }, [currentCategoryInactive, implement?.category]);
 
-  if (!isOpen || !implement) {
+  if (!isOpen) {
     return null;
   }
 
-  const implementId = implement.id;
+  function validateClientSide(): FieldErrors {
+    const errors: FieldErrors = {};
+    const categoryId = categoryIdRaw.trim() ? Number(categoryIdRaw) : null;
+    const locationId = locationIdRaw.trim() ? Number(locationIdRaw) : NaN;
+    const minStock = minStockRaw.trim() ? Number(minStockRaw) : NaN;
+
+    if (name.trim().length === 0) {
+      errors.name = "El nombre es obligatorio.";
+    }
+    if (itemTypeRaw.trim().length === 0) {
+      errors.itemType = "El tipo de implemento es obligatorio.";
+    }
+    if (!Number.isFinite(locationId)) {
+      errors.locationId = "La ubicacion es obligatoria.";
+    }
+    if (!Number.isFinite(minStock) || minStock <= 0 || !Number.isInteger(minStock)) {
+      errors.minStock = "El stock minimo debe ser un entero positivo.";
+    }
+    if (description.trim().length > 255) {
+      errors.description = "La descripcion no puede superar 255 caracteres.";
+    }
+    if (observations.trim().length > 500) {
+      errors.observations = "Las observaciones no pueden superar 500 caracteres.";
+    }
+    if (currentCategoryInactive) {
+      if (categoryId == null || !Number.isFinite(Number(categoryId))) {
+        errors.categoryId = "Debes seleccionar una categoria activa.";
+      } else if (isUsingInactiveCategory) {
+        errors.categoryId = categoryInactiveError ?? "Debes seleccionar una categoria activa.";
+      }
+    }
+
+    return errors;
+  }
+
+  function mapApiErrorToFields(message: string): FieldErrors {
+    const normalized = message.toLowerCase();
+    const errors: FieldErrors = {};
+
+    if (normalized.includes("nombre")) {
+      errors.name = message;
+      return errors;
+    }
+    if (normalized.includes("categoria")) {
+      errors.categoryId = message;
+      return errors;
+    }
+    if (normalized.includes("tipo")) {
+      errors.itemType = message;
+      return errors;
+    }
+    if (normalized.includes("ubicacion")) {
+      errors.locationId = message;
+      return errors;
+    }
+    if (normalized.includes("stock minimo")) {
+      errors.minStock = message;
+      return errors;
+    }
+    if (normalized.includes("descripcion")) {
+      errors.description = message;
+      return errors;
+    }
+    if (normalized.includes("observaciones")) {
+      errors.observations = message;
+      return errors;
+    }
+
+    errors.form = message;
+    return errors;
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFieldErrors({});
 
-    const normalizedName = name.trim();
-    const categoryId = categoryIdRaw.trim() ? Number(categoryIdRaw) : null;
-    const locationId = locationIdRaw.trim() ? Number(locationIdRaw) : NaN;
-
-    if (!Number.isFinite(locationId)) {
+    if (implementId == null) {
+      setFieldErrors({ form: "No se pudo identificar el implemento." });
       return;
     }
 
-    await onSubmit({
-      id: implementId,
-      name: normalizedName,
-      categoryId: Number.isFinite(categoryId) ? categoryId : null,
-      locationId,
-    });
+    const clientErrors = validateClientSide();
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      return;
+    }
+
+    const categoryId = categoryIdRaw.trim() ? Number(categoryIdRaw) : null;
+    const locationId = Number(locationIdRaw);
+    const minStock = Number(minStockRaw);
+
+    setSaving(true);
+    try {
+      const updated = await updateImplement(implementId, {
+        name: name.trim(),
+        category_id: Number.isFinite(Number(categoryId)) ? categoryId : null,
+        location_id: locationId,
+        item_type: itemTypeRaw as ItemType,
+        description: description.trim() ? description.trim() : null,
+        min_stock: minStock,
+        observations: observations.trim() ? observations.trim() : null,
+      });
+
+      setImplement(updated);
+      if (onSaved) {
+        await onSaved(updated);
+      }
+      onClose();
+    } catch (error) {
+      const payload = getApiErrorPayload(error);
+      const message = payload?.message ?? getErrorMessage(error, "No se pudo actualizar el implemento.");
+      setFieldErrors(mapApiErrorToFields(message));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
       <div className="modal">
-        <h3>Editar implemento</h3>
-        <p>Actualiza los datos del producto. La categoria puede quedar vacia.</p>
+        <h3>Editar producto</h3>
+        <p>Actualiza los datos del producto.</p>
+
+        {fieldErrors.form ? <p className="field-error">{fieldErrors.form}</p> : null}
+        {loadingImplement ? <p className="field-hint">Cargando información...</p> : null}
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="implement-edit-name">Nombre</label>
           <input
             id="implement-edit-name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+              setFieldErrors((current) => ({ ...current, name: undefined }));
+            }}
             placeholder="Ej: Guantes latex"
-            maxLength={100}
+            maxLength={120}
             required
           />
+          {fieldErrors.name ? <p className="field-error">{fieldErrors.name}</p> : null}
 
           <label htmlFor="implement-edit-category">Categoria</label>
+          {currentCategoryInactive ? (
+            <p className="field-hint">
+              Categoría actual:{" "}
+              <span className="badge badge--inactive">
+                {implement?.category?.name ?? "Categoría"} (inactiva)
+              </span>
+            </p>
+          ) : null}
           <select
             id="implement-edit-category"
             value={categoryIdRaw}
-            onChange={(event) => setCategoryIdRaw(event.target.value)}
-            disabled={isSelectDisabled}
+            onChange={(event) => {
+              setCategoryIdRaw(event.target.value);
+              setFieldErrors((current) => ({ ...current, categoryId: undefined }));
+            }}
+            disabled={isCategoryDisabled}
           >
-            {showInactiveCurrentCategory ? (
-              <option value={String(currentCategoryId)} disabled>
-                {currentCategoryName ?? "Categoria"} [Categoria inactiva]
+            {inactiveCategoryOption ? (
+              <option value={String(inactiveCategoryOption.id)} disabled>
+                {inactiveCategoryOption.name} [Inactiva]
               </option>
             ) : null}
 
@@ -210,27 +335,44 @@ export function ImplementEditModal({
               </option>
             ))}
           </select>
-
-          {helperText ? <p className="field-hint">{helperText}</p> : null}
           {categoriesError ? <p className="field-error">{categoriesError}</p> : null}
+          {fieldErrors.categoryId ? <p className="field-error">{fieldErrors.categoryId}</p> : null}
+
+          <label htmlFor="implement-edit-item-type">Tipo de implemento</label>
+          <select
+            id="implement-edit-item-type"
+            value={itemTypeRaw}
+            onChange={(event) => {
+              setItemTypeRaw(event.target.value as ItemType | "");
+              setFieldErrors((current) => ({ ...current, itemType: undefined }));
+            }}
+            required
+          >
+            <option value="" disabled>
+              Selecciona un tipo
+            </option>
+            {ITEM_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.itemType ? <p className="field-error">{fieldErrors.itemType}</p> : null}
 
           <label htmlFor="implement-edit-location">Ubicacion</label>
           <select
             id="implement-edit-location"
             value={locationIdRaw}
-            onChange={(event) => setLocationIdRaw(event.target.value)}
-            disabled={isLocationSelectDisabled}
+            onChange={(event) => {
+              setLocationIdRaw(event.target.value);
+              setFieldErrors((current) => ({ ...current, locationId: undefined }));
+            }}
+            disabled={isLocationDisabled}
             required
           >
-            {showMissingCurrentLocation ? (
-              <option value={String(currentLocationId)} disabled>
-                {currentLocationName ?? "Ubicacion"} [Ubicacion no disponible]
-              </option>
-            ) : (
-              <option value="" disabled>
-                Selecciona una ubicacion
-              </option>
-            )}
+            <option value="" disabled>
+              Selecciona una ubicacion
+            </option>
 
             {locations.map((location) => (
               <option key={location.id} value={String(location.id)}>
@@ -238,12 +380,52 @@ export function ImplementEditModal({
               </option>
             ))}
           </select>
-
-          {locationHelperText ? <p className="field-hint">{locationHelperText}</p> : null}
           {locationsError ? <p className="field-error">{locationsError}</p> : null}
+          {fieldErrors.locationId ? <p className="field-error">{fieldErrors.locationId}</p> : null}
+
+          <label htmlFor="implement-edit-description">Descripcion</label>
+          <textarea
+            id="implement-edit-description"
+            value={description}
+            onChange={(event) => {
+              setDescription(event.target.value);
+              setFieldErrors((current) => ({ ...current, description: undefined }));
+            }}
+            maxLength={255}
+            placeholder="Opcional"
+          />
+          {fieldErrors.description ? <p className="field-error">{fieldErrors.description}</p> : null}
+
+          <label htmlFor="implement-edit-min-stock">Stock minimo</label>
+          <input
+            id="implement-edit-min-stock"
+            type="number"
+            min={1}
+            step={1}
+            value={minStockRaw}
+            onChange={(event) => {
+              setMinStockRaw(event.target.value);
+              setFieldErrors((current) => ({ ...current, minStock: undefined }));
+            }}
+            required
+          />
+          {fieldErrors.minStock ? <p className="field-error">{fieldErrors.minStock}</p> : null}
+
+          <label htmlFor="implement-edit-observations">Observaciones</label>
+          <textarea
+            id="implement-edit-observations"
+            value={observations}
+            onChange={(event) => {
+              setObservations(event.target.value);
+              setFieldErrors((current) => ({ ...current, observations: undefined }));
+            }}
+            maxLength={500}
+            placeholder="Opcional"
+          />
+          {fieldErrors.observations ? <p className="field-error">{fieldErrors.observations}</p> : null}
 
           <div className="modal-actions">
-            <button type="button" className="button button--ghost" onClick={onClose}>
+            <button type="button" className="button button--ghost" onClick={onClose} disabled={saving}>
               Cancelar
             </button>
             <button
@@ -251,9 +433,13 @@ export function ImplementEditModal({
               className="button"
               disabled={
                 saving ||
+                loadingImplement ||
                 name.trim().length === 0 ||
+                itemTypeRaw.trim().length === 0 ||
                 locationIdRaw.trim().length === 0 ||
-                (locations.length === 0 && !showMissingCurrentLocation)
+                (currentCategoryInactive && (categoryIdRaw.trim().length === 0 || isUsingInactiveCategory)) ||
+                Boolean(categoriesError) ||
+                Boolean(locationsError)
               }
             >
               {saving ? "Guardando..." : "Guardar"}

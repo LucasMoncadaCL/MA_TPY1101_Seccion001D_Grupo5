@@ -50,17 +50,27 @@ public class ImplementController {
         );
       
         var summary = service.obtenerSummary(created.id());
-        return toResponse(created, summary, service.obtenerStockMinimo(created.id()), request.observations());
+        return toResponse(created, summary, service.obtenerStockMinimo(created.id()), created.observations());
 
 
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('COORDINADOR')")
     ImplementResponse editar(@PathVariable Integer id, @Valid @RequestBody UpdateImplementRequest request) {
-        Implemento updated = service.editar(id, request.name(), request.description(), request.categoryId(), request.locationId());
+        Implemento updated = service.editar(
+                id,
+                request.name(),
+                request.description(),
+                request.categoryId(),
+                request.locationId(),
+                request.itemType(),
+                request.minStock(),
+                request.observations()
+        );
         var summary = service.obtenerSummary(updated.id());
         Integer minStock = service.obtenerStockMinimo(updated.id());
-        return toResponse(updated, summary, minStock, null);
+        return toResponse(updated, summary, minStock, updated.observations());
     }
 
     @GetMapping("/{id}")
@@ -68,7 +78,7 @@ public class ImplementController {
         Implemento implemento = service.obtener(id);
         var summary = service.obtenerSummary(id);
         Integer minStock = service.obtenerStockMinimo(implemento.id());
-        return toResponse(implemento, summary, minStock, null);
+        return toResponse(implemento, summary, minStock, implemento.observations());
     }
 
     @GetMapping

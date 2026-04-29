@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Repository;
 public class ImplementJooqRepository implements ImplementRepository {
 
     private final DSLContext dsl;
+    private static final Field<String> IMPLEMENT_OBSERVATIONS = DSL.field(DSL.name("observations"), String.class);
 
     public ImplementJooqRepository(DSLContext dsl) {
         this.dsl = dsl;
@@ -174,7 +176,7 @@ public class ImplementJooqRepository implements ImplementRepository {
                 dsl.selectOne()
                         .from(IMPLEMENT)
                         .where(IMPLEMENT.ACTIVE.isTrue()
-                                .and(DSL.lower(IMPLEMENT.NAME).eq(nombre.toLowerCase(Locale.ROOT))))
+                                .and(IMPLEMENT.NAME.likeIgnoreCase(nombre)))
         );
     }
 
@@ -185,7 +187,7 @@ public class ImplementJooqRepository implements ImplementRepository {
                         .from(IMPLEMENT)
                         .where(IMPLEMENT.ACTIVE.isTrue()
                                 .and(IMPLEMENT.ID.ne(excludedId))
-                                .and(DSL.lower(IMPLEMENT.NAME).eq(nombre.toLowerCase(Locale.ROOT))))
+                                .and(IMPLEMENT.NAME.likeIgnoreCase(nombre)))
         );
     }
 
@@ -204,7 +206,7 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .set(IMPLEMENT.CATEGORY_ID, categoriaId)
                 .set(IMPLEMENT.LOCATION_ID, locationId)
                 .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
-                .set(DSL.field(DSL.name("observations"), String.class), observations)
+                .set(IMPLEMENT_OBSERVATIONS, observations)
                 .returning()
                 .fetchOptional()
                 .map(this::toDomain)
@@ -212,12 +214,22 @@ public class ImplementJooqRepository implements ImplementRepository {
     }
 
     @Override
-    public Implemento update(Integer id, String nombre, String descripcion, Integer categoriaId, Integer locationId) {
+    public Implemento update(
+            Integer id,
+            String nombre,
+            String descripcion,
+            Integer categoriaId,
+            Integer locationId,
+            ImplementItemType itemType,
+            String observations
+    ) {
         return dsl.update(IMPLEMENT)
                 .set(IMPLEMENT.NAME, nombre)
                 .set(IMPLEMENT.DESCRIPTION, descripcion)
                 .set(IMPLEMENT.CATEGORY_ID, categoriaId)
                 .set(IMPLEMENT.LOCATION_ID, locationId)
+                .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
+                .set(IMPLEMENT_OBSERVATIONS, observations)
                 .set(IMPLEMENT.UPDATED_AT, OffsetDateTime.now())
                 .where(IMPLEMENT.ID.eq(id))
                 .returning()
@@ -246,6 +258,15 @@ public class ImplementJooqRepository implements ImplementRepository {
     }
 
     private Implemento toDomain(ImplementRecord record) {
+        String observations = null;
+        try {
+            observations = record.get(IMPLEMENT_OBSERVATIONS);
+        } catch (IllegalArgumentException ignored) {
+            // Cuando el codegen de jOOQ no incluye la columna "observations" en ImplementRecord,
+            // el record no contiene ese Field y record.get(Field) lanza IllegalArgumentException.
+            // En ese caso, exponemos observations como null para evitar 500.
+        }
+
         return new Implemento(
                 record.getId(),
                 record.getName(),
@@ -253,6 +274,7 @@ public class ImplementJooqRepository implements ImplementRepository {
                 record.getCategoryId(),
                 record.getLocationId(),
                 toDomainItemType(record.getItemType()),
+                observations,
                 record.getActive(),
                 record.getCreatedAt(),
                 record.getUpdatedAt()

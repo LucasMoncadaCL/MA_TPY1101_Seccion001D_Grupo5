@@ -12,6 +12,10 @@ export interface ImplementUpdatePayload {
   name: string;
   category_id: number | null;
   location_id: number;
+  item_type: "consumable" | "reusable" | "individual";
+  description: string | null;
+  min_stock: number;
+  observations: string | null;
 }
 
 export interface ImplementSummary {
