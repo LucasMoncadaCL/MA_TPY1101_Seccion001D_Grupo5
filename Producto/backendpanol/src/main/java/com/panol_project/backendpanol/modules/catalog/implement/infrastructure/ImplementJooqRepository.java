@@ -46,16 +46,25 @@ public class ImplementJooqRepository implements ImplementRepository {
         return dsl.select(
                         IMPLEMENT.ID,
                         IMPLEMENT.NAME,
+                        IMPLEMENT.DESCRIPTION,
+                        IMPLEMENT.ACTIVE,
                         CATEGORY.ID,
                         CATEGORY.NAME,
                         CATEGORY.ACTIVE,
                         LOCATION.ID,
                         LOCATION.NAME,
-                        LOCATION.DESCRIPTION
+                        LOCATION.DESCRIPTION,
+                        STOCK.TOTAL_STOCK,
+                        STOCK.MIN_STOCK,
+                        STOCK.AVAILABLE,
+                        STOCK.RESERVED,
+                        STOCK.LOANED,
+                        STOCK.DAMAGED
                 )
                 .from(IMPLEMENT)
                 .leftJoin(CATEGORY).on(CATEGORY.ID.eq(IMPLEMENT.CATEGORY_ID))
                 .join(LOCATION).on(LOCATION.ID.eq(IMPLEMENT.LOCATION_ID))
+                .leftJoin(STOCK).on(STOCK.IMPLEMENT_ID.eq(IMPLEMENT.ID))
                 .where(IMPLEMENT.ID.eq(id))
                 .fetchOptional(record -> {
                     Integer categoryId = record.get(CATEGORY.ID);
@@ -70,11 +79,21 @@ public class ImplementJooqRepository implements ImplementRepository {
                     return new ImplementSummary(
                             record.get(IMPLEMENT.ID),
                             record.get(IMPLEMENT.NAME),
+                            record.get(IMPLEMENT.DESCRIPTION),
+                            record.get(IMPLEMENT.ACTIVE),
                             category,
                             new ImplementLocationSummary(
                                     record.get(LOCATION.ID),
                                     record.get(LOCATION.NAME),
                                     record.get(LOCATION.DESCRIPTION)
+                            ),
+                            new ImplementStockSummary(
+                                    record.get(STOCK.TOTAL_STOCK),
+                                    record.get(STOCK.MIN_STOCK),
+                                    record.get(STOCK.AVAILABLE),
+                                    record.get(STOCK.RESERVED),
+                                    record.get(STOCK.LOANED),
+                                    record.get(STOCK.DAMAGED)
                             )
                     );
                 });
