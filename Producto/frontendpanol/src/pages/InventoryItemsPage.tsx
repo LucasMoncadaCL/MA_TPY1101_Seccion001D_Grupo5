@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { InventoryLayout } from "../components/layout/InventoryLayout";
 import { ImplementFormModal } from "../components/implements/ImplementFormModal";
 import { ImplementEditModal } from "../components/implements/ImplementEditModal";
-import { createImplement, fetchImplements, updateImplement } from "../services/implementService";
+import { createImplement, fetchImplements } from "../services/implementService";
 import { fetchActiveCategories } from "../services/activeCategoryService";
 import { getErrorMessage } from "../services/apiClient";
 import type { ActiveCategoryOption } from "../types/categoryActive";
@@ -13,7 +13,7 @@ type UserRole = "COORDINADOR" | "DIRECTOR" | "DOCENTE" | "UNKNOWN";
 
 export function InventoryItemsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editing, setEditing] = useState<ImplementSummary | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,25 +154,9 @@ export function InventoryItemsPage() {
     }
   }
 
-  async function handleUpdate(payload: { id: number; name: string; categoryId: number | null; locationId: number }) {
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      await updateImplement(payload.id, {
-        name: payload.name,
-        category_id: payload.categoryId,
-        location_id: payload.locationId,
-      });
-      await refreshImplements();
-      setSuccess("Implemento actualizado correctamente.");
-      setEditing(null);
-    } catch (error) {
-      setError(getErrorMessage(error, "No se pudo actualizar el implemento."));
-    } finally {
-      setSaving(false);
-    }
+  async function handleSaved() {
+    await refreshImplements();
+    setSuccess("Implemento actualizado correctamente.");
   }
 
   return (
@@ -313,7 +297,7 @@ export function InventoryItemsPage() {
                       <button
                         type="button"
                         className="button button--table button--ghost"
-                        onClick={() => setEditing(row)}
+                        onClick={() => setEditingId(row.id)}
                       >
                         Editar
                       </button>
@@ -337,11 +321,10 @@ export function InventoryItemsPage() {
       />
 
       <ImplementEditModal
-        implement={editing}
-        isOpen={Boolean(editing)}
-        saving={saving}
-        onClose={() => setEditing(null)}
-        onSubmit={handleUpdate}
+        implementId={editingId}
+        isOpen={editingId != null}
+        onClose={() => setEditingId(null)}
+        onSaved={handleSaved}
       />
     </InventoryLayout>
   );
