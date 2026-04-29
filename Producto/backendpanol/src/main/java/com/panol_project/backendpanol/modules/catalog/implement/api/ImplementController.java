@@ -48,15 +48,19 @@ public class ImplementController {
                 request.minStock(),
                 request.observations()
         );
-        // No resolvemos categoria aqui: la UI se apoya en GET /api/implements/{id} para la ficha.
-        return toResponse(created, null, request.minStock(), request.observations());
+      
+        var summary = service.obtenerSummary(created.id());
+        return toResponse(created, summary, service.obtenerStockMinimo(created.id()), request.observations());
+
+
     }
 
     @PutMapping("/{id}")
     ImplementResponse editar(@PathVariable Integer id, @Valid @RequestBody UpdateImplementRequest request) {
         Implemento updated = service.editar(id, request.name(), request.description(), request.categoryId(), request.locationId());
+        var summary = service.obtenerSummary(updated.id());
         Integer minStock = service.obtenerStockMinimo(updated.id());
-        return toResponse(updated, null, minStock, null);
+        return toResponse(updated, summary, minStock, null);
     }
 
     @GetMapping("/{id}")
@@ -120,7 +124,7 @@ public class ImplementController {
     }
 
     private ImplementResponse toResponse(Implemento implemento) {
-        // Para create/update no necesitamos resolver categoria (la ficha la vuelve a consultar por GET).
+        // Fallback para casos donde no tengamos el summary (idealmente, siempre lo tenemos en GET/POST/PUT).
         return toResponse(implemento, null, null, null);
     }
 
@@ -141,6 +145,13 @@ public class ImplementController {
                                 summary.category().id(),
                                 summary.category().name(),
                                 summary.category().active()
+                        ),
+                summary == null || summary.location() == null
+                        ? null
+                        : new ImplementLocationSummaryResponse(
+                                summary.location().id(),
+                                summary.location().name(),
+                                summary.location().description()
                         ),
                 implemento.categoriaId(),
                 implemento.locationId(),

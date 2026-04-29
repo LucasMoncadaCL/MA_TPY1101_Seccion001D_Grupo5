@@ -55,17 +55,20 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
       };
     }
 
-    return { text: "Sin categoria", inactive: false, muted: true };
+    return { text: "Sin categoría", inactive: false, muted: true };
   }, [implement]);
 
   const locationLabel = useMemo(() => {
     if (!implement) {
       return "-";
     }
-    if (implement.locationId) {
-      return `Ubicacion #${implement.locationId}`;
+    if (implement.location) {
+      return implement.location.name;
     }
-    return "Sin ubicacion";
+    if (implement.locationId) {
+      return `Ubicación #${implement.locationId}`;
+    }
+    return "Sin ubicación";
   }, [implement]);
 
   return (
@@ -96,7 +99,7 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
             <article className="detail-card">
               <h3>Atributos</h3>
               <p>
-                <strong>Categoria:</strong>{" "}
+                <strong>Categoría:</strong>{" "}
                 <span className={categoryView.muted ? "text-muted" : undefined}>{categoryView.text}</span>{" "}
                 {categoryView.inactive ? <span className="badge badge--inactive">[Inactiva]</span> : null}
               </p>

@@ -58,6 +58,11 @@ export interface ImplementDetail {
     name: string;
     active: boolean;
   } | null;
+  location: {
+    id: number;
+    name: string;
+    description: string | null;
+  } | null;
   categoryId: number | null;
   locationId: number | null;
   min_stock: number | null;
