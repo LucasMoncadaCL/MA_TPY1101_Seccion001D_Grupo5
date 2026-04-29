@@ -9,7 +9,7 @@ public interface ImplementRepository {
 
     Optional<ImplementSummary> findSummaryById(Integer id);
 
-    List<ImplementSummary> findAllSummaries();
+    List<ImplementSummary> findAllSummaries(String name, Integer categoryId);
 
     boolean existsActiveByNameIgnoreCase(String nombre);
 
