@@ -15,7 +15,10 @@ import com.panol_project.backendpanol.bootstrap.config.SecurityConfig;
 import com.panol_project.backendpanol.modules.catalog.implement.api.ImplementController;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.CreateImplementRequest;
 import com.panol_project.backendpanol.modules.catalog.implement.application.ImplementService;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementCategorySummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementLocationSummary;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
 import com.panol_project.backendpanol.shared.error.security.RestAccessDeniedHandler;
 import com.panol_project.backendpanol.shared.error.security.RestAuthenticationEntryPoint;
@@ -84,6 +87,13 @@ class ImplementCreateEndpointSecurityTest {
                         now,
                         now
                 ));
+        when(service.obtenerStockMinimo(1)).thenReturn(3);
+        when(service.obtenerSummary(1)).thenReturn(new ImplementSummary(
+                1,
+                "Guantes",
+                new ImplementCategorySummary(2, "Categoria", true),
+                new ImplementLocationSummary(10, "Ubicacion", null)
+        ));
 
         mvc.perform(post("/api/implements")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COORDINADOR")))
