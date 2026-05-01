@@ -4,6 +4,8 @@ export interface ImplementCreatePayload {
   item_type: "consumable" | "reusable" | "individual";
   location_id: number;
   description: string | null;
+  barcode: string | null;
+  img_url: string | null;
   min_stock: number;
   observations: string | null;
 }
@@ -14,6 +16,8 @@ export interface ImplementUpdatePayload {
   location_id: number;
   item_type: "consumable" | "reusable" | "individual";
   description: string | null;
+  barcode: string | null;
+  img_url: string | null;
   min_stock: number;
   observations: string | null;
 }
@@ -22,6 +26,8 @@ export interface ImplementSummary {
   id: number;
   name: string;
   description?: string | null;
+  barcode?: string | null;
+  imgUrl?: string | null;
   active?: boolean;
   available?: boolean;
   category: {
@@ -71,6 +77,8 @@ export interface ImplementDetail {
   categoryId: number | null;
   locationId: number | null;
   min_stock: number | null;
+  barcode: string | null;
+  img_url: string | null;
   observations: string | null;
   active: boolean;
   createdAt: string;

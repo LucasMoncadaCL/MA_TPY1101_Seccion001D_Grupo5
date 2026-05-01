@@ -14,6 +14,8 @@ interface CreateImplementFormPayload {
   itemType: ItemType;
   locationId: number;
   description: string | null;
+  barcode: string | null;
+  imgUrl: string | null;
   minStock: number;
   observations: string | null;
 }
@@ -32,6 +34,8 @@ interface FieldErrors {
   locationId?: string;
   minStock?: string;
   description?: string;
+  barcode?: string;
+  imgUrl?: string;
   observations?: string;
   form?: string;
 }
@@ -48,6 +52,8 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
   const [itemTypeRaw, setItemTypeRaw] = useState<ItemType | "">("");
   const [locationIdRaw, setLocationIdRaw] = useState("");
   const [description, setDescription] = useState("");
+  const [barcode, setBarcode] = useState("");
+  const [imgUrl, setImgUrl] = useState("");
   const [minStockRaw, setMinStockRaw] = useState("");
   const [observations, setObservations] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -70,6 +76,8 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
     setItemTypeRaw("");
     setLocationIdRaw("");
     setDescription("");
+    setBarcode("");
+    setImgUrl("");
     setMinStockRaw("");
     setObservations("");
     setFieldErrors({});
@@ -119,6 +127,9 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
     if (name.trim().length === 0) {
       errors.name = "El nombre es obligatorio.";
     }
+    if (name.trim().length > 150) {
+      errors.name = "El nombre no puede superar 150 caracteres.";
+    }
     if (!Number.isFinite(categoryId)) {
       errors.categoryId = "La categoria es obligatoria.";
     }
@@ -130,6 +141,15 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
     }
     if (!Number.isFinite(minStock) || minStock <= 0 || !Number.isInteger(minStock)) {
       errors.minStock = "El stock minimo debe ser un entero positivo.";
+    }
+    if (description.trim().length > 2000) {
+      errors.description = "La descripcion no puede superar 2000 caracteres.";
+    }
+    if (observations.trim().length > 500) {
+      errors.observations = "Las observaciones no pueden superar 500 caracteres.";
+    }
+    if (barcode.trim().length > 100) {
+      errors.barcode = "El codigo de barras no puede superar 100 caracteres.";
     }
 
     return errors;
@@ -163,6 +183,14 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
       errors.description = message;
       return errors;
     }
+    if (normalized.includes("barra")) {
+      errors.barcode = message;
+      return errors;
+    }
+    if (normalized.includes("imagen") || normalized.includes("url")) {
+      errors.imgUrl = message;
+      return errors;
+    }
     if (normalized.includes("observaciones")) {
       errors.observations = message;
       return errors;
@@ -193,6 +221,8 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
         itemType: itemTypeRaw as ItemType,
         locationId,
         description: description.trim() ? description.trim() : null,
+        barcode: barcode.trim() ? barcode.trim() : null,
+        imgUrl: imgUrl.trim() ? imgUrl.trim() : null,
         minStock,
         observations: observations.trim() ? observations.trim() : null,
       });
@@ -220,7 +250,7 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
               setFieldErrors((current) => ({ ...current, name: undefined }));
             }}
             placeholder="Ej: Guantes latex"
-            maxLength={120}
+            maxLength={150}
             required
           />
           {fieldErrors.name ? <p className="field-error">{fieldErrors.name}</p> : null}
@@ -298,9 +328,35 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
               setFieldErrors((current) => ({ ...current, description: undefined }));
             }}
             placeholder="Descripcion opcional"
-            maxLength={255}
+            maxLength={2000}
           />
           {fieldErrors.description ? <p className="field-error">{fieldErrors.description}</p> : null}
+
+          <label htmlFor="implement-barcode">Codigo de barras</label>
+          <input
+            id="implement-barcode"
+            value={barcode}
+            onChange={(event) => {
+              setBarcode(event.target.value);
+              setFieldErrors((current) => ({ ...current, barcode: undefined }));
+            }}
+            placeholder="Opcional"
+            maxLength={100}
+          />
+          {fieldErrors.barcode ? <p className="field-error">{fieldErrors.barcode}</p> : null}
+
+          <label htmlFor="implement-img-url">URL de imagen</label>
+          <input
+            id="implement-img-url"
+            value={imgUrl}
+            onChange={(event) => {
+              setImgUrl(event.target.value);
+              setFieldErrors((current) => ({ ...current, imgUrl: undefined }));
+            }}
+            placeholder="https://..."
+            maxLength={2000}
+          />
+          {fieldErrors.imgUrl ? <p className="field-error">{fieldErrors.imgUrl}</p> : null}
 
           <label htmlFor="implement-min-stock">Stock minimo</label>
           <input
@@ -317,7 +373,7 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
             required
           />
           <p className="field-hint">
-            El stock inicial del producto será 0. Para agregar unidades usa el ingreso de lote.
+            El stock inicial del producto serÃ¡ 0. Para agregar unidades usa el ingreso de lote.
           </p>
           {fieldErrors.minStock ? <p className="field-error">{fieldErrors.minStock}</p> : null}
 
@@ -347,3 +403,4 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
     </div>
   );
 }
+

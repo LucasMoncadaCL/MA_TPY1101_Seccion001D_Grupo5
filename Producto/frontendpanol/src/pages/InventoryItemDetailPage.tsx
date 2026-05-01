@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { InventoryLayout } from "../components/layout/InventoryLayout";
+import { ImplementEditModal } from "../components/implements/ImplementEditModal";
 import { getErrorMessage } from "../services/apiClient";
 import { fetchImplementById, updateImplement } from "../services/implementService";
 import { fetchLocations } from "../services/locationService";
-import { ImplementEditModal } from "../components/implements/ImplementEditModal";
-import type { LocationOption } from "../types/location";
+import { addStockEntry, applyStockMovement, fetchImplementStock, updateIndividualState } from "../services/stockService";
 import type { ImplementDetail } from "../types/implement";
+import type { LocationOption } from "../types/location";
+import type { IndividualItem, StockMovementType } from "../types/stock";
 
 const ITEM_TYPE_LABELS: Record<"consumable" | "reusable" | "individual", string> = {
   consumable: "Consumible",
@@ -13,13 +15,28 @@ const ITEM_TYPE_LABELS: Record<"consumable" | "reusable" | "individual", string>
   individual: "Individual",
 };
 
+const MOVEMENT_OPTIONS: { value: StockMovementType; label: string }[] = [
+  { value: "increase_available", label: "Aumentar disponible" },
+  { value: "decrease_available", label: "Disminuir disponible" },
+  { value: "reserve", label: "Reservar" },
+  { value: "release_reserve", label: "Liberar reserva" },
+  { value: "loan", label: "Prestar" },
+  { value: "return", label: "Devolver" },
+  { value: "damage", label: "Marcar dañado" },
+  { value: "repair", label: "Reparar" },
+];
+
 export function InventoryItemDetailPage({ implementId }: { implementId: number }) {
   const [implement, setImplement] = useState<ImplementDetail | null>(null);
+  const [stockDetail, setStockDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [stockLoading, setStockLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [showInitialStockHint, setShowInitialStockHint] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isAttributesEditing, setIsAttributesEditing] = useState(false);
+  const [isStockEditing, setIsStockEditing] = useState(false);
 
   const [locations, setLocations] = useState<LocationOption[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
@@ -27,6 +44,13 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
   const [savingLocation, setSavingLocation] = useState(false);
   const [locationSaveError, setLocationSaveError] = useState<string | null>(null);
+
+  const [entryQuantity, setEntryQuantity] = useState("1");
+  const [assetCodesRaw, setAssetCodesRaw] = useState("");
+  const [movementType, setMovementType] = useState<StockMovementType>("reserve");
+  const [movementQuantity, setMovementQuantity] = useState("1");
+  const [movementIndividualIds, setMovementIndividualIds] = useState("");
+  const [stockBusy, setStockBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -45,135 +69,39 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
   }, [implementId]);
 
   useEffect(() => {
-    setLocations([]);
-    setLocationsError(null);
-    setLoadingLocations(true);
+    setStockLoading(true);
+    setStockError(null);
 
+    fetchImplementStock(implementId)
+      .then(setStockDetail)
+      .catch((requestError) => setStockError(getErrorMessage(requestError, "No se pudo cargar el stock.")))
+      .finally(() => setStockLoading(false));
+  }, [implementId]);
+
+  useEffect(() => {
+    setLoadingLocations(true);
     fetchLocations()
       .then((result) => setLocations(result))
       .catch((requestError) => setLocationsError(getErrorMessage(requestError, "No se pudo cargar las ubicaciones.")))
       .finally(() => setLoadingLocations(false));
   }, []);
 
-  useEffect(() => {
-    try {
-      const marker = window.sessionStorage.getItem("inventory.justCreatedImplementId");
-      const markerId = marker ? Number(marker) : NaN;
-      const isJustCreated = Number.isFinite(markerId) && markerId === implementId;
-      setShowInitialStockHint(isJustCreated);
-      if (isJustCreated) {
-        window.sessionStorage.removeItem("inventory.justCreatedImplementId");
-      }
-    } catch {
-      setShowInitialStockHint(false);
-    }
-  }, [implementId]);
-
-  const categoryView = useMemo(() => {
-    if (!implement) {
-      return { text: "-", inactive: false, muted: false };
-    }
-
-    if (implement.category) {
-      return {
-        text: implement.category.name,
-        inactive: !implement.category.active,
-        muted: false,
-      };
-    }
-
-    return { text: "Sin categoría", inactive: false, muted: true };
-  }, [implement]);
-
-  const locationLabel = useMemo(() => {
-    if (!implement) {
-      return "-";
-    }
-    if (implement.display_location) {
-      return implement.display_location;
-    }
-    if (implement.location) {
-      return implement.location.name;
-    }
-    if (implement.locationId) {
-      return `Ubicación #${implement.locationId}`;
-    }
-    return "Sin ubicación";
-  }, [implement]);
-
-  const isLoanedLocation = useMemo(() => implement?.display_location === "Prestado", [implement?.display_location]);
-
   const canSaveLocationChange = useMemo(() => {
-    if (!implement) {
-      return false;
-    }
-    if (savingLocation || loading || loadingLocations) {
-      return false;
-    }
-    if (Boolean(locationsError) || Boolean(locationSaveError)) {
-      return false;
-    }
-    if (isLoanedLocation) {
-      return false;
-    }
-
+    if (!implement || !isAttributesEditing) return false;
     const nextLocationId = selectedLocationId.trim() ? Number(selectedLocationId) : NaN;
-    if (!Number.isFinite(nextLocationId)) {
-      return false;
-    }
+    return Number.isFinite(nextLocationId) && nextLocationId !== implement.locationId && !savingLocation && !loadingLocations;
+  }, [implement, isAttributesEditing, selectedLocationId, savingLocation, loadingLocations]);
 
-    // PUT /api/implements/{id} requiere payload completo.
-    if (!implement.name || implement.name.trim().length === 0) {
-      return false;
-    }
-    if (!implement.item_type) {
-      return false;
-    }
-    if (implement.min_stock == null || implement.min_stock <= 0 || !Number.isInteger(implement.min_stock)) {
-      return false;
-    }
-    if (implement.categoryId == null) {
-      return false;
-    }
-
-    return nextLocationId !== implement.locationId;
-  }, [
-    implement,
-    isLoanedLocation,
-    loading,
-    loadingLocations,
-    locationSaveError,
-    locationsError,
-    savingLocation,
-    selectedLocationId,
-  ]);
+  async function refreshStock() {
+    const detail = await fetchImplementStock(implementId);
+    setStockDetail(detail);
+  }
 
   async function handleSaveLocation() {
-    if (!implement) {
-      return;
-    }
-
-    setLocationSaveError(null);
-    setSuccess(null);
-
+    if (!implement) return;
     const nextLocationId = selectedLocationId.trim() ? Number(selectedLocationId) : NaN;
     if (!Number.isFinite(nextLocationId)) {
-      setLocationSaveError("Debes seleccionar una ubicación.");
-      return;
-    }
-
-    if (!implement.item_type) {
-      setLocationSaveError("El tipo de implemento no está definido. Edita el producto antes de cambiar la ubicación.");
-      return;
-    }
-
-    if (implement.min_stock == null || implement.min_stock <= 0 || !Number.isInteger(implement.min_stock)) {
-      setLocationSaveError("El stock mínimo del producto es inválido. Edita el producto antes de cambiar la ubicación.");
-      return;
-    }
-
-    if (implement.categoryId == null) {
-      setLocationSaveError("La categoría del producto no está definida. Edita el producto antes de cambiar la ubicación.");
+      setLocationSaveError("Debes seleccionar una ubicacion.");
       return;
     }
 
@@ -183,19 +111,69 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
         name: implement.name,
         category_id: implement.categoryId,
         location_id: nextLocationId,
-        item_type: implement.item_type,
+        item_type: implement.item_type!,
         description: implement.description,
-        min_stock: implement.min_stock,
+        barcode: implement.barcode,
+        img_url: implement.img_url,
+        min_stock: implement.min_stock ?? 1,
         observations: implement.observations,
       });
-
       setImplement(updated);
-      setSelectedLocationId(updated.locationId == null ? "" : String(updated.locationId));
-      setSuccess("Ubicación actualizada correctamente.");
+      setIsAttributesEditing(false);
+      setSuccess("Ubicacion actualizada correctamente.");
+      await refreshStock();
     } catch (requestError) {
-      setLocationSaveError(getErrorMessage(requestError, "No se pudo actualizar la ubicación."));
+      setLocationSaveError(getErrorMessage(requestError, "No se pudo actualizar la ubicacion."));
     } finally {
       setSavingLocation(false);
+    }
+  }
+
+  async function handleAddEntry() {
+    setStockBusy(true);
+    setStockError(null);
+    try {
+      const payload: { quantity: number; asset_codes?: string[] } = { quantity: Number(entryQuantity) };
+      if (implement?.item_type === "individual") {
+        payload.asset_codes = assetCodesRaw.split("\n").map((line) => line.trim()).filter(Boolean);
+      }
+      setStockDetail(await addStockEntry(implementId, payload));
+      setSuccess("Ingreso de stock registrado.");
+    } catch (requestError) {
+      setStockError(getErrorMessage(requestError, "No se pudo registrar el ingreso de stock."));
+    } finally {
+      setStockBusy(false);
+    }
+  }
+
+  async function handleMovement() {
+    setStockBusy(true);
+    setStockError(null);
+    try {
+      const payload: any = { movement_type: movementType };
+      if (implement?.item_type === "individual") {
+        payload.individual_ids = movementIndividualIds.split(",").map((v) => Number(v.trim())).filter((v) => Number.isFinite(v) && v > 0);
+      } else {
+        payload.quantity = Number(movementQuantity);
+      }
+      setStockDetail(await applyStockMovement(implementId, payload));
+      setSuccess("Movimiento de stock aplicado.");
+    } catch (requestError) {
+      setStockError(getErrorMessage(requestError, "No se pudo aplicar el movimiento de stock."));
+    } finally {
+      setStockBusy(false);
+    }
+  }
+
+  async function handleMarkIndividualAvailable(individual: IndividualItem) {
+    setStockBusy(true);
+    try {
+      setStockDetail(await updateIndividualState(implementId, individual.id, { status: "available", condition: "good" }));
+      setSuccess(`Individual ${individual.asset_code} actualizado.`);
+    } catch (requestError) {
+      setStockError(getErrorMessage(requestError, "No se pudo actualizar el individual."));
+    } finally {
+      setStockBusy(false);
     }
   }
 
@@ -203,16 +181,13 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
     <InventoryLayout activeSection="items">
       <section className="content-header">
         <div>
-          <h1>Ficha de producto</h1>
-          <p>Detalle del implemento registrado.</p>
+          <h1>Detalle de implemento</h1>
+          <p>Inventario / Ficha completa</p>
         </div>
         <div className="content-header__actions">
-          <a className="button button--ghost" href="#/inventory/implementos">
-            Volver al listado
-          </a>
-          <button type="button" className="button" onClick={() => setIsEditing(true)} disabled={loading || !implement}>
-            Editar
-          </button>
+          <a className="button button--ghost" href="#/inventory/implementos">Volver al listado</a>
+          <button type="button" className="button" onClick={() => setIsEditing(true)} disabled={loading || !implement}>Editar implemento</button>
+          <button type="button" className="button button--ghost" onClick={() => setIsStockEditing((c) => !c)} disabled={loading || !implement}>{isStockEditing ? "Cerrar ajuste stock" : "Ajustar stock"}</button>
         </div>
       </section>
 
@@ -220,73 +195,116 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
         {loading ? <div className="field-hint">Cargando ficha...</div> : null}
         {error ? <div className="error-banner">{error}</div> : null}
         {success ? <div className="success-banner">{success}</div> : null}
+        {stockError ? <div className="error-banner">{stockError}</div> : null}
 
         {implement && !loading ? (
-          <div className="detail-grid">
-            <article className="detail-card">
-              <h2>{implement.name}</h2>
-              <p>{implement.description ?? "Sin descripcion"}</p>
-            </article>
+          <div className="implement-detail-layout">
+            <div className="implement-left-column">
+              <article className="detail-card detail-card--relative">
+                <button type="button" className="card-edit-btn" onClick={() => setIsAttributesEditing((c) => !c)}>?</button>
+                <div className="implement-hero-detail">
+                  <div className="implement-hero">
+                    <img src={implement.img_url ?? "https://placehold.co/420x260/e9edf5/4d6284?text=Sin+imagen"} alt={implement.name} className="implement-hero__img" />
+                    <button type="button" className="button button--ghost button--sm" disabled>Ver imagen</button>
+                  </div>
+                  <div>
+                    <h2>{implement.name}</h2>
+                    <div className="implement-meta-grid">
+                      <p><strong>Categoria:</strong> {implement.category?.name ?? "Sin categoria"}</p>
+                      <p><strong>Estado:</strong> {implement.active ? "Activo" : "Inactivo"}</p>
+                      <p><strong>Fecha de ingreso:</strong> {implement.createdAt ? new Date(implement.createdAt).toLocaleDateString() : "-"}</p>
+                      <p><strong>Tipo:</strong> {implement.item_type ? ITEM_TYPE_LABELS[implement.item_type] : "Sin tipo"}</p>
+                      <p><strong>Codigo de barras:</strong> {implement.barcode ?? "No informado"}</p>
+                      <p className="implement-meta-grid__full"><strong>Ubicacion principal:</strong> {!isAttributesEditing ? (implement.display_location ?? implement.location?.name ?? "Sin ubicacion") : null}
+                        {isAttributesEditing ? (
+                          <span className="location-selector">
+                            <select value={selectedLocationId} onChange={(e) => setSelectedLocationId(e.target.value)} disabled={loadingLocations}>
+                              <option value="" disabled>Selecciona una ubicacion</option>
+                              {locations.map((l) => <option key={l.id} value={String(l.id)}>{l.name}</option>)}
+                            </select>
+                            <button type="button" className="button button--sm" onClick={handleSaveLocation} disabled={!canSaveLocationChange}>{savingLocation ? "Guardando..." : "Guardar"}</button>
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="implement-meta-grid__full"><strong>Observaciones:</strong> {implement.observations ?? "Sin observaciones"}</p>
+                    </div>
+                    {locationsError ? <p className="field-error">{locationsError}</p> : null}
+                    {locationSaveError ? <p className="field-error">{locationSaveError}</p> : null}
+                  </div>
+                </div>
+              </article>
 
-            <article className="detail-card">
-              <h3>Atributos</h3>
-              <p>
-                <strong>Categoría:</strong>{" "}
-                <span className={categoryView.muted ? "text-muted" : undefined}>{categoryView.text}</span>{" "}
-                {categoryView.inactive ? <span className="badge badge--inactive">[Inactiva]</span> : null}
-              </p>
-              <p>
-                <strong>Tipo:</strong> {implement.item_type ? ITEM_TYPE_LABELS[implement.item_type] : "Sin tipo"}
-              </p>
-              <p>
-                <strong>Ubicación:</strong>{" "}
-                {isLoanedLocation ? (
-                  <>
-                    {locationLabel} <span className="badge badge--warn">Prestado</span>
-                  </>
-                ) : (
-                  <span className="location-selector">
-                    <select
-                      value={selectedLocationId}
-                      onChange={(event) => {
-                        setSelectedLocationId(event.target.value);
-                        setLocationSaveError(null);
-                      }}
-                      disabled={loadingLocations || Boolean(locationsError) || savingLocation}
-                      aria-label="Seleccionar ubicación"
-                    >
-                      <option value="" disabled>
-                        Selecciona una ubicación
-                      </option>
-                      {locations.map((location) => (
-                        <option key={location.id} value={String(location.id)}>
-                          {location.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="button" className="button button--sm" onClick={handleSaveLocation} disabled={!canSaveLocationChange}>
-                      {savingLocation ? "Guardando..." : "Guardar"}
-                    </button>
-                  </span>
-                )}
-              </p>
-              {locationsError ? <p className="field-error">{locationsError}</p> : null}
-              {locationSaveError ? <p className="field-error">{locationSaveError}</p> : null}
-              {!isLoanedLocation && implement.min_stock != null && implement.min_stock <= 0 ? (
-                <p className="field-hint">Para cambiar la ubicación, primero edita el producto y define un stock mínimo válido.</p>
+              {stockLoading ? <p className="field-hint">Cargando stock...</p> : null}
+              {stockDetail ? (
+                <section className="stock-kpi-grid stock-kpi-grid--detail">
+                  <article className="stock-kpi stock-kpi--available"><span>Disponibles</span><strong>{stockDetail.stock.available}</strong><small>Unidades listas para uso</small></article>
+                  <article className="stock-kpi stock-kpi--loaned"><span>Prestados</span><strong>{stockDetail.stock.loaned}</strong><small>Actualmente en préstamo</small></article>
+                  <article className="stock-kpi stock-kpi--warn"><span>Reservados</span><strong>{stockDetail.stock.reserved}</strong><small>Reservas activas</small></article>
+                  <article className="stock-kpi stock-kpi--danger"><span>Dañados</span><strong>{stockDetail.stock.damaged}</strong><small>Requieren revisión</small></article>
+                  <article className="stock-kpi stock-kpi--min"><span>Stock mínimo</span><strong>{stockDetail.stock.min_stock}</strong><small>Nivel mínimo configurado</small></article>
+                </section>
               ) : null}
-              <p>
-                <strong>Stock mínimo:</strong> {implement.min_stock === null ? "No informado" : implement.min_stock}
-              </p>
-              {showInitialStockHint ? (
-                <p className="detail-stock-hint">
-                  <strong>Stock disponible:</strong> 0 <span className="badge badge--warn">Ingresa un lote</span>
-                </p>
+
+              {isStockEditing ? (
+                <article className="detail-card">
+                  <h3>Ajustes de stock</h3>
+                  <div className="stock-actions-grid">
+                    <div>
+                      <h4>Ingreso</h4>
+                      <input type="number" min={1} value={entryQuantity} onChange={(event) => setEntryQuantity(event.target.value)} placeholder="Cantidad" />
+                      {implement.item_type === "individual" ? <textarea value={assetCodesRaw} onChange={(event) => setAssetCodesRaw(event.target.value)} placeholder="Un asset_code por linea" /> : null}
+                      <button type="button" className="button button--sm" disabled={stockBusy} onClick={handleAddEntry}>{stockBusy ? "Procesando..." : "Registrar ingreso"}</button>
+                    </div>
+                    <div>
+                      <h4>Movimiento</h4>
+                      <select value={movementType} onChange={(event) => setMovementType(event.target.value as StockMovementType)}>{MOVEMENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+                      {implement.item_type === "individual"
+                        ? <input type="text" value={movementIndividualIds} onChange={(event) => setMovementIndividualIds(event.target.value)} placeholder="IDs individuales (1,2,3)" />
+                        : <input type="number" min={1} value={movementQuantity} onChange={(event) => setMovementQuantity(event.target.value)} placeholder="Cantidad" />}
+                      <button type="button" className="button button--sm" disabled={stockBusy} onClick={handleMovement}>{stockBusy ? "Procesando..." : "Aplicar movimiento"}</button>
+                    </div>
+                  </div>
+                </article>
               ) : null}
-              <p>
-                <strong>Observaciones:</strong> {implement.observations ?? "Sin observaciones"}
-              </p>
-            </article>
+
+              {implement.item_type === "individual" ? (
+                <article className="detail-card">
+                  <h3>Unidades asociadas</h3>
+                  <div className="table-wrapper">
+                    <table className="category-table">
+                      <thead>
+                        <tr><th>ID individual</th><th>Codigo</th><th>Estado</th><th>Condicion</th><th>Ubicacion</th><th>Accion</th></tr>
+                      </thead>
+                      <tbody>
+                        {(stockDetail?.individuals ?? []).map((individual: IndividualItem) => (
+                          <tr key={individual.id}>
+                            <td>{individual.id}</td>
+                            <td>{individual.asset_code}</td>
+                            <td>{individual.status}</td>
+                            <td>{individual.condition}</td>
+                            <td>{individual.current_location_id ?? "-"}</td>
+                            <td><button type="button" className="button button--table" disabled={stockBusy || individual.status === "available"} onClick={() => handleMarkIndividualAvailable(individual)}>Marcar disponible</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              ) : null}
+            </div>
+
+            <aside className="implement-right-column">
+              <article className="detail-card">
+                <h3>Descripcion</h3>
+                <p>{implement.description ?? "Sin descripcion"}</p>
+              </article>
+              <article className="detail-card">
+                <h3>Información de inventario</h3>
+                <p><strong>Observaciones:</strong> {implement.observations ?? "Sin observaciones"}</p>
+                <p><strong>Total stock:</strong> {stockDetail?.stock?.total_stock ?? 0}</p>
+                <p><strong>Ultima actualizacion:</strong> {implement.updatedAt ? new Date(implement.updatedAt).toLocaleString() : "-"}</p>
+              </article>
+            </aside>
           </div>
         ) : null}
       </section>
@@ -304,4 +322,3 @@ export function InventoryItemDetailPage({ implementId }: { implementId: number }
     </InventoryLayout>
   );
 }
-

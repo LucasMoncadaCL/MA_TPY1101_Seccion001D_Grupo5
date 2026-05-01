@@ -30,6 +30,8 @@ public class ImplementJooqRepository implements ImplementRepository {
 
     private final DSLContext dsl;
     private static final Field<String> IMPLEMENT_OBSERVATIONS = DSL.field(DSL.name("observations"), String.class);
+    private static final Field<String> IMPLEMENT_BARCODE = DSL.field(DSL.name("barcode"), String.class);
+    private static final Field<String> IMPLEMENT_IMG_URL = DSL.field(DSL.name("img_url"), String.class);
 
     public ImplementJooqRepository(DSLContext dsl) {
         this.dsl = dsl;
@@ -49,6 +51,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                         IMPLEMENT.ID,
                         IMPLEMENT.NAME,
                         IMPLEMENT.DESCRIPTION,
+                        IMPLEMENT_BARCODE,
+                        IMPLEMENT_IMG_URL,
                         IMPLEMENT.ACTIVE,
                         CATEGORY.ID,
                         CATEGORY.NAME,
@@ -82,6 +86,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                             record.get(IMPLEMENT.ID),
                             record.get(IMPLEMENT.NAME),
                             record.get(IMPLEMENT.DESCRIPTION),
+                            record.get(IMPLEMENT_BARCODE),
+                            record.get(IMPLEMENT_IMG_URL),
                             record.get(IMPLEMENT.ACTIVE),
                             category,
                             new ImplementLocationSummary(
@@ -117,6 +123,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                         IMPLEMENT.ID,
                         IMPLEMENT.NAME,
                         IMPLEMENT.DESCRIPTION,
+                        IMPLEMENT_BARCODE,
+                        IMPLEMENT_IMG_URL,
                         IMPLEMENT.ACTIVE,
                         CATEGORY.ID,
                         CATEGORY.NAME,
@@ -151,6 +159,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                             record.get(IMPLEMENT.ID),
                             record.get(IMPLEMENT.NAME),
                             record.get(IMPLEMENT.DESCRIPTION),
+                            record.get(IMPLEMENT_BARCODE),
+                            record.get(IMPLEMENT_IMG_URL),
                             record.get(IMPLEMENT.ACTIVE),
                             category,
                             new ImplementLocationSummary(
@@ -198,6 +208,8 @@ public class ImplementJooqRepository implements ImplementRepository {
             Integer categoriaId,
             Integer locationId,
             ImplementItemType itemType,
+            String barcode,
+            String imgUrl,
             String observations
     ) {
         return dsl.insertInto(IMPLEMENT)
@@ -206,6 +218,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .set(IMPLEMENT.CATEGORY_ID, categoriaId)
                 .set(IMPLEMENT.LOCATION_ID, locationId)
                 .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
+                .set(IMPLEMENT_BARCODE, barcode)
+                .set(IMPLEMENT_IMG_URL, imgUrl)
                 .set(IMPLEMENT_OBSERVATIONS, observations)
                 .returning()
                 .fetchOptional()
@@ -221,6 +235,8 @@ public class ImplementJooqRepository implements ImplementRepository {
             Integer categoriaId,
             Integer locationId,
             ImplementItemType itemType,
+            String barcode,
+            String imgUrl,
             String observations
     ) {
         return dsl.update(IMPLEMENT)
@@ -229,6 +245,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .set(IMPLEMENT.CATEGORY_ID, categoriaId)
                 .set(IMPLEMENT.LOCATION_ID, locationId)
                 .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
+                .set(IMPLEMENT_BARCODE, barcode)
+                .set(IMPLEMENT_IMG_URL, imgUrl)
                 .set(IMPLEMENT_OBSERVATIONS, observations)
                 .set(IMPLEMENT.UPDATED_AT, OffsetDateTime.now())
                 .where(IMPLEMENT.ID.eq(id))
@@ -257,10 +275,23 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .fetchOptional(STOCK.MIN_STOCK);
     }
 
+    @Override
+    public int updateActive(Integer id, boolean active) {
+        return dsl.update(IMPLEMENT)
+                .set(IMPLEMENT.ACTIVE, active)
+                .set(IMPLEMENT.UPDATED_AT, OffsetDateTime.now())
+                .where(IMPLEMENT.ID.eq(id))
+                .execute();
+    }
+
     private Implemento toDomain(ImplementRecord record) {
         String observations = null;
+        String barcode = null;
+        String imgUrl = null;
         try {
             observations = record.get(IMPLEMENT_OBSERVATIONS);
+            barcode = record.get(IMPLEMENT_BARCODE);
+            imgUrl = record.get(IMPLEMENT_IMG_URL);
         } catch (IllegalArgumentException ignored) {
             // Cuando el codegen de jOOQ no incluye la columna "observations" en ImplementRecord,
             // el record no contiene ese Field y record.get(Field) lanza IllegalArgumentException.
@@ -274,6 +305,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                 record.getCategoryId(),
                 record.getLocationId(),
                 toDomainItemType(record.getItemType()),
+                barcode,
+                imgUrl,
                 observations,
                 record.getActive(),
                 record.getCreatedAt(),

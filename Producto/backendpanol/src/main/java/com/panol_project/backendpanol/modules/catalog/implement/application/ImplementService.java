@@ -39,11 +39,15 @@ public class ImplementService {
             Integer locationId,
             String itemType,
             Integer minStock,
+            String barcode,
+            String imgUrl,
             String observations
     ) {
         categoriaService.validarCategoriaActivaParaImplemento(categoriaId);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
+        String normalizedBarcode = normalizeBarcode(barcode);
+        String normalizedImgUrl = normalizeOptional(imgUrl);
         String normalizedObservations = normalizeObservations(observations);
         ImplementItemType normalizedItemType = parseItemType(itemType);
         locationService.validarLocationExistente(locationId);
@@ -56,6 +60,8 @@ public class ImplementService {
                     categoriaId,
                     locationId,
                     normalizedItemType,
+                    normalizedBarcode,
+                    normalizedImgUrl,
                     normalizedObservations
             );
             repository.updateMinStockByImplementId(created.id(), minStock);
@@ -77,6 +83,8 @@ public class ImplementService {
             Integer locationId,
             String itemType,
             Integer minStock,
+            String barcode,
+            String imgUrl,
             String observations
     ) {
         Implemento existing = requireImplement(id);
@@ -87,6 +95,8 @@ public class ImplementService {
         locationService.validarLocationExistente(locationId);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
+        String normalizedBarcode = normalizeBarcode(barcode);
+        String normalizedImgUrl = normalizeOptional(imgUrl);
         String normalizedObservations = normalizeObservations(observations);
         ImplementItemType normalizedItemType = parseItemType(itemType);
         validateUniqueActiveNameForUpdate(normalizedName, id);
@@ -99,6 +109,8 @@ public class ImplementService {
                     categoriaId,
                     locationId,
                     normalizedItemType,
+                    normalizedBarcode,
+                    normalizedImgUrl,
                     normalizedObservations
             );
             repository.updateMinStockByImplementId(updated.id(), minStock);
@@ -113,6 +125,16 @@ public class ImplementService {
 
     @Transactional(readOnly = true)
     public Implemento obtener(Integer id) {
+        return requireImplement(id);
+    }
+
+    @Transactional
+    public Implemento setActive(Integer id, boolean active) {
+        Implemento existing = requireImplement(id);
+        if (Boolean.TRUE.equals(existing.activo()) == active) {
+            return existing;
+        }
+        repository.updateActive(id, active);
         return requireImplement(id);
     }
 
@@ -159,18 +181,22 @@ public class ImplementService {
     }
 
     private String normalizeDescripcion(String descripcion) {
-        if (descripcion == null) {
-            return null;
-        }
-        String normalized = descripcion.trim();
-        return normalized.isEmpty() ? null : normalized;
+        return normalizeOptional(descripcion);
     }
 
     private String normalizeObservations(String observations) {
-        if (observations == null) {
+        return normalizeOptional(observations);
+    }
+
+    private String normalizeBarcode(String barcode) {
+        return normalizeOptional(barcode);
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) {
             return null;
         }
-        String normalized = observations.trim();
+        String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
     }
 
@@ -179,7 +205,10 @@ public class ImplementService {
             return null;
         }
         String normalized = nombre.trim();
-        return normalized.isEmpty() ? null : normalized;
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return normalized;
     }
 
     private void validateUniqueActiveNameForCreate(String normalizedName) {

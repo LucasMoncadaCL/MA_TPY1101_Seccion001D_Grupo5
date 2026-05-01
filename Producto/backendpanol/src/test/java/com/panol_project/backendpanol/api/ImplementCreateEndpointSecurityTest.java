@@ -111,7 +111,7 @@ class ImplementCreateEndpointSecurityTest {
         when(categoriaRepository.findActiveById(2))
                 .thenReturn(Optional.of(new Categoria(2, "Categoria", null, true, now)));
         when(locationRepository.existsById(10)).thenReturn(true);
-        when(implementRepository.create(any(), any(), any(), any(), any(), any()))
+        when(implementRepository.create(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new Implemento(
                         1,
                         "Guantes",
@@ -119,6 +119,8 @@ class ImplementCreateEndpointSecurityTest {
                         2,
                         10,
                         ImplementItemType.REUSABLE,
+                        null,
+                        null,
                         "Observacion",
                         true,
                         now,
@@ -130,6 +132,8 @@ class ImplementCreateEndpointSecurityTest {
                 1,
                 "Guantes",
                 "Desc",
+                null,
+                null,
                 true,
                 new ImplementCategorySummary(2, "Categoria", true),
                 new ImplementLocationSummary(10, "Ubicacion", null),
@@ -167,7 +171,7 @@ class ImplementCreateEndpointSecurityTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("La ubicacion es obligatoria")));
 
-        verify(implementRepository, never()).create(any(), any(), any(), any(), any(), any());
+        verify(implementRepository, never()).create(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -181,6 +185,8 @@ class ImplementCreateEndpointSecurityTest {
                 10,
                 ImplementItemType.REUSABLE,
                 null,
+                null,
+                null,
                 true,
                 now,
                 now
@@ -190,6 +196,8 @@ class ImplementCreateEndpointSecurityTest {
                 7,
                 "Jeringa",
                 "Desc",
+                null,
+                null,
                 true,
                 new ImplementCategorySummary(2, "Categoria", true),
                 new ImplementLocationSummary(10, "Ubicacion", null),
@@ -230,6 +238,8 @@ class ImplementCreateEndpointSecurityTest {
                 2,
                 10,
                 ImplementItemType.REUSABLE,
+                null,
+                null,
                 "Obs",
                 true,
                 now,
@@ -238,7 +248,7 @@ class ImplementCreateEndpointSecurityTest {
         when(categoriaRepository.findActiveById(2))
                 .thenReturn(Optional.of(new Categoria(2, "Categoria", null, true, now)));
         when(locationRepository.existsById(10)).thenReturn(true);
-        when(implementRepository.update(1, "Guantes", "Desc", 2, 10, ImplementItemType.REUSABLE, "Obs"))
+        when(implementRepository.update(1, "Guantes", "Desc", 2, 10, ImplementItemType.REUSABLE, null, null, "Obs"))
                 .thenReturn(new Implemento(
                         1,
                         "Guantes",
@@ -246,6 +256,8 @@ class ImplementCreateEndpointSecurityTest {
                         2,
                         10,
                         ImplementItemType.REUSABLE,
+                        null,
+                        null,
                         "Obs",
                         true,
                         now,
@@ -257,6 +269,8 @@ class ImplementCreateEndpointSecurityTest {
                 1,
                 "Guantes",
                 "Desc",
+                null,
+                null,
                 true,
                 new ImplementCategorySummary(2, "Categoria", true),
                 new ImplementLocationSummary(10, "Ubicacion", null),
@@ -281,7 +295,9 @@ class ImplementCreateEndpointSecurityTest {
                 10,
                 "reusable",
                 3,
-                "Observacion"
+                "Observacion",
+                null,
+                null
         );
     }
 

@@ -21,6 +21,8 @@ public interface ImplementRepository {
             Integer categoriaId,
             Integer locationId,
             ImplementItemType itemType,
+            String barcode,
+            String imgUrl,
             String observations
     );
 
@@ -31,8 +33,12 @@ public interface ImplementRepository {
             Integer categoriaId,
             Integer locationId,
             ImplementItemType itemType,
+            String barcode,
+            String imgUrl,
             String observations
     );
+
+    int updateActive(Integer id, boolean active);
 
     int updateMinStockByImplementId(Integer implementId, Integer minStock);
 

@@ -17,6 +17,9 @@ public record ImplementResponse(
         Integer locationId,
         @JsonProperty("min_stock")
         Integer minStock,
+        String barcode,
+        @JsonProperty("img_url")
+        String imgUrl,
         String observations,
         Boolean active,
         OffsetDateTime createdAt,

@@ -123,6 +123,8 @@ export function InventoryItemsPage() {
     itemType: "consumable" | "reusable" | "individual";
     locationId: number;
     description: string | null;
+    barcode: string | null;
+    imgUrl: string | null;
     minStock: number;
     observations: string | null;
   }) {
@@ -137,6 +139,8 @@ export function InventoryItemsPage() {
         item_type: payload.itemType,
         location_id: payload.locationId,
         description: payload.description,
+        barcode: payload.barcode,
+        img_url: payload.imgUrl,
         min_stock: payload.minStock,
         observations: payload.observations,
       });

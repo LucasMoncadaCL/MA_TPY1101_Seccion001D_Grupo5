@@ -17,6 +17,8 @@ interface FieldErrors {
   locationId?: string;
   minStock?: string;
   description?: string;
+  barcode?: string;
+  imgUrl?: string;
   observations?: string;
   form?: string;
 }
@@ -45,6 +47,8 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
   const [itemTypeRaw, setItemTypeRaw] = useState<ItemType | "">("");
   const [locationIdRaw, setLocationIdRaw] = useState<string>("");
   const [description, setDescription] = useState("");
+  const [barcode, setBarcode] = useState("");
+  const [imgUrl, setImgUrl] = useState("");
   const [minStockRaw, setMinStockRaw] = useState("");
   const [observations, setObservations] = useState("");
 
@@ -75,6 +79,8 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
         setItemTypeRaw(detail.item_type ?? "");
         setLocationIdRaw(detail.locationId == null ? "" : String(detail.locationId));
         setDescription(detail.description ?? "");
+        setBarcode(detail.barcode ?? "");
+        setImgUrl(detail.img_url ?? "");
         setMinStockRaw(detail.min_stock == null ? "" : String(detail.min_stock));
         setObservations(detail.observations ?? "");
       })
@@ -145,7 +151,7 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
     if (!isUsingInactiveCategory) {
       return null;
     }
-    return "La categoría actual está inactiva. Debes seleccionar una categoría activa para guardar.";
+    return "La categorÃ­a actual estÃ¡ inactiva. Debes seleccionar una categorÃ­a activa para guardar.";
   }, [currentCategoryInactive, isUsingInactiveCategory]);
 
   const inactiveCategoryOption = useMemo(() => {
@@ -171,6 +177,9 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
     if (name.trim().length === 0) {
       errors.name = "El nombre es obligatorio.";
     }
+    if (name.trim().length > 150) {
+      errors.name = "El nombre no puede superar 150 caracteres.";
+    }
     if (itemTypeRaw.trim().length === 0) {
       errors.itemType = "El tipo de implemento es obligatorio.";
     }
@@ -180,8 +189,8 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
     if (!Number.isFinite(minStock) || minStock <= 0 || !Number.isInteger(minStock)) {
       errors.minStock = "El stock minimo debe ser un entero positivo.";
     }
-    if (description.trim().length > 255) {
-      errors.description = "La descripcion no puede superar 255 caracteres.";
+    if (description.trim().length > 2000) {
+      errors.description = "La descripcion no puede superar 2000 caracteres.";
     }
     if (observations.trim().length > 500) {
       errors.observations = "Las observaciones no pueden superar 500 caracteres.";
@@ -225,6 +234,14 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
       errors.description = message;
       return errors;
     }
+    if (normalized.includes("barra")) {
+      errors.barcode = message;
+      return errors;
+    }
+    if (normalized.includes("imagen") || normalized.includes("url")) {
+      errors.imgUrl = message;
+      return errors;
+    }
     if (normalized.includes("observaciones")) {
       errors.observations = message;
       return errors;
@@ -261,6 +278,8 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
         location_id: locationId,
         item_type: itemTypeRaw as ItemType,
         description: description.trim() ? description.trim() : null,
+        barcode: barcode.trim() ? barcode.trim() : null,
+        img_url: imgUrl.trim() ? imgUrl.trim() : null,
         min_stock: minStock,
         observations: observations.trim() ? observations.trim() : null,
       });
@@ -286,7 +305,7 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
         <p>Actualiza los datos del producto.</p>
 
         {fieldErrors.form ? <p className="field-error">{fieldErrors.form}</p> : null}
-        {loadingImplement ? <p className="field-hint">Cargando información...</p> : null}
+        {loadingImplement ? <p className="field-hint">Cargando informaciÃ³n...</p> : null}
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="implement-edit-name">Nombre</label>
@@ -298,7 +317,7 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
               setFieldErrors((current) => ({ ...current, name: undefined }));
             }}
             placeholder="Ej: Guantes latex"
-            maxLength={120}
+            maxLength={150}
             required
           />
           {fieldErrors.name ? <p className="field-error">{fieldErrors.name}</p> : null}
@@ -306,9 +325,9 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
           <label htmlFor="implement-edit-category">Categoria</label>
           {currentCategoryInactive ? (
             <p className="field-hint">
-              Categoría actual:{" "}
+              CategorÃ­a actual:{" "}
               <span className="badge badge--inactive">
-                {implement?.category?.name ?? "Categoría"} (inactiva)
+                {implement?.category?.name ?? "CategorÃ­a"} (inactiva)
               </span>
             </p>
           ) : null}
@@ -391,10 +410,36 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
               setDescription(event.target.value);
               setFieldErrors((current) => ({ ...current, description: undefined }));
             }}
-            maxLength={255}
+            maxLength={2000}
             placeholder="Opcional"
           />
           {fieldErrors.description ? <p className="field-error">{fieldErrors.description}</p> : null}
+
+          <label htmlFor="implement-edit-barcode">Codigo de barras</label>
+          <input
+            id="implement-edit-barcode"
+            value={barcode}
+            onChange={(event) => {
+              setBarcode(event.target.value);
+              setFieldErrors((current) => ({ ...current, barcode: undefined }));
+            }}
+            maxLength={100}
+            placeholder="Opcional"
+          />
+          {fieldErrors.barcode ? <p className="field-error">{fieldErrors.barcode}</p> : null}
+
+          <label htmlFor="implement-edit-img-url">URL de imagen</label>
+          <input
+            id="implement-edit-img-url"
+            value={imgUrl}
+            onChange={(event) => {
+              setImgUrl(event.target.value);
+              setFieldErrors((current) => ({ ...current, imgUrl: undefined }));
+            }}
+            maxLength={2000}
+            placeholder="https://..."
+          />
+          {fieldErrors.imgUrl ? <p className="field-error">{fieldErrors.imgUrl}</p> : null}
 
           <label htmlFor="implement-edit-min-stock">Stock minimo</label>
           <input

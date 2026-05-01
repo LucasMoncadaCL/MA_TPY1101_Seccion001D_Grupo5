@@ -16,6 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -46,6 +47,8 @@ public class ImplementController {
                 request.locationId(),
                 request.itemType(),
                 request.minStock(),
+                request.barcode(),
+                request.imgUrl(),
                 request.observations()
         );
       
@@ -66,6 +69,8 @@ public class ImplementController {
                 request.locationId(),
                 request.itemType(),
                 request.minStock(),
+                request.barcode(),
+                request.imgUrl(),
                 request.observations()
         );
         var summary = service.obtenerSummary(updated.id());
@@ -79,6 +84,15 @@ public class ImplementController {
         var summary = service.obtenerSummary(id);
         Integer minStock = service.obtenerStockMinimo(implemento.id());
         return toResponse(implemento, summary, minStock, implemento.observations());
+    }
+
+    @PatchMapping("/{id}/active")
+    @PreAuthorize("hasRole('COORDINADOR')")
+    ImplementResponse setActive(@PathVariable Integer id, @RequestParam boolean active) {
+        Implemento updated = service.setActive(id, active);
+        var summary = service.obtenerSummary(updated.id());
+        Integer minStock = service.obtenerStockMinimo(updated.id());
+        return toResponse(updated, summary, minStock, updated.observations());
     }
 
     @GetMapping
@@ -95,6 +109,8 @@ public class ImplementController {
                         implemento.id(),
                         implemento.name(),
                         implemento.description(),
+                        implemento.barcode(),
+                        implemento.imgUrl(),
                         implemento.active(),
                         implemento.stock() != null && implemento.stock().hasAvailability(),
                         implemento.category() == null
@@ -145,6 +161,9 @@ public class ImplementController {
             String observations
     ) {
         String displayLocation = summary == null ? null : service.resolveDisplayLocation(summary);
+        String resolvedBarcode = summary != null ? summary.barcode() : implemento.barcode();
+        String resolvedImgUrl = summary != null ? summary.imgUrl() : implemento.imgUrl();
+        String resolvedObservations = summary != null ? observations : implemento.observations();
         return new ImplementResponse(
                 implemento.id(),
                 implemento.nombre(),
@@ -168,7 +187,9 @@ public class ImplementController {
                 implemento.categoriaId(),
                 implemento.locationId(),
                 minStock,
-                observations,
+                resolvedBarcode,
+                resolvedImgUrl,
+                resolvedObservations,
                 implemento.activo(),
                 implemento.createdAt(),
                 implemento.updatedAt()
