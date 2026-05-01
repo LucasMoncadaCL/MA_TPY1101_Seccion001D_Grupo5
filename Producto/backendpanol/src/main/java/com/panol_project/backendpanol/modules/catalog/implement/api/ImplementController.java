@@ -1,6 +1,7 @@
 package com.panol_project.backendpanol.modules.catalog.implement.api;
 
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.CreateImplementRequest;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementDetailStockResponse;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementResponse;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementCategorySummaryResponse;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementLocationSummaryResponse;
@@ -8,9 +9,15 @@ import com.panol_project.backendpanol.modules.catalog.implement.api.dto.Implemen
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementSummaryResponse;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.UpdateImplementRequest;
 import com.panol_project.backendpanol.modules.catalog.implement.application.ImplementService;
+import com.panol_project.backendpanol.modules.catalog.stock.application.InventoryMovementService;
+import com.panol_project.backendpanol.modules.catalog.stock.api.dto.InventoryMovementResponse;
+import com.panol_project.backendpanol.modules.users.application.UserService;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
+import com.panol_project.backendpanol.shared.error.BadRequestException;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -31,15 +38,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class ImplementController {
 
     private final ImplementService service;
+    private final InventoryMovementService inventoryMovementService;
+    private final UserService userService;
 
-    public ImplementController(ImplementService service) {
+    public ImplementController(
+            ImplementService service, 
+            InventoryMovementService inventoryMovementService,
+            UserService userService
+    ) {
         this.service = service;
+        this.inventoryMovementService = inventoryMovementService;
+        this.userService = userService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('COORDINADOR')")
-    ImplementResponse crear(@Valid @RequestBody CreateImplementRequest request) {
+    ImplementResponse crear(@Valid @RequestBody CreateImplementRequest request, Authentication authentication) {
         Implemento created = service.crear(
                 request.name(),
                 request.description(),
@@ -53,14 +68,14 @@ public class ImplementController {
         );
       
         var summary = service.obtenerSummary(created.id());
-        return toResponse(created, summary, service.obtenerStockMinimo(created.id()), created.observations());
+        return toResponse(created, summary, service.obtenerStockMinimo(created.id()), created.observations(), authentication, null);
 
 
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('COORDINADOR')")
-    ImplementResponse editar(@PathVariable Integer id, @Valid @RequestBody UpdateImplementRequest request) {
+    ImplementResponse editar(@PathVariable Integer id, @Valid @RequestBody UpdateImplementRequest request, Authentication authentication) {
         Implemento updated = service.editar(
                 id,
                 request.name(),
@@ -75,24 +90,46 @@ public class ImplementController {
         );
         var summary = service.obtenerSummary(updated.id());
         Integer minStock = service.obtenerStockMinimo(updated.id());
-        return toResponse(updated, summary, minStock, updated.observations());
+        return toResponse(updated, summary, minStock, updated.observations(), authentication, null);
     }
 
     @GetMapping("/{id}")
-    ImplementResponse obtener(@PathVariable Integer id) {
+    @PreAuthorize("hasAnyRole('COORDINADOR','DIRECTOR','DOCENTE')")
+    ImplementResponse obtener(@PathVariable Integer id, Authentication authentication) {
         Implemento implemento = service.obtener(id);
         var summary = service.obtenerSummary(id);
         Integer minStock = service.obtenerStockMinimo(implemento.id());
-        return toResponse(implemento, summary, minStock, implemento.observations());
+        
+        var rawMovements = inventoryMovementService.obtenerUltimosMovimientos(id);
+        
+        List<Integer> userIds = rawMovements.stream()
+                .map(com.panol_project.backendpanol.modules.catalog.stock.domain.InventoryMovement::getPerformedBy)
+                .distinct()
+                .toList();
+        
+        Map<Integer, String> userNames = userService.getNombresUsuarios(userIds);
+
+        List<InventoryMovementResponse> movements = rawMovements.stream()
+                .map(m -> new InventoryMovementResponse(
+                        m.getId(),
+                        m.getImplementId(),
+                        m.getAction(),
+                        m.getQuantity(),
+                        userNames.getOrDefault(m.getPerformedBy(), "Usuario " + m.getPerformedBy()),
+                        m.getTimestamp(),
+                        m.getNotes()
+                )).toList();
+                
+        return toResponse(implemento, summary, minStock, implemento.observations(), authentication, movements);
     }
 
     @PatchMapping("/{id}/active")
     @PreAuthorize("hasRole('COORDINADOR')")
-    ImplementResponse setActive(@PathVariable Integer id, @RequestParam boolean active) {
+    ImplementResponse setActive(@PathVariable Integer id, @RequestParam boolean active, Authentication authentication) {
         Implemento updated = service.setActive(id, active);
         var summary = service.obtenerSummary(updated.id());
         Integer minStock = service.obtenerStockMinimo(updated.id());
-        return toResponse(updated, summary, minStock, updated.observations());
+        return toResponse(updated, summary, minStock, updated.observations(), authentication, null);
     }
 
     @GetMapping
@@ -100,11 +137,31 @@ public class ImplementController {
     List<ImplementSummaryResponse> listar(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false) String stockStatus,
             Authentication authentication
     ) {
-        boolean includeStockBreakdown = canViewStockBreakdown(authentication);
+        boolean securityActive = authentication != null;
+        boolean isCoordinador = !securityActive || hasRole(authentication, "ROLE_COORDINADOR");
 
-        return service.listar(name, categoryId).stream()
+        // El filtro por estado de stock es exclusivo del Coordinador (solo se aplica con seguridad activa)
+        StockStatusFilter resolvedFilter = null;
+        if (stockStatus != null) {
+            if (!isCoordinador) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                    "El filtro por estado de stock es exclusivo del rol Coordinador."
+                );
+            }
+            resolvedFilter = StockStatusFilter.fromValue(stockStatus)
+                    .orElseThrow(() -> new BadRequestException(
+                            "INVALID_STOCK_STATUS",
+                            "Valor inválido para stockStatus: '" + stockStatus + "'. Valores válidos: available, reserved, loaned, damaged, blocked."
+                    ));
+        }
+
+        boolean includeStockBreakdown = canViewStockBreakdown(authentication);
+        final StockStatusFilter finalFilter = resolvedFilter;
+
+        return service.listar(name, categoryId, finalFilter).stream()
                 .map(implemento -> new ImplementSummaryResponse(
                         implemento.id(),
                         implemento.name(),
@@ -149,21 +206,59 @@ public class ImplementController {
                 .anyMatch(role -> "ROLE_COORDINADOR".equals(role) || "ROLE_DIRECTOR".equals(role));
     }
 
+    private boolean hasRole(Authentication authentication, String role) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role::equals);
+    }
+
     private ImplementResponse toResponse(Implemento implemento) {
         // Fallback para casos donde no tengamos el summary (idealmente, siempre lo tenemos en GET/POST/PUT).
-        return toResponse(implemento, null, null, null);
+        return toResponse(implemento, null, null, null, null, null);
     }
 
     private ImplementResponse toResponse(
             Implemento implemento,
             com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary summary,
             Integer minStock,
-            String observations
+            String observations,
+            Authentication authentication,
+            List<InventoryMovementResponse> recentMovements
     ) {
         String displayLocation = summary == null ? null : service.resolveDisplayLocation(summary);
         String resolvedBarcode = summary != null ? summary.barcode() : implemento.barcode();
         String resolvedImgUrl = summary != null ? summary.imgUrl() : implemento.imgUrl();
         String resolvedObservations = summary != null ? observations : implemento.observations();
+        
+        ImplementDetailStockResponse stockResponse = null;
+        if (summary != null && summary.stock() != null) {
+            boolean includeStockBreakdown = canViewStockBreakdown(authentication);
+            String availableDisplay = summary.stock().hasAvailability() ? "Disponible" : "No disponible";
+            
+            if (includeStockBreakdown) {
+                stockResponse = new ImplementDetailStockResponse(
+                        summary.stock().totalStock(),
+                        summary.stock().available(),
+                        summary.stock().reserved(),
+                        summary.stock().loaned(),
+                        summary.stock().damaged(),
+                        null
+                );
+            } else {
+                stockResponse = new ImplementDetailStockResponse(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        availableDisplay
+                );
+            }
+        }
+
         return new ImplementResponse(
                 implemento.id(),
                 implemento.nombre(),
@@ -192,7 +287,9 @@ public class ImplementController {
                 resolvedObservations,
                 implemento.activo(),
                 implemento.createdAt(),
-                implemento.updatedAt()
+                implemento.updatedAt(),
+                stockResponse,
+                recentMovements
         );
     }
 }
