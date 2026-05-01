@@ -28,6 +28,8 @@ import com.panol_project.backendpanol.modules.catalog.implement.domain.Implement
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementRepository;
 import com.panol_project.backendpanol.modules.catalog.location.application.LocationService;
 import com.panol_project.backendpanol.modules.catalog.location.domain.LocationRepository;
+import com.panol_project.backendpanol.modules.catalog.stock.application.InventoryMovementService;
+import com.panol_project.backendpanol.modules.users.application.UserService;
 import com.panol_project.backendpanol.shared.error.security.RestAccessDeniedHandler;
 import com.panol_project.backendpanol.shared.error.security.RestAuthenticationEntryPoint;
 import java.time.OffsetDateTime;
@@ -72,6 +74,12 @@ class ImplementCreateEndpointSecurityTest {
 
     @MockBean
     private JwtDecoder jwtDecoder;
+
+    @MockBean
+    private InventoryMovementService inventoryMovementService;
+
+    @MockBean
+    private UserService userService;
 
     @TestConfiguration
     static class TestServicesConfiguration {

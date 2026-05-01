@@ -12,6 +12,7 @@ import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaR
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementRepository;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
 import com.panol_project.backendpanol.modules.catalog.location.application.LocationService;
 import com.panol_project.backendpanol.modules.catalog.location.domain.LocationRepository;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
@@ -159,12 +160,12 @@ class ImplementServiceTest {
     void editarDebeValidarCategoriaSiExisteImplemento() {
         OffsetDateTime now = OffsetDateTime.now();
         Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, null, null, null, true, now, now);
-        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, null, null, "Obs", true, now, now);
+        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, "Obs", null, null, true, now, now);
 
         when(categoriaRepository.findActiveById(2)).thenReturn(Optional.of(new Categoria(2, "Cat", null, true, now)));
         when(locationRepository.existsById(10)).thenReturn(true);
         when(repository.findById(10)).thenReturn(Optional.of(existing));
-        when(repository.update(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, null, null, "Obs")).thenReturn(updated);
+        when(repository.update(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, "Obs", null, null)).thenReturn(updated);
         when(repository.updateMinStockByImplementId(10, 1)).thenReturn(1);
 
         Implemento result = service.editar(10, "Nuevo", null, 2, 10, "reusable", 1, "Obs", null, null);
@@ -231,10 +232,29 @@ class ImplementServiceTest {
 
     @Test
     void listarDebeAplicarFiltrosCombinados() {
-        when(repository.findAllSummaries("Guante", 3)).thenReturn(java.util.List.of());
+        when(repository.findAllSummaries("Guante", 3, null)).thenReturn(java.util.List.of());
 
-        service.listar("  Guante ", 3);
+        service.listar("  Guante ", 3, null);
 
-        verify(repository).findAllSummaries("Guante", 3);
+        verify(repository).findAllSummaries("Guante", 3, null);
+    }
+
+    /**
+     * Verifica que el filtro BLOCKED se propaga correctamente al repositorio.
+     * Cubre la deuda técnica registrada: el campo 'blocked' usa DSL.field() dinámico
+     * en lugar del field tipado del codegen. La lógica de propagación debe ser la misma
+     * que para los demás estados (AVAILABLE, RESERVED, LOANED, DAMAGED).
+     *
+     * <p>Cuando el codegen incluya STOCK.BLOCKED, este test seguirá siendo válido
+     * sin modificaciones.</p>
+     */
+    @Test
+    void listarConFiltroBlockedDebePropagarsAlRepositorio() {
+        when(repository.findAllSummaries(null, null, StockStatusFilter.BLOCKED))
+                .thenReturn(java.util.List.of());
+
+        service.listar(null, null, StockStatusFilter.BLOCKED);
+
+        verify(repository).findAllSummaries(null, null, StockStatusFilter.BLOCKED);
     }
 }
