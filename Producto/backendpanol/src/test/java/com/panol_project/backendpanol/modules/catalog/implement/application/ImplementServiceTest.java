@@ -160,12 +160,12 @@ class ImplementServiceTest {
     void editarDebeValidarCategoriaSiExisteImplemento() {
         OffsetDateTime now = OffsetDateTime.now();
         Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, null, null, null, true, now, now);
-        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, null, null, "Obs", true, now, now);
+        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, "Obs", null, null, true, now, now);
 
         when(categoriaRepository.findActiveById(2)).thenReturn(Optional.of(new Categoria(2, "Cat", null, true, now)));
         when(locationRepository.existsById(10)).thenReturn(true);
         when(repository.findById(10)).thenReturn(Optional.of(existing));
-        when(repository.update(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, null, null, "Obs")).thenReturn(updated);
+        when(repository.update(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, "Obs", null, null)).thenReturn(updated);
         when(repository.updateMinStockByImplementId(10, 1)).thenReturn(1);
 
         Implemento result = service.editar(10, "Nuevo", null, 2, 10, "reusable", 1, "Obs", null, null);
