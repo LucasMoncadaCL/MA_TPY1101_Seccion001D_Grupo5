@@ -24,6 +24,8 @@ public record ImplementResponse(
         Boolean active,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
-        ImplementDetailStockResponse stock
+        ImplementDetailStockResponse stock,
+        @JsonProperty("recent_movements")
+        java.util.List<com.panol_project.backendpanol.modules.catalog.stock.api.dto.InventoryMovementResponse> recentMovements
 ) {
 }

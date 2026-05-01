@@ -9,6 +9,8 @@ import com.panol_project.backendpanol.modules.catalog.implement.api.dto.Implemen
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementSummaryResponse;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.UpdateImplementRequest;
 import com.panol_project.backendpanol.modules.catalog.implement.application.ImplementService;
+import com.panol_project.backendpanol.modules.catalog.stock.application.InventoryMovementService;
+import com.panol_project.backendpanol.modules.catalog.stock.api.dto.InventoryMovementResponse;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -32,9 +34,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ImplementController {
 
     private final ImplementService service;
+    private final InventoryMovementService inventoryMovementService;
 
-    public ImplementController(ImplementService service) {
+    public ImplementController(ImplementService service, InventoryMovementService inventoryMovementService) {
         this.service = service;
+        this.inventoryMovementService = inventoryMovementService;
     }
 
     @PostMapping
@@ -54,7 +58,7 @@ public class ImplementController {
         );
       
         var summary = service.obtenerSummary(created.id());
-        return toResponse(created, summary, service.obtenerStockMinimo(created.id()), created.observations(), authentication);
+        return toResponse(created, summary, service.obtenerStockMinimo(created.id()), created.observations(), authentication, null);
 
 
     }
@@ -76,7 +80,7 @@ public class ImplementController {
         );
         var summary = service.obtenerSummary(updated.id());
         Integer minStock = service.obtenerStockMinimo(updated.id());
-        return toResponse(updated, summary, minStock, updated.observations(), authentication);
+        return toResponse(updated, summary, minStock, updated.observations(), authentication, null);
     }
 
     @GetMapping("/{id}")
@@ -85,7 +89,19 @@ public class ImplementController {
         Implemento implemento = service.obtener(id);
         var summary = service.obtenerSummary(id);
         Integer minStock = service.obtenerStockMinimo(implemento.id());
-        return toResponse(implemento, summary, minStock, implemento.observations(), authentication);
+        
+        List<InventoryMovementResponse> movements = inventoryMovementService.obtenerUltimosMovimientos(id).stream()
+                .map(m -> new InventoryMovementResponse(
+                        m.getId(),
+                        m.getImplementId(),
+                        m.getAction(),
+                        m.getQuantity(),
+                        m.getPerformedBy(),
+                        m.getTimestamp(),
+                        m.getNotes()
+                )).toList();
+                
+        return toResponse(implemento, summary, minStock, implemento.observations(), authentication, movements);
     }
 
     @PatchMapping("/{id}/active")
@@ -94,7 +110,7 @@ public class ImplementController {
         Implemento updated = service.setActive(id, active);
         var summary = service.obtenerSummary(updated.id());
         Integer minStock = service.obtenerStockMinimo(updated.id());
-        return toResponse(updated, summary, minStock, updated.observations(), authentication);
+        return toResponse(updated, summary, minStock, updated.observations(), authentication, null);
     }
 
     @GetMapping
@@ -153,7 +169,7 @@ public class ImplementController {
 
     private ImplementResponse toResponse(Implemento implemento) {
         // Fallback para casos donde no tengamos el summary (idealmente, siempre lo tenemos en GET/POST/PUT).
-        return toResponse(implemento, null, null, null, null);
+        return toResponse(implemento, null, null, null, null, null);
     }
 
     private ImplementResponse toResponse(
@@ -161,7 +177,8 @@ public class ImplementController {
             com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary summary,
             Integer minStock,
             String observations,
-            Authentication authentication
+            Authentication authentication,
+            List<InventoryMovementResponse> recentMovements
     ) {
         String displayLocation = summary == null ? null : service.resolveDisplayLocation(summary);
         String resolvedBarcode = summary != null ? summary.barcode() : implemento.barcode();
@@ -223,7 +240,8 @@ public class ImplementController {
                 implemento.activo(),
                 implemento.createdAt(),
                 implemento.updatedAt(),
-                stockResponse
+                stockResponse,
+                recentMovements
         );
     }
 }

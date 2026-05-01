@@ -1,6 +1,9 @@
 spring:
   application:
     name: backendpanol
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   data:
     mongodb:
       uri: ${MONGODB_URI}
