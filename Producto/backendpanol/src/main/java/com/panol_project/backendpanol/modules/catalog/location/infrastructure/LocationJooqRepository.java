@@ -84,34 +84,23 @@ public class LocationJooqRepository implements LocationRepository {
 
     @Override
     public LocationOption create(String name, String description) {
-        return dsl.insertInto(LOCATION)
+        Integer id = dsl.insertInto(LOCATION)
                 .set(LOCATION.NAME, name)
                 .set(LOCATION.DESCRIPTION, description)
-                .set(LOCATION_ACTIVE, true)
-                .returning(LOCATION.ID, LOCATION.NAME, LOCATION.DESCRIPTION, LOCATION_ACTIVE)
-                .fetchOptional(record -> new LocationOption(
-                        record.get(LOCATION.ID),
-                        record.get(LOCATION.NAME),
-                        record.get(LOCATION.DESCRIPTION),
-                        record.get(LOCATION_ACTIVE) == null || record.get(LOCATION_ACTIVE)
-                ))
+                .returning(LOCATION.ID)
+                .fetchOptional(record -> record.get(LOCATION.ID))
                 .orElseThrow();
+        return findById(id).orElseThrow();
     }
 
     @Override
     public LocationOption update(Integer id, String name, String description) {
-        return dsl.update(LOCATION)
+        dsl.update(LOCATION)
                 .set(LOCATION.NAME, name)
                 .set(LOCATION.DESCRIPTION, description)
                 .where(LOCATION.ID.eq(id))
-                .returning(LOCATION.ID, LOCATION.NAME, LOCATION.DESCRIPTION, LOCATION_ACTIVE)
-                .fetchOptional(record -> new LocationOption(
-                        record.get(LOCATION.ID),
-                        record.get(LOCATION.NAME),
-                        record.get(LOCATION.DESCRIPTION),
-                        record.get(LOCATION_ACTIVE) == null || record.get(LOCATION_ACTIVE)
-                ))
-                .orElseThrow();
+                .execute();
+        return findById(id).orElseThrow();
     }
 
     @Override

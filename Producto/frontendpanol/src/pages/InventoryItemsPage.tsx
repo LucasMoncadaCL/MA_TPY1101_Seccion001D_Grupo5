@@ -11,7 +11,7 @@ import type { ImplementFilters, ImplementStockFilterStatus, ImplementSummary } f
 import { STOCK_STATUS_LABELS } from "../types/implement";
 import { getUserRoleFromToken, type UserRole } from "../utils/auth";
 
-export function InventoryItemsPage() {
+export function InventoryItemsPage({ embedded = false }: { embedded?: boolean }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -143,8 +143,8 @@ export function InventoryItemsPage() {
     setSuccess("Implemento actualizado correctamente.");
   }
 
-  return (
-    <InventoryLayout activeSection="items">
+  const content = (
+    <>
       <section className="content-header">
         <div>
           <h1>Inventario</h1>
@@ -315,6 +315,12 @@ export function InventoryItemsPage() {
         onClose={() => setEditingId(null)}
         onSaved={handleSaved}
       />
-    </InventoryLayout>
+    </>
   );
+
+  if (embedded) {
+    return content;
+  }
+
+  return <InventoryLayout activeSection="items">{content}</InventoryLayout>;
 }

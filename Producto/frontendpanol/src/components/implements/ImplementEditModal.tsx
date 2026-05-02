@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { fetchActiveCategories } from "../../services/activeCategoryService";
 import { getApiErrorPayload, getErrorMessage } from "../../services/apiClient";
@@ -116,6 +116,16 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
       .finally(() => setLoadingLocations(false));
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    document.body.classList.add("modal-open");
+    return () => {
+      document.body.classList.remove("modal-open");
+    };
+  }, [isOpen]);
+
   const isCategoryDisabled = useMemo(
     () => loadingCategories || Boolean(categoriesError) || categories.length === 0,
     [categories.length, categoriesError, loadingCategories],
@@ -151,7 +161,7 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
     if (!isUsingInactiveCategory) {
       return null;
     }
-    return "La categorÃ­a actual estÃ¡ inactiva. Debes seleccionar una categorÃ­a activa para guardar.";
+    return "La categoria actual esta inactiva. Debes seleccionar una categoria activa para guardar.";
   }, [currentCategoryInactive, isUsingInactiveCategory]);
 
   const inactiveCategoryOption = useMemo(() => {
@@ -300,174 +310,196 @@ export function ImplementEditModal({ implementId, isOpen, onClose, onSaved }: Im
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal">
+      <div className="modal modal--wide">
         <h3>Editar producto</h3>
         <p>Actualiza los datos del producto.</p>
 
         {fieldErrors.form ? <p className="field-error">{fieldErrors.form}</p> : null}
-        {loadingImplement ? <p className="field-hint">Cargando informaciÃ³n...</p> : null}
+        {loadingImplement ? <p className="field-hint">Cargando información...</p> : null}
 
-        <form onSubmit={handleSubmit}>
-          <label htmlFor="implement-edit-name">Nombre</label>
-          <input
-            id="implement-edit-name"
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-              setFieldErrors((current) => ({ ...current, name: undefined }));
-            }}
-            placeholder="Ej: Guantes latex"
-            maxLength={150}
-            required
-          />
-          {fieldErrors.name ? <p className="field-error">{fieldErrors.name}</p> : null}
+        <form onSubmit={handleSubmit} className="modal-form">
+          <section className="modal-form-section">
+            <h4>Información principal</h4>
+            <div className="modal-form-grid">
+              <div className="modal-field modal-field--full">
+                <label htmlFor="implement-edit-name">Nombre</label>
+                <input
+                  id="implement-edit-name"
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    setFieldErrors((current) => ({ ...current, name: undefined }));
+                  }}
+                  placeholder="Ej: Guantes latex"
+                  maxLength={150}
+                  required
+                />
+                {fieldErrors.name ? <p className="field-error">{fieldErrors.name}</p> : null}
+              </div>
 
-          <label htmlFor="implement-edit-category">Categoria</label>
-          {currentCategoryInactive ? (
-            <p className="field-hint">
-              CategorÃ­a actual:{" "}
-              <span className="badge badge--inactive">
-                {implement?.category?.name ?? "CategorÃ­a"} (inactiva)
-              </span>
-            </p>
-          ) : null}
-          <select
-            id="implement-edit-category"
-            value={categoryIdRaw}
-            onChange={(event) => {
-              setCategoryIdRaw(event.target.value);
-              setFieldErrors((current) => ({ ...current, categoryId: undefined }));
-            }}
-            disabled={isCategoryDisabled}
-          >
-            {inactiveCategoryOption ? (
-              <option value={String(inactiveCategoryOption.id)} disabled>
-                {inactiveCategoryOption.name} [Inactiva]
-              </option>
-            ) : null}
+              <div className="modal-field">
+                <label htmlFor="implement-edit-category">Categoria</label>
+                {currentCategoryInactive ? (
+                  <p className="field-hint">
+                    Categoría actual: <span className="badge badge--inactive">{implement?.category?.name ?? "Categoría"} (inactiva)</span>
+                  </p>
+                ) : null}
+                <select
+                  id="implement-edit-category"
+                  value={categoryIdRaw}
+                  onChange={(event) => {
+                    setCategoryIdRaw(event.target.value);
+                    setFieldErrors((current) => ({ ...current, categoryId: undefined }));
+                  }}
+                  disabled={isCategoryDisabled}
+                >
+                  {inactiveCategoryOption ? (
+                    <option value={String(inactiveCategoryOption.id)} disabled>
+                      {inactiveCategoryOption.name} [Inactiva]
+                    </option>
+                  ) : null}
+                  <option value="">Sin categoria</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={String(category.id)}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                {categoriesError ? <p className="field-error">{categoriesError}</p> : null}
+                {fieldErrors.categoryId ? <p className="field-error">{fieldErrors.categoryId}</p> : null}
+              </div>
 
-            <option value="">Sin categoria</option>
+              <div className="modal-field">
+                <label htmlFor="implement-edit-item-type">Tipo de implemento</label>
+                <select
+                  id="implement-edit-item-type"
+                  value={itemTypeRaw}
+                  onChange={(event) => {
+                    setItemTypeRaw(event.target.value as ItemType | "");
+                    setFieldErrors((current) => ({ ...current, itemType: undefined }));
+                  }}
+                  required
+                >
+                  <option value="" disabled>
+                    Selecciona un tipo
+                  </option>
+                  {ITEM_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors.itemType ? <p className="field-error">{fieldErrors.itemType}</p> : null}
+              </div>
 
-            {categories.map((category) => (
-              <option key={category.id} value={String(category.id)}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          {categoriesError ? <p className="field-error">{categoriesError}</p> : null}
-          {fieldErrors.categoryId ? <p className="field-error">{fieldErrors.categoryId}</p> : null}
+              <div className="modal-field modal-field--full">
+                <label htmlFor="implement-edit-location">Ubicacion</label>
+                <select
+                  id="implement-edit-location"
+                  value={locationIdRaw}
+                  onChange={(event) => {
+                    setLocationIdRaw(event.target.value);
+                    setFieldErrors((current) => ({ ...current, locationId: undefined }));
+                  }}
+                  disabled={isLocationDisabled}
+                  required
+                >
+                  <option value="" disabled>
+                    Selecciona una ubicacion
+                  </option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={String(location.id)}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+                {locationsError ? <p className="field-error">{locationsError}</p> : null}
+                {fieldErrors.locationId ? <p className="field-error">{fieldErrors.locationId}</p> : null}
+              </div>
 
-          <label htmlFor="implement-edit-item-type">Tipo de implemento</label>
-          <select
-            id="implement-edit-item-type"
-            value={itemTypeRaw}
-            onChange={(event) => {
-              setItemTypeRaw(event.target.value as ItemType | "");
-              setFieldErrors((current) => ({ ...current, itemType: undefined }));
-            }}
-            required
-          >
-            <option value="" disabled>
-              Selecciona un tipo
-            </option>
-            {ITEM_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.itemType ? <p className="field-error">{fieldErrors.itemType}</p> : null}
+              <div className="modal-field modal-field--full">
+                <label htmlFor="implement-edit-description">Descripcion</label>
+                <textarea
+                  id="implement-edit-description"
+                  value={description}
+                  onChange={(event) => {
+                    setDescription(event.target.value);
+                    setFieldErrors((current) => ({ ...current, description: undefined }));
+                  }}
+                  maxLength={2000}
+                  placeholder="Opcional"
+                />
+                {fieldErrors.description ? <p className="field-error">{fieldErrors.description}</p> : null}
+              </div>
+            </div>
+          </section>
 
-          <label htmlFor="implement-edit-location">Ubicacion</label>
-          <select
-            id="implement-edit-location"
-            value={locationIdRaw}
-            onChange={(event) => {
-              setLocationIdRaw(event.target.value);
-              setFieldErrors((current) => ({ ...current, locationId: undefined }));
-            }}
-            disabled={isLocationDisabled}
-            required
-          >
-            <option value="" disabled>
-              Selecciona una ubicacion
-            </option>
+          <section className="modal-form-section">
+            <h4>Inventario y trazabilidad</h4>
+            <div className="modal-form-grid">
+              <div className="modal-field">
+                <label htmlFor="implement-edit-min-stock">Stock minimo</label>
+                <input
+                  id="implement-edit-min-stock"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={minStockRaw}
+                  onChange={(event) => {
+                    setMinStockRaw(event.target.value);
+                    setFieldErrors((current) => ({ ...current, minStock: undefined }));
+                  }}
+                  required
+                />
+                {fieldErrors.minStock ? <p className="field-error">{fieldErrors.minStock}</p> : null}
+              </div>
 
-            {locations.map((location) => (
-              <option key={location.id} value={String(location.id)}>
-                {location.name}
-              </option>
-            ))}
-          </select>
-          {locationsError ? <p className="field-error">{locationsError}</p> : null}
-          {fieldErrors.locationId ? <p className="field-error">{fieldErrors.locationId}</p> : null}
+              <div className="modal-field">
+                <label htmlFor="implement-edit-barcode">Codigo de barras</label>
+                <input
+                  id="implement-edit-barcode"
+                  value={barcode}
+                  onChange={(event) => {
+                    setBarcode(event.target.value);
+                    setFieldErrors((current) => ({ ...current, barcode: undefined }));
+                  }}
+                  maxLength={100}
+                  placeholder="Opcional"
+                />
+                {fieldErrors.barcode ? <p className="field-error">{fieldErrors.barcode}</p> : null}
+              </div>
 
-          <label htmlFor="implement-edit-description">Descripcion</label>
-          <textarea
-            id="implement-edit-description"
-            value={description}
-            onChange={(event) => {
-              setDescription(event.target.value);
-              setFieldErrors((current) => ({ ...current, description: undefined }));
-            }}
-            maxLength={2000}
-            placeholder="Opcional"
-          />
-          {fieldErrors.description ? <p className="field-error">{fieldErrors.description}</p> : null}
+              <div className="modal-field modal-field--full">
+                <label htmlFor="implement-edit-img-url">URL de imagen</label>
+                <input
+                  id="implement-edit-img-url"
+                  value={imgUrl}
+                  onChange={(event) => {
+                    setImgUrl(event.target.value);
+                    setFieldErrors((current) => ({ ...current, imgUrl: undefined }));
+                  }}
+                  maxLength={2000}
+                  placeholder="https://..."
+                />
+                {fieldErrors.imgUrl ? <p className="field-error">{fieldErrors.imgUrl}</p> : null}
+              </div>
 
-          <label htmlFor="implement-edit-barcode">Codigo de barras</label>
-          <input
-            id="implement-edit-barcode"
-            value={barcode}
-            onChange={(event) => {
-              setBarcode(event.target.value);
-              setFieldErrors((current) => ({ ...current, barcode: undefined }));
-            }}
-            maxLength={100}
-            placeholder="Opcional"
-          />
-          {fieldErrors.barcode ? <p className="field-error">{fieldErrors.barcode}</p> : null}
-
-          <label htmlFor="implement-edit-img-url">URL de imagen</label>
-          <input
-            id="implement-edit-img-url"
-            value={imgUrl}
-            onChange={(event) => {
-              setImgUrl(event.target.value);
-              setFieldErrors((current) => ({ ...current, imgUrl: undefined }));
-            }}
-            maxLength={2000}
-            placeholder="https://..."
-          />
-          {fieldErrors.imgUrl ? <p className="field-error">{fieldErrors.imgUrl}</p> : null}
-
-          <label htmlFor="implement-edit-min-stock">Stock minimo</label>
-          <input
-            id="implement-edit-min-stock"
-            type="number"
-            min={1}
-            step={1}
-            value={minStockRaw}
-            onChange={(event) => {
-              setMinStockRaw(event.target.value);
-              setFieldErrors((current) => ({ ...current, minStock: undefined }));
-            }}
-            required
-          />
-          {fieldErrors.minStock ? <p className="field-error">{fieldErrors.minStock}</p> : null}
-
-          <label htmlFor="implement-edit-observations">Observaciones</label>
-          <textarea
-            id="implement-edit-observations"
-            value={observations}
-            onChange={(event) => {
-              setObservations(event.target.value);
-              setFieldErrors((current) => ({ ...current, observations: undefined }));
-            }}
-            maxLength={500}
-            placeholder="Opcional"
-          />
-          {fieldErrors.observations ? <p className="field-error">{fieldErrors.observations}</p> : null}
+              <div className="modal-field modal-field--full">
+                <label htmlFor="implement-edit-observations">Observaciones</label>
+                <textarea
+                  id="implement-edit-observations"
+                  value={observations}
+                  onChange={(event) => {
+                    setObservations(event.target.value);
+                    setFieldErrors((current) => ({ ...current, observations: undefined }));
+                  }}
+                  maxLength={500}
+                  placeholder="Opcional"
+                />
+                {fieldErrors.observations ? <p className="field-error">{fieldErrors.observations}</p> : null}
+              </div>
+            </div>
+          </section>
 
           <div className="modal-actions">
             <button type="button" className="button button--ghost" onClick={onClose} disabled={saving}>

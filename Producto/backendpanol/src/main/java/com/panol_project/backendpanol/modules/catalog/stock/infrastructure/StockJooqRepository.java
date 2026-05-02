@@ -150,6 +150,19 @@ public class StockJooqRepository implements StockRepository {
     }
 
     @Override
+    public void replaceStock(Integer implementId, int total, int available, int reserved, int loaned, int damaged) {
+        dsl.update(STOCK)
+                .set(STOCK.TOTAL_STOCK, total)
+                .set(STOCK.AVAILABLE, available)
+                .set(STOCK.RESERVED, reserved)
+                .set(STOCK.LOANED, loaned)
+                .set(STOCK.DAMAGED, damaged)
+                .set(STOCK.UPDATED_AT, OffsetDateTime.now())
+                .where(STOCK.IMPLEMENT_ID.eq(implementId))
+                .execute();
+    }
+
+    @Override
     public void updateIndividualsState(List<Integer> individualIds, String statusLiteral, String conditionLiteral, Integer locationId, Boolean active) {
         if (individualIds == null || individualIds.isEmpty()) {
             return;

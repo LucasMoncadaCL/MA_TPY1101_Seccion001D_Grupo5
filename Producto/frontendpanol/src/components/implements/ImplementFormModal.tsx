@@ -104,6 +104,16 @@ export function ImplementFormModal({ isOpen, saving, onClose, onSubmit }: Implem
       .finally(() => setLoadingLocations(false));
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    document.body.classList.add("modal-open");
+    return () => {
+      document.body.classList.remove("modal-open");
+    };
+  }, [isOpen]);
+
   const isCategoryDisabled = useMemo(
     () => loadingCategories || Boolean(categoriesError) || categories.length === 0,
     [categories.length, categoriesError, loadingCategories],

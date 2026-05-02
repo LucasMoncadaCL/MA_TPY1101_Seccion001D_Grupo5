@@ -20,6 +20,8 @@ public interface StockRepository {
 
     void updateStock(Integer implementId, int totalDelta, int availableDelta, int reservedDelta, int loanedDelta, int damagedDelta);
 
+    void replaceStock(Integer implementId, int total, int available, int reserved, int loaned, int damaged);
+
     void updateIndividualsState(List<Integer> individualIds, String statusLiteral, String conditionLiteral, Integer locationId, Boolean active);
 
     record ImplementStockContext(Integer implementId, Integer locationId, ImplementItemType itemType, Boolean active) {

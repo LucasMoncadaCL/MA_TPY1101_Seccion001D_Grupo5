@@ -45,6 +45,10 @@ public class StockService {
                 ? repository.findActiveIndividualsByImplementId(implementId)
                 : List.of();
 
+        if (context.itemType() == ImplementItemType.INDIVIDUAL) {
+            counters = deriveCountersForIndividuals(counters, individuals);
+        }
+
         return new StockDetail(implementId, context.itemType(), counters, individuals);
     }
 
@@ -106,7 +110,55 @@ public class StockService {
         }
 
         repository.updateIndividualsState(List.of(individualId), status, condition, locationId, active);
+        syncStockRowForIndividuals(implementId);
         return getStockDetail(implementId);
+    }
+
+    private StockCounters deriveCountersForIndividuals(StockCounters current, List<IndividualItem> individuals) {
+        int total = individuals.size();
+        int available = 0;
+        int reserved = 0;
+        int loaned = 0;
+        int damaged = 0;
+
+        for (IndividualItem individual : individuals) {
+            String status = individual.status() == null ? "" : individual.status();
+            switch (status) {
+                case "available" -> available++;
+                case "blocked" -> reserved++;
+                case "loaned" -> loaned++;
+                case "damaged", "maintenance" -> damaged++;
+                default -> {
+                    // estados no inventariables en KPI (por ejemplo retired) se mantienen solo en total.
+                }
+            }
+        }
+
+        return new StockCounters(total, current.minStock(), available, reserved, loaned, damaged);
+    }
+
+    private void syncStockRowForIndividuals(Integer implementId) {
+        StockCounters current = repository.findStockByImplementId(implementId)
+                .orElse(new StockCounters(0, 0, 0, 0, 0, 0));
+        List<IndividualItem> individuals = repository.findActiveIndividualsByImplementId(implementId);
+        StockCounters computed = deriveCountersForIndividuals(current, individuals);
+
+        boolean isDifferent = safe(current.totalStock()) != safe(computed.totalStock())
+                || safe(current.available()) != safe(computed.available())
+                || safe(current.reserved()) != safe(computed.reserved())
+                || safe(current.loaned()) != safe(computed.loaned())
+                || safe(current.damaged()) != safe(computed.damaged());
+
+        if (isDifferent) {
+            repository.replaceStock(
+                    implementId,
+                    safe(computed.totalStock()),
+                    safe(computed.available()),
+                    safe(computed.reserved()),
+                    safe(computed.loaned()),
+                    safe(computed.damaged())
+            );
+        }
     }
 
     private void applyMovementForIndividualImplement(StockRepository.ImplementStockContext context, StockMovementType movementType, List<Integer> individualIds, String conditionRaw) {
