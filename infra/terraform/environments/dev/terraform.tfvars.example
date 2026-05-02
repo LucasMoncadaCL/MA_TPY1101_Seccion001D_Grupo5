@@ -24,3 +24,7 @@ frontend_min_instances   = 0
 frontend_max_instances   = 1
 frontend_timeout_seconds = 60
 frontend_concurrency     = 40
+
+# Optional: set to create/update the MONGODB_URI secret version from Terraform.
+# Leave empty to manage secret versions outside Terraform.
+mongodb_uri_secret_value = ""

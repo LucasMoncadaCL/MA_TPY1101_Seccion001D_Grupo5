@@ -20,6 +20,8 @@ Este directorio documenta de forma integral la infraestructura Terraform y el de
    - Costos, tradeoffs y controles para minimizar gasto.
 8. [08-troubleshooting.md](./08-troubleshooting.md)
    - Fallas comunes y resolución paso a paso.
+9. [09-env-vars-and-secrets-guide.md](./09-env-vars-and-secrets-guide.md)
+   - Guía práctica para agregar variables/secrets de forma consistente y resiliente.
 
 ## Alcance actual
 

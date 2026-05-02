@@ -47,6 +47,9 @@ module "secret_manager" {
     "JWT_ISSUER_URI",
     "VITE_SUPABASE_PUBLISHABLE_KEY"
   ]
+  secret_values = {
+    MONGODB_URI = var.mongodb_uri_secret_value
+  }
 }
 
 module "runtime_iam" {
@@ -86,7 +89,7 @@ module "backend_service" {
     }
     MONGODB_URI = {
       secret  = module.secret_manager.secret_ids["MONGODB_URI"]
-      version = "latest"
+      version = try(module.secret_manager.secret_versions["MONGODB_URI"], "latest")
     }
     JWT_ISSUER_URI = {
       secret  = module.secret_manager.secret_ids["JWT_ISSUER_URI"]
