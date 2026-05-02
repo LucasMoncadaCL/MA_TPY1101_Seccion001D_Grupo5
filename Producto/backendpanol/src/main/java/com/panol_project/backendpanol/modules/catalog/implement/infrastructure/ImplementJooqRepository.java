@@ -14,6 +14,7 @@ import com.panol_project.backendpanol.modules.catalog.implement.domain.Implement
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementStockSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
 import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.List;
@@ -30,6 +31,8 @@ public class ImplementJooqRepository implements ImplementRepository {
 
     private final DSLContext dsl;
     private static final Field<String> IMPLEMENT_OBSERVATIONS = DSL.field(DSL.name("observations"), String.class);
+    private static final Field<String> IMPLEMENT_BARCODE = DSL.field(DSL.name("barcode"), String.class);
+    private static final Field<String> IMPLEMENT_IMG_URL = DSL.field(DSL.name("img_url"), String.class);
 
     public ImplementJooqRepository(DSLContext dsl) {
         this.dsl = dsl;
@@ -49,6 +52,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                         IMPLEMENT.ID,
                         IMPLEMENT.NAME,
                         IMPLEMENT.DESCRIPTION,
+                        IMPLEMENT_BARCODE,
+                        IMPLEMENT_IMG_URL,
                         IMPLEMENT.ACTIVE,
                         CATEGORY.ID,
                         CATEGORY.NAME,
@@ -82,6 +87,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                             record.get(IMPLEMENT.ID),
                             record.get(IMPLEMENT.NAME),
                             record.get(IMPLEMENT.DESCRIPTION),
+                            record.get(IMPLEMENT_BARCODE),
+                            record.get(IMPLEMENT_IMG_URL),
                             record.get(IMPLEMENT.ACTIVE),
                             category,
                             new ImplementLocationSummary(
@@ -102,7 +109,7 @@ public class ImplementJooqRepository implements ImplementRepository {
     }
 
     @Override
-    public List<ImplementSummary> findAllSummaries(String name, Integer categoryId) {
+    public List<ImplementSummary> findAllSummaries(String name, Integer categoryId, StockStatusFilter stockStatusFilter) {
         Condition condition = IMPLEMENT.ACTIVE.isTrue();
 
         if (name != null) {
@@ -113,10 +120,17 @@ public class ImplementJooqRepository implements ImplementRepository {
             condition = condition.and(IMPLEMENT.CATEGORY_ID.eq(categoryId));
         }
 
+        if (stockStatusFilter != null) {
+            Field<Integer> stockField = resolveStockField(stockStatusFilter);
+            condition = condition.and(stockField.gt(0));
+        }
+
         return dsl.select(
                         IMPLEMENT.ID,
                         IMPLEMENT.NAME,
                         IMPLEMENT.DESCRIPTION,
+                        IMPLEMENT_BARCODE,
+                        IMPLEMENT_IMG_URL,
                         IMPLEMENT.ACTIVE,
                         CATEGORY.ID,
                         CATEGORY.NAME,
@@ -151,6 +165,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                             record.get(IMPLEMENT.ID),
                             record.get(IMPLEMENT.NAME),
                             record.get(IMPLEMENT.DESCRIPTION),
+                            record.get(IMPLEMENT_BARCODE),
+                            record.get(IMPLEMENT_IMG_URL),
                             record.get(IMPLEMENT.ACTIVE),
                             category,
                             new ImplementLocationSummary(
@@ -198,6 +214,8 @@ public class ImplementJooqRepository implements ImplementRepository {
             Integer categoriaId,
             Integer locationId,
             ImplementItemType itemType,
+            String barcode,
+            String imgUrl,
             String observations
     ) {
         return dsl.insertInto(IMPLEMENT)
@@ -206,6 +224,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .set(IMPLEMENT.CATEGORY_ID, categoriaId)
                 .set(IMPLEMENT.LOCATION_ID, locationId)
                 .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
+                .set(IMPLEMENT_BARCODE, barcode)
+                .set(IMPLEMENT_IMG_URL, imgUrl)
                 .set(IMPLEMENT_OBSERVATIONS, observations)
                 .returning()
                 .fetchOptional()
@@ -221,6 +241,8 @@ public class ImplementJooqRepository implements ImplementRepository {
             Integer categoriaId,
             Integer locationId,
             ImplementItemType itemType,
+            String barcode,
+            String imgUrl,
             String observations
     ) {
         return dsl.update(IMPLEMENT)
@@ -229,6 +251,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .set(IMPLEMENT.CATEGORY_ID, categoriaId)
                 .set(IMPLEMENT.LOCATION_ID, locationId)
                 .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
+                .set(IMPLEMENT_BARCODE, barcode)
+                .set(IMPLEMENT_IMG_URL, imgUrl)
                 .set(IMPLEMENT_OBSERVATIONS, observations)
                 .set(IMPLEMENT.UPDATED_AT, OffsetDateTime.now())
                 .where(IMPLEMENT.ID.eq(id))
@@ -257,10 +281,42 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .fetchOptional(STOCK.MIN_STOCK);
     }
 
+    @Override
+    public int updateActive(Integer id, boolean active) {
+        return dsl.update(IMPLEMENT)
+                .set(IMPLEMENT.ACTIVE, active)
+                .set(IMPLEMENT.UPDATED_AT, OffsetDateTime.now())
+                .where(IMPLEMENT.ID.eq(id))
+                .execute();
+    }
+
+    /**
+     * Resuelve el campo jOOQ de la tabla STOCK que corresponde al filtro de estado solicitado.
+     * Permite aplicar la condición {@code WHERE stock.{campo} > 0} de forma type-safe.
+     */
+    private Field<Integer> resolveStockField(StockStatusFilter filter) {
+        return switch (filter) {
+            case AVAILABLE -> STOCK.AVAILABLE;
+            case RESERVED -> STOCK.RESERVED;
+            case LOANED -> STOCK.LOANED;
+            case DAMAGED -> STOCK.DAMAGED;
+            // TODO: Deuda técnica — la columna 'blocked' no está incluida en el codegen de jOOQ actual.
+            //  Se usa DSL.field() dinámico como workaround. Cuando se regenere el codegen (ej: tras
+            //  agregar la columna al schema), reemplazar por STOCK.BLOCKED (field tipado) para
+            //  garantizar type-safety en tiempo de compilación.
+            //  Ref: PSD-25 observación de deuda técnica aprobada 2026-05-01.
+            case BLOCKED -> DSL.field(DSL.name("stock", "blocked"), Integer.class);
+        };
+    }
+
     private Implemento toDomain(ImplementRecord record) {
         String observations = null;
+        String barcode = null;
+        String imgUrl = null;
         try {
             observations = record.get(IMPLEMENT_OBSERVATIONS);
+            barcode = record.get(IMPLEMENT_BARCODE);
+            imgUrl = record.get(IMPLEMENT_IMG_URL);
         } catch (IllegalArgumentException ignored) {
             // Cuando el codegen de jOOQ no incluye la columna "observations" en ImplementRecord,
             // el record no contiene ese Field y record.get(Field) lanza IllegalArgumentException.
@@ -274,6 +330,8 @@ public class ImplementJooqRepository implements ImplementRepository {
                 record.getCategoryId(),
                 record.getLocationId(),
                 toDomainItemType(record.getItemType()),
+                barcode,
+                imgUrl,
                 observations,
                 record.getActive(),
                 record.getCreatedAt(),

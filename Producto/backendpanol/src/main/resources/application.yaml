@@ -1,6 +1,12 @@
 spring:
   application:
     name: backendpanol
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
   profiles:
     active: ${APP_DB_ENV:docker}
   config:

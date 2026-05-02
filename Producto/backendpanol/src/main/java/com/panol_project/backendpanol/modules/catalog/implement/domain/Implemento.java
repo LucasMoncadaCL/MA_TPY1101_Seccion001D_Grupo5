@@ -9,6 +9,8 @@ public record Implemento(
         Integer categoriaId,
         Integer locationId,
         ImplementItemType itemType,
+        String barcode,
+        String imgUrl,
         String observations,
         Boolean activo,
         OffsetDateTime createdAt,

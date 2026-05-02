@@ -14,7 +14,7 @@ interface ModalState {
   message?: string;
 }
 
-export function InventoryCategoriesPage() {
+export function InventoryCategoriesPage({ embedded = false }: { embedded?: boolean }) {
   const {
     categories,
     associations,
@@ -97,8 +97,8 @@ export function InventoryCategoriesPage() {
     }
   }
 
-  return (
-    <InventoryLayout activeSection="categories">
+  const content = (
+    <>
       <section className="content-header">
         <div>
           <h1>Gestión de Inventario</h1>
@@ -189,7 +189,13 @@ export function InventoryCategoriesPage() {
         onClose={closeModal}
         onConfirm={handleDelete}
       />
-    </InventoryLayout>
+    </>
   );
+
+  if (embedded) {
+    return content;
+  }
+
+  return <InventoryLayout activeSection="categories">{content}</InventoryLayout>;
 }
 

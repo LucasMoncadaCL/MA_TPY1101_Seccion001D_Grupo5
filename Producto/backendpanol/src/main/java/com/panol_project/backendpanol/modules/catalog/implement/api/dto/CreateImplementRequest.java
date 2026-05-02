@@ -9,9 +9,9 @@ import jakarta.validation.constraints.Size;
 
 public record CreateImplementRequest(
         @NotBlank(message = "El nombre es obligatorio")
-        @Size(max = 120, message = "El nombre no puede superar 120 caracteres")
+        @Size(max = 150, message = "El nombre no puede superar 150 caracteres")
         String name,
-        @Size(max = 255, message = "La descripcion no puede superar 255 caracteres")
+        @Size(max = 2000, message = "La descripcion no puede superar 2000 caracteres")
         String description,
         @NotNull(message = "La categoria es obligatoria")
         @JsonProperty("category_id")
@@ -30,6 +30,11 @@ public record CreateImplementRequest(
         @NotNull(message = "El stock minimo es obligatorio")
         @Positive(message = "El stock minimo debe ser un entero positivo")
         Integer minStock,
+        @Size(max = 100, message = "El codigo de barras no puede superar 100 caracteres")
+        String barcode,
+        @JsonProperty("img_url")
+        @Size(max = 2000, message = "La URL de imagen no puede superar 2000 caracteres")
+        String imgUrl,
         @Size(max = 500, message = "Las observaciones no pueden superar 500 caracteres")
         String observations
 ) {

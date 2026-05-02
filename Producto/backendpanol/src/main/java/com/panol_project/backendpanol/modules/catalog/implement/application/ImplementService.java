@@ -5,6 +5,7 @@ import com.panol_project.backendpanol.modules.catalog.implement.domain.Implement
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementRepository;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
 import com.panol_project.backendpanol.modules.catalog.location.application.LocationService;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.NotFoundException;
@@ -39,11 +40,15 @@ public class ImplementService {
             Integer locationId,
             String itemType,
             Integer minStock,
+            String barcode,
+            String imgUrl,
             String observations
     ) {
         categoriaService.validarCategoriaActivaParaImplemento(categoriaId);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
+        String normalizedBarcode = normalizeBarcode(barcode);
+        String normalizedImgUrl = normalizeOptional(imgUrl);
         String normalizedObservations = normalizeObservations(observations);
         ImplementItemType normalizedItemType = parseItemType(itemType);
         locationService.validarLocationExistente(locationId);
@@ -56,6 +61,8 @@ public class ImplementService {
                     categoriaId,
                     locationId,
                     normalizedItemType,
+                    normalizedBarcode,
+                    normalizedImgUrl,
                     normalizedObservations
             );
             repository.updateMinStockByImplementId(created.id(), minStock);
@@ -77,6 +84,8 @@ public class ImplementService {
             Integer locationId,
             String itemType,
             Integer minStock,
+            String barcode,
+            String imgUrl,
             String observations
     ) {
         Implemento existing = requireImplement(id);
@@ -87,6 +96,8 @@ public class ImplementService {
         locationService.validarLocationExistente(locationId);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
+        String normalizedBarcode = normalizeBarcode(barcode);
+        String normalizedImgUrl = normalizeOptional(imgUrl);
         String normalizedObservations = normalizeObservations(observations);
         ImplementItemType normalizedItemType = parseItemType(itemType);
         validateUniqueActiveNameForUpdate(normalizedName, id);
@@ -99,6 +110,8 @@ public class ImplementService {
                     categoriaId,
                     locationId,
                     normalizedItemType,
+                    normalizedBarcode,
+                    normalizedImgUrl,
                     normalizedObservations
             );
             repository.updateMinStockByImplementId(updated.id(), minStock);
@@ -113,6 +126,16 @@ public class ImplementService {
 
     @Transactional(readOnly = true)
     public Implemento obtener(Integer id) {
+        return requireImplement(id);
+    }
+
+    @Transactional
+    public Implemento setActive(Integer id, boolean active) {
+        Implemento existing = requireImplement(id);
+        if (Boolean.TRUE.equals(existing.activo()) == active) {
+            return existing;
+        }
+        repository.updateActive(id, active);
         return requireImplement(id);
     }
 
@@ -142,10 +165,11 @@ public class ImplementService {
     }
 
     @Transactional(readOnly = true)
-    public List<ImplementSummary> listar(String name, Integer categoryId) {
+    public List<ImplementSummary> listar(String name, Integer categoryId, StockStatusFilter stockStatusFilter) {
         return repository.findAllSummaries(
                 normalizeFiltroNombre(name),
-                categoryId
+                categoryId,
+                stockStatusFilter
         );
     }
 
@@ -159,18 +183,22 @@ public class ImplementService {
     }
 
     private String normalizeDescripcion(String descripcion) {
-        if (descripcion == null) {
-            return null;
-        }
-        String normalized = descripcion.trim();
-        return normalized.isEmpty() ? null : normalized;
+        return normalizeOptional(descripcion);
     }
 
     private String normalizeObservations(String observations) {
-        if (observations == null) {
+        return normalizeOptional(observations);
+    }
+
+    private String normalizeBarcode(String barcode) {
+        return normalizeOptional(barcode);
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) {
             return null;
         }
-        String normalized = observations.trim();
+        String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
     }
 
@@ -179,7 +207,10 @@ public class ImplementService {
             return null;
         }
         String normalized = nombre.trim();
-        return normalized.isEmpty() ? null : normalized;
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return normalized;
     }
 
     private void validateUniqueActiveNameForCreate(String normalizedName) {

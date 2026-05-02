@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { InventoryLayout } from "../components/layout/InventoryLayout";
 import { ImplementFormModal } from "../components/implements/ImplementFormModal";
@@ -8,10 +8,10 @@ import { fetchActiveCategories } from "../services/activeCategoryService";
 import { getErrorMessage } from "../services/apiClient";
 import type { ActiveCategoryOption } from "../types/categoryActive";
 import type { ImplementFilters, ImplementStockFilterStatus, ImplementSummary } from "../types/implement";
+import { STOCK_STATUS_LABELS } from "../types/implement";
+import { getUserRoleFromToken, type UserRole } from "../utils/auth";
 
-type UserRole = "COORDINADOR" | "DIRECTOR" | "DOCENTE" | "UNKNOWN";
-
-export function InventoryItemsPage() {
+export function InventoryItemsPage({ embedded = false }: { embedded?: boolean }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -39,32 +39,12 @@ export function InventoryItemsPage() {
         fetchImplements({
           name: debouncedNameFilter.trim() || undefined,
           categoryId: filters.categoryId ?? null,
+          stockStatus: filters.stockStatus,
         }),
         fetchImplements(),
       ]);
 
-      const stockStatus = filters.stockStatus ?? "all";
-      const filteredRows = rows.filter((row) => {
-        if (stockStatus === "all") {
-          return true;
-        }
-
-        const available = row.stock?.available ?? 0;
-        const minStock = row.stock?.min_stock ?? 0;
-
-        if (stockStatus === "with_stock") {
-          return available > 0;
-        }
-        if (stockStatus === "without_stock") {
-          return available <= 0;
-        }
-        if (stockStatus === "low_stock") {
-          return available <= minStock;
-        }
-        return true;
-      });
-
-      setImplementos(filteredRows);
+      setImplementos(rows);
       setTotalImplements(allRows.length);
     } catch (error) {
       setError(getErrorMessage(error, "No se pudo cargar el listado de implementos."));
@@ -123,6 +103,8 @@ export function InventoryItemsPage() {
     itemType: "consumable" | "reusable" | "individual";
     locationId: number;
     description: string | null;
+    barcode: string | null;
+    imgUrl: string | null;
     minStock: number;
     observations: string | null;
   }) {
@@ -137,6 +119,8 @@ export function InventoryItemsPage() {
         item_type: payload.itemType,
         location_id: payload.locationId,
         description: payload.description,
+        barcode: payload.barcode,
+        img_url: payload.imgUrl,
         min_stock: payload.minStock,
         observations: payload.observations,
       });
@@ -159,8 +143,8 @@ export function InventoryItemsPage() {
     setSuccess("Implemento actualizado correctamente.");
   }
 
-  return (
-    <InventoryLayout activeSection="items">
+  const content = (
+    <>
       <section className="content-header">
         <div>
           <h1>Inventario</h1>
@@ -214,7 +198,7 @@ export function InventoryItemsPage() {
           </div>
 
           {isCoordinator ? (
-            <div className="catalog-filters__item">
+            <div className={filters.stockStatus && filters.stockStatus !== "all" ? "catalog-filters__item catalog-filters__item--active" : "catalog-filters__item"}>
               <label htmlFor="catalog-filter-status">Estado stock</label>
               <select
                 id="catalog-filter-status"
@@ -226,11 +210,16 @@ export function InventoryItemsPage() {
                   }))
                 }
               >
-                <option value="all">Todos</option>
-                <option value="with_stock">Con stock</option>
-                <option value="without_stock">Sin stock</option>
-                <option value="low_stock">Stock bajo minimo</option>
+                <option value="all">Todos los estados</option>
+                <option value="available">Disponible</option>
+                <option value="reserved">Reservado</option>
+                <option value="loaned">Prestado</option>
+                <option value="damaged">DaÃ±ado</option>
+                <option value="blocked">Bloqueado</option>
               </select>
+              {filters.stockStatus && filters.stockStatus !== "all" ? (
+                <span className="filter-badge">{STOCK_STATUS_LABELS[filters.stockStatus]}</span>
+              ) : null}
             </div>
           ) : null}
 
@@ -274,7 +263,7 @@ export function InventoryItemsPage() {
           <table className="category-table">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Miniatura</th>
                 <th>Nombre</th>
                 <th>Categoria</th>
                 <th>Ubicacion</th>
@@ -282,9 +271,39 @@ export function InventoryItemsPage() {
               </tr>
             </thead>
             <tbody>
-              {implementos.map((row) => (
+              {loading
+                ? Array.from({ length: 7 }).map((_, index) => (
+                    <tr key={`skeleton-implement-${index}`}>
+                      <td>
+                        <div className="skeleton skeleton-thumb" />
+                      </td>
+                      <td>
+                        <div className="skeleton skeleton-line skeleton-line--md" />
+                      </td>
+                      <td>
+                        <div className="skeleton skeleton-line skeleton-line--sm" />
+                      </td>
+                      <td>
+                        <div className="skeleton skeleton-line skeleton-line--sm" />
+                      </td>
+                      <td>
+                        <div className="skeleton-actions">
+                          <div className="skeleton skeleton-btn" />
+                          <div className="skeleton skeleton-btn" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                : null}
+              {!loading ? implementos.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.id}</td>
+                  <td>
+                    <img
+                      src={(row.imgUrl ?? (row as any).img_url) ?? "https://placehold.co/56x56/e9edf5/4d6284?text=Sin+img"}
+                      alt={row.name}
+                      className="implement-thumb"
+                    />
+                  </td>
                   <td>{row.name}</td>
                   <td>
                     {row.category
@@ -307,7 +326,7 @@ export function InventoryItemsPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )) : null}
             </tbody>
           </table>
         </div>
@@ -326,52 +345,13 @@ export function InventoryItemsPage() {
         onClose={() => setEditingId(null)}
         onSaved={handleSaved}
       />
-    </InventoryLayout>
+    </>
   );
-}
 
-function getUserRoleFromToken(): UserRole {
-  const rawToken = window.localStorage.getItem("access_token");
-  if (!rawToken) {
-    return "UNKNOWN";
+  if (embedded) {
+    return content;
   }
 
-  try {
-    const payloadPart = rawToken.split(".")[1];
-    if (!payloadPart) {
-      return "UNKNOWN";
-    }
-
-    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(normalized)
-        .split("")
-        .map((char) => `%${(`00${char.charCodeAt(0).toString(16)}`).slice(-2)}`)
-        .join(""),
-    );
-
-    const parsed = JSON.parse(jsonPayload) as {
-      role?: string;
-      user_role?: string;
-      roles?: string[];
-      app_metadata?: { role?: string; roles?: string[] };
-    };
-
-    const roles = [
-      parsed.role,
-      parsed.user_role,
-      ...(parsed.roles ?? []),
-      parsed.app_metadata?.role,
-      ...(parsed.app_metadata?.roles ?? []),
-    ]
-      .filter(Boolean)
-      .map((role) => String(role).replace("ROLE_", "").toUpperCase());
-
-    if (roles.includes("COORDINADOR")) return "COORDINADOR";
-    if (roles.includes("DIRECTOR")) return "DIRECTOR";
-    if (roles.includes("DOCENTE")) return "DOCENTE";
-    return "UNKNOWN";
-  } catch {
-    return "UNKNOWN";
-  }
+  return <InventoryLayout activeSection="items">{content}</InventoryLayout>;
 }
+

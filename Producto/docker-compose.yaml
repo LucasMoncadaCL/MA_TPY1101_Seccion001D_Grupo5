@@ -10,6 +10,7 @@ services:
     container_name: panol-backend
     restart: unless-stopped
     env_file:
+      - ./backendpanol/.env
       - ./backendpanol/.env.local
     environment:
       APP_DB_ENV: ${APP_DB_ENV:-supabase}
