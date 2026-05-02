@@ -95,3 +95,9 @@ variable "runtime_sa_user_members" {
   type    = list(string)
   default = []
 }
+
+variable "mongodb_uri_secret_value" {
+  type      = string
+  default   = ""
+  sensitive = true
+}

@@ -18,3 +18,7 @@ backend_min_instances    = 1
 backend_max_instances    = 5
 frontend_min_instances   = 1
 frontend_max_instances   = 5
+
+# Optional: set to create/update the MONGODB_URI secret version from Terraform.
+# Leave empty to manage secret versions outside Terraform.
+mongodb_uri_secret_value = ""

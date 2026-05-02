@@ -106,12 +106,17 @@ jobs:
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID_DEV }}
           DB_SUPABASE_PASSWORD: ${{ secrets.DB_SUPABASE_PASSWORD_DEV }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI_DEV }}
           JWT_ISSUER_URI: ${{ secrets.JWT_ISSUER_URI_DEV }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY_DEV }}
         run: |
           DB_SECRET_VERSION="$(gcloud secrets versions list DB_SUPABASE_PASSWORD --project "$GCP_PROJECT_ID" --filter="state:ENABLED" --limit=1 --format='value(name)')"
           if [ -z "$DB_SECRET_VERSION" ]; then
             printf "%s" "$DB_SUPABASE_PASSWORD" | gcloud secrets versions add DB_SUPABASE_PASSWORD --project "$GCP_PROJECT_ID" --data-file=-
+          fi
+          MONGODB_SECRET_VERSION="$(gcloud secrets versions list MONGODB_URI --project "$GCP_PROJECT_ID" --filter="state:ENABLED" --limit=1 --format='value(name)')"
+          if [ -z "$MONGODB_SECRET_VERSION" ]; then
+            printf "%s" "$MONGODB_URI" | gcloud secrets versions add MONGODB_URI --project "$GCP_PROJECT_ID" --data-file=-
           fi
           JWT_SECRET_VERSION="$(gcloud secrets versions list JWT_ISSUER_URI --project "$GCP_PROJECT_ID" --filter="state:ENABLED" --limit=1 --format='value(name)')"
           if [ -z "$JWT_SECRET_VERSION" ]; then
@@ -127,10 +132,12 @@ jobs:
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID_DEV }}
           DB_SUPABASE_PASSWORD: ${{ secrets.DB_SUPABASE_PASSWORD_DEV }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI_DEV }}
           JWT_ISSUER_URI: ${{ secrets.JWT_ISSUER_URI_DEV }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY_DEV }}
         run: |
           printf "%s" "$DB_SUPABASE_PASSWORD" | gcloud secrets versions add DB_SUPABASE_PASSWORD --project "$GCP_PROJECT_ID" --data-file=-
+          printf "%s" "$MONGODB_URI" | gcloud secrets versions add MONGODB_URI --project "$GCP_PROJECT_ID" --data-file=-
           printf "%s" "$JWT_ISSUER_URI" | gcloud secrets versions add JWT_ISSUER_URI --project "$GCP_PROJECT_ID" --data-file=-
           printf "%s" "$VITE_SUPABASE_PUBLISHABLE_KEY" | gcloud secrets versions add VITE_SUPABASE_PUBLISHABLE_KEY --project "$GCP_PROJECT_ID" --data-file=-
 
