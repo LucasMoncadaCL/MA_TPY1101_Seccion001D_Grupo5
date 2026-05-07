@@ -1,5 +1,6 @@
-import axios, { AxiosError } from "axios";
+﻿import axios, { AxiosError } from "axios";
 import type { ApiErrorPayload } from "../types/api";
+import { getAccessToken } from "../utils/auth";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:18080";
@@ -11,7 +12,7 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   try {
-    const token = window.localStorage.getItem("access_token");
+    const token = getAccessToken();
     if (token) {
       config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
@@ -49,4 +50,3 @@ export function getErrorMessage(error: unknown, fallback: string): string {
   const payload = getApiErrorPayload(error);
   return payload?.message ?? fallback;
 }
-

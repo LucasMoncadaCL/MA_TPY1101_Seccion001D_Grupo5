@@ -1,12 +1,18 @@
 package com.panol_project.backendpanol.bootstrap.config;
 
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import com.panol_project.backendpanol.modules.auth.infrastructure.TokenRevocationRepository;
+import com.panol_project.backendpanol.modules.auth.infrastructure.TokenRevocationValidator;
 import com.panol_project.backendpanol.shared.error.security.RestAccessDeniedHandler;
 import com.panol_project.backendpanol.shared.error.security.RestAuthenticationEntryPoint;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +23,9 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -38,7 +46,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/api/categorias/active").authenticated()
+                        .requestMatchers("/api/v1/auth/login").permitAll()
                         .requestMatchers("/api/categorias/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
@@ -47,8 +55,25 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(
                                 token -> new JwtAuthenticationToken(token, extractAuthorities(token)))))
-                .httpBasic(Customizer.withDefaults())
                 .build();
+    }
+
+    @Bean
+    JwtDecoder jwtDecoder(
+            @Value("${app.auth.jwt.secret}") String secret,
+            TokenRevocationValidator tokenRevocationValidator
+    ) {
+        SecretKeySpec key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).build();
+        OAuth2TokenValidator<Jwt> withDefaults = JwtValidators.createDefault();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withDefaults, tokenRevocationValidator));
+        return decoder;
+    }
+
+    @Bean
+    JwtEncoder jwtEncoder(@Value("${app.auth.jwt.secret}") String secret) {
+        SecretKeySpec key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return new NimbusJwtEncoder(new ImmutableSecret<>(key));
     }
 
     private Collection<? extends GrantedAuthority> extractAuthorities(Jwt jwt) {
@@ -87,3 +112,4 @@ public class SecurityConfig {
         }
     }
 }
+

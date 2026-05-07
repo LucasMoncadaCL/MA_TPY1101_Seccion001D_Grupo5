@@ -2389,3 +2389,348 @@ body.modal-open .app-shell__main {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at top left, #dbeafe, #eef4ff 45%, #f6f9ff);
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(440px, 100%);
+  border: 1px solid #d9e6fb;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 20px 40px rgba(18, 53, 120, 0.12);
+  padding: 24px;
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+}
+
+.auth-card p {
+  margin-top: 6px;
+  color: #55739f;
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form label {
+  font-weight: 700;
+  color: #234473;
+  display: grid;
+  gap: 6px;
+}
+
+.auth-form input {
+  width: 100%;
+  border: 1px solid #ccdaef;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.not-found-template {
+  min-height: 70vh;
+  display: grid;
+  place-items: center;
+}
+
+.not-found-template__card {
+  width: min(560px, 100%);
+  text-align: center;
+  border: 1px solid #d7e4f7;
+  border-radius: 16px;
+  background: #fff;
+  padding: 30px;
+}
+
+.not-found-template__card span {
+  display: inline-block;
+  font-size: 4rem;
+  font-weight: 800;
+  color: #1b61cf;
+}
+.auth-card--loading {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-logo-wrap {
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+}
+
+.auth-logo {
+  width: min(220px, 100%);
+  max-height: 110px;
+  object-fit: contain;
+}
+
+/* Login redesign */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: radial-gradient(circle at 78% 16%, #d8e6ff 0%, #eef3fb 40%, #f4f7fc 100%);
+}
+
+.login-screen__frame {
+  width: min(1520px, 100%);
+  height: min(92vh, 920px);
+  display: grid;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(430px, 1fr);
+  gap: clamp(16px, 2vw, 28px);
+  align-items: center;
+}
+
+.login-screen__hero {
+  height: 100%;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-screen__hero-image {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(92vh - 36px);
+  border-radius: 30px;
+  object-fit: contain;
+  object-position: center;
+  box-shadow: 0 22px 44px rgba(9, 34, 84, 0.28);
+}
+
+.login-screen__form-side {
+  height: 100%;
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  padding: 8px;
+}
+
+.login-card {
+  width: min(540px, 100%);
+  border: 1px solid #dce6f5;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 24px 40px rgba(15, 45, 101, 0.1);
+  padding: 34px;
+}
+
+.login-card__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-card__brand strong {
+  font-family: "Poppins", sans-serif;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: #0f2c67;
+}
+
+.login-card__brand-logo {
+  width: 66px;
+  height: 66px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.login-card__copy {
+  margin-top: 20px;
+}
+
+.login-card__copy h1 {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  color: #132f65;
+  font-size: clamp(1.8rem, 1.4rem + 0.9vw, 2.25rem);
+}
+
+.login-card__copy p {
+  margin: 10px 0 0;
+  color: #546b92;
+  font-size: 1.02rem;
+  line-height: 1.42;
+}
+
+.login-form {
+  margin-top: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.login-field {
+  display: grid;
+  gap: 7px;
+}
+
+.login-field label {
+  font-weight: 800;
+  color: #213f72;
+}
+
+.login-field input {
+  width: 100%;
+  border: 1px solid #ccd8ec;
+  border-radius: 12px;
+  padding: 12px 13px;
+  font-size: 1rem;
+  color: #17335f;
+  background: #fff;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.login-field input::placeholder {
+  color: #7f95b8;
+}
+
+.login-field input:focus {
+  outline: none;
+  border-color: #1a62cb;
+  box-shadow: 0 0 0 3px rgba(26, 98, 203, 0.14);
+}
+
+.login-field input[aria-invalid="true"] {
+  border-color: #cd4050;
+  box-shadow: 0 0 0 3px rgba(205, 64, 80, 0.12);
+}
+
+.login-field__password-wrap {
+  position: relative;
+}
+
+.login-field__password-wrap input {
+  padding-right: 42px;
+}
+
+.login-field__password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #4f6e9f;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.login-field__password-toggle:hover {
+  background: #eef4ff;
+}
+
+.login-field__error {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #b73345;
+}
+
+.login-form__meta {
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.login-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #3b5785;
+  font-weight: 700;
+}
+
+.login-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #1a62cb;
+}
+
+.login-form__link {
+  color: #1a62cb;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.login-form__link:hover {
+  text-decoration: underline;
+}
+
+.login-form__submit {
+  margin-top: 2px;
+  width: 100%;
+  justify-content: center;
+  padding: 13px 16px;
+  font-size: 1.15rem;
+}
+
+.login-form__submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.login-form__footnote {
+  margin: 8px 0 0;
+  text-align: center;
+  color: #5c7399;
+  border-top: 1px solid #e2e9f5;
+  padding-top: 14px;
+  font-weight: 700;
+}
+
+@media (max-width: 1220px) {
+  .login-screen__frame {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .login-screen__hero {
+    min-height: 260px;
+    padding: 0;
+  }
+
+  .login-screen__hero-image {
+    max-height: 340px;
+  }
+
+  .login-screen__form-side {
+    min-height: auto;
+    padding: 8px;
+    align-items: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .login-screen__hero {
+    display: none;
+  }
+
+  .login-card {
+    padding: 24px 18px;
+    border-radius: 18px;
+  }
+
+  .login-card__brand strong {
+    font-size: 1.55rem;
+  }
+}
