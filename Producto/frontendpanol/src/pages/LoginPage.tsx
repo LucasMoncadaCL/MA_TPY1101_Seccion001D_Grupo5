@@ -12,7 +12,10 @@ export function cleanRut(value: string): string {
 export function formatRut(value: string): string {
   const cleaned = cleanRut(value);
   if (!cleaned) return "";
-  return cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const body = cleaned.slice(0, -1);
+  const verifier = cleaned.slice(-1);
+  const withDots = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return body.length > 0 ? `${withDots}-${verifier}` : verifier;
 }
 
 export function LoginPage() {
@@ -93,7 +96,7 @@ export function LoginPage() {
                 type="text"
                 autoComplete="username"
                 inputMode="numeric"
-                placeholder="22.307.980"
+                placeholder="22.307.980-1"
                 value={rutFormatted}
                 onChange={(event) => {
                   setRutRaw(event.target.value);

@@ -43,6 +43,31 @@ variable "supabase_db_ssl_mode" {
   default = "require"
 }
 
+variable "app_security_enabled" {
+  type    = bool
+  default = true
+}
+
+variable "app_auth_max_failed_attempts" {
+  type    = number
+  default = 5
+}
+
+variable "app_auth_lock_minutes" {
+  type    = number
+  default = 15
+}
+
+variable "app_auth_jwt_issuer" {
+  type    = string
+  default = "panol-backend-prod"
+}
+
+variable "app_auth_jwt_expiration_seconds" {
+  type    = number
+  default = 3600
+}
+
 variable "frontend_domain" {
   type = string
 }

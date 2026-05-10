@@ -18,6 +18,7 @@ Esta guía define el proceso estándar para agregar una nueva configuración al 
 - `APP_*` para configuración de app no sensible.
 - `VITE_*` para variables necesarias en frontend (si es sensible, sigue en Secret Manager).
 - Secretos en mayúsculas con `_`: ejemplo `MONGODB_URI`, `JWT_ISSUER_URI`.
+- Para JWT de app usar `APP_AUTH_*` (por ejemplo `APP_AUTH_JWT_SECRET`).
 - Sufijo por entorno solo en GitHub (`*_DEV`, `*_PROD`), no en el nombre del secreto en GCP.
 
 ## Flujo para agregar una nueva `env var` no sensible

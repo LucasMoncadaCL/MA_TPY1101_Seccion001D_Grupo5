@@ -11,7 +11,11 @@ locals {
   backend_env = merge({
     APP_DB_ENV           = "supabase"
     APP_PORT             = "8080"
-    APP_SECURITY_ENABLED = "true"
+    APP_SECURITY_ENABLED = tostring(var.app_security_enabled)
+    APP_AUTH_MAX_FAILED_ATTEMPTS = tostring(var.app_auth_max_failed_attempts)
+    APP_AUTH_LOCK_MINUTES = tostring(var.app_auth_lock_minutes)
+    APP_AUTH_JWT_ISSUER = var.app_auth_jwt_issuer
+    APP_AUTH_JWT_EXPIRATION_SECONDS = tostring(var.app_auth_jwt_expiration_seconds)
     FRONTEND_ORIGIN      = local.frontend_origin
     CORS_ALLOWED_ORIGINS = local.frontend_origin
     DB_SUPABASE_HOST     = var.supabase_db_host
@@ -45,6 +49,7 @@ module "secret_manager" {
     "DB_SUPABASE_PASSWORD",
     "MONGODB_URI",
     "JWT_ISSUER_URI",
+    "APP_AUTH_JWT_SECRET",
     "VITE_SUPABASE_PUBLISHABLE_KEY"
   ]
   secret_values = {
@@ -93,6 +98,10 @@ module "backend_service" {
     }
     JWT_ISSUER_URI = {
       secret  = module.secret_manager.secret_ids["JWT_ISSUER_URI"]
+      version = "latest"
+    }
+    APP_AUTH_JWT_SECRET = {
+      secret  = module.secret_manager.secret_ids["APP_AUTH_JWT_SECRET"]
       version = "latest"
     }
   }

@@ -55,7 +55,7 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        String rut = request.rut().trim();
+        String rut = normalizeRut(request.rut());
         AuthUserRow user = userAuthRepository.findAuthUserByRut(rut)
                 .orElseThrow(() -> invalidCredentials(rut));
 
@@ -121,6 +121,11 @@ public class AuthService {
         if (role.contains("COORD")) return "COORDINADOR";
         if (role.contains("DOCENTE")) return "DOCENTE";
         return "DOCENTE";
+    }
+
+    private String normalizeRut(String rutRaw) {
+        if (rutRaw == null) return "";
+        return rutRaw.replaceAll("\\D", "").trim();
     }
 }
 

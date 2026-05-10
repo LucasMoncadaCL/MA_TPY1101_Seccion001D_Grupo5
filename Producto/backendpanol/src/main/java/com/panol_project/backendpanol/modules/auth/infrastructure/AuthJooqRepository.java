@@ -22,6 +22,10 @@ public class AuthJooqRepository implements UserAuthRepository, TokenRevocationRe
     public Optional<AuthUserRow> findAuthUserByRut(String rut) {
         var userTable = table(name("user"));
         var roleTable = table(name("role"));
+        var normalizedRutField = field(
+                "replace(replace(replace({0}, '.', ''), '-', ''), ' ', '')",
+                String.class,
+                field(name("user", "rut")));
         return dsl.select(
                         field(name("user", "id"), Integer.class),
                         field(name("user", "rut"), String.class),
@@ -31,7 +35,7 @@ public class AuthJooqRepository implements UserAuthRepository, TokenRevocationRe
                         field(name("user", "blocked_until"), OffsetDateTime.class))
                 .from(userTable)
                 .join(roleTable).on(field(name("role", "id")).eq(field(name("user", "role_id"))))
-                .where(field(name("user", "rut")).eq(rut))
+                .where(normalizedRutField.eq(rut))
                 .and(field(name("user", "active")).eq(true))
                 .fetchOptional(record -> new AuthUserRow(
                         record.value1(),

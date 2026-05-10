@@ -93,6 +93,11 @@ jobs:
           TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_DEV }}
           TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_DEV }}
           TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_DEV }}
+          TF_VAR_app_security_enabled: ${{ vars.APP_SECURITY_ENABLED_DEV }}
+          TF_VAR_app_auth_max_failed_attempts: ${{ vars.APP_AUTH_MAX_FAILED_ATTEMPTS_DEV }}
+          TF_VAR_app_auth_lock_minutes: ${{ vars.APP_AUTH_LOCK_MINUTES_DEV }}
+          TF_VAR_app_auth_jwt_issuer: ${{ vars.APP_AUTH_JWT_ISSUER_DEV }}
+          TF_VAR_app_auth_jwt_expiration_seconds: ${{ vars.APP_AUTH_JWT_EXPIRATION_SECONDS_DEV }}
           TF_VAR_runtime_sa_user_members: '["serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}"]'
           TF_VAR_backend_domain: ""
           TF_VAR_frontend_domain: ""
@@ -108,6 +113,7 @@ jobs:
           DB_SUPABASE_PASSWORD: ${{ secrets.DB_SUPABASE_PASSWORD_DEV }}
           MONGODB_URI: ${{ secrets.MONGODB_URI_DEV }}
           JWT_ISSUER_URI: ${{ secrets.JWT_ISSUER_URI_DEV }}
+          APP_AUTH_JWT_SECRET: ${{ secrets.APP_AUTH_JWT_SECRET_DEV }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY_DEV }}
         run: |
           DB_SECRET_VERSION="$(gcloud secrets versions list DB_SUPABASE_PASSWORD --project "$GCP_PROJECT_ID" --filter="state:ENABLED" --limit=1 --format='value(name)')"
@@ -122,6 +128,10 @@ jobs:
           if [ -z "$JWT_SECRET_VERSION" ]; then
             printf "%s" "$JWT_ISSUER_URI" | gcloud secrets versions add JWT_ISSUER_URI --project "$GCP_PROJECT_ID" --data-file=-
           fi
+          APP_AUTH_JWT_SECRET_VERSION="$(gcloud secrets versions list APP_AUTH_JWT_SECRET --project "$GCP_PROJECT_ID" --filter="state:ENABLED" --limit=1 --format='value(name)')"
+          if [ -z "$APP_AUTH_JWT_SECRET_VERSION" ]; then
+            printf "%s" "$APP_AUTH_JWT_SECRET" | gcloud secrets versions add APP_AUTH_JWT_SECRET --project "$GCP_PROJECT_ID" --data-file=-
+          fi
           VITE_SECRET_VERSION="$(gcloud secrets versions list VITE_SUPABASE_PUBLISHABLE_KEY --project "$GCP_PROJECT_ID" --filter="state:ENABLED" --limit=1 --format='value(name)')"
           if [ -z "$VITE_SECRET_VERSION" ]; then
             printf "%s" "$VITE_SUPABASE_PUBLISHABLE_KEY" | gcloud secrets versions add VITE_SUPABASE_PUBLISHABLE_KEY --project "$GCP_PROJECT_ID" --data-file=-
@@ -134,11 +144,13 @@ jobs:
           DB_SUPABASE_PASSWORD: ${{ secrets.DB_SUPABASE_PASSWORD_DEV }}
           MONGODB_URI: ${{ secrets.MONGODB_URI_DEV }}
           JWT_ISSUER_URI: ${{ secrets.JWT_ISSUER_URI_DEV }}
+          APP_AUTH_JWT_SECRET: ${{ secrets.APP_AUTH_JWT_SECRET_DEV }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY_DEV }}
         run: |
           printf "%s" "$DB_SUPABASE_PASSWORD" | gcloud secrets versions add DB_SUPABASE_PASSWORD --project "$GCP_PROJECT_ID" --data-file=-
           printf "%s" "$MONGODB_URI" | gcloud secrets versions add MONGODB_URI --project "$GCP_PROJECT_ID" --data-file=-
           printf "%s" "$JWT_ISSUER_URI" | gcloud secrets versions add JWT_ISSUER_URI --project "$GCP_PROJECT_ID" --data-file=-
+          printf "%s" "$APP_AUTH_JWT_SECRET" | gcloud secrets versions add APP_AUTH_JWT_SECRET --project "$GCP_PROJECT_ID" --data-file=-
           printf "%s" "$VITE_SUPABASE_PUBLISHABLE_KEY" | gcloud secrets versions add VITE_SUPABASE_PUBLISHABLE_KEY --project "$GCP_PROJECT_ID" --data-file=-
 
       - name: Generate jOOQ sources (backend)
@@ -185,6 +197,11 @@ jobs:
           TF_VAR_supabase_db_port: ${{ vars.SUPABASE_DB_PORT_DEV }}
           TF_VAR_supabase_db_name: ${{ vars.SUPABASE_DB_NAME_DEV }}
           TF_VAR_supabase_db_user: ${{ vars.SUPABASE_DB_USER_DEV }}
+          TF_VAR_app_security_enabled: ${{ vars.APP_SECURITY_ENABLED_DEV }}
+          TF_VAR_app_auth_max_failed_attempts: ${{ vars.APP_AUTH_MAX_FAILED_ATTEMPTS_DEV }}
+          TF_VAR_app_auth_lock_minutes: ${{ vars.APP_AUTH_LOCK_MINUTES_DEV }}
+          TF_VAR_app_auth_jwt_issuer: ${{ vars.APP_AUTH_JWT_ISSUER_DEV }}
+          TF_VAR_app_auth_jwt_expiration_seconds: ${{ vars.APP_AUTH_JWT_EXPIRATION_SECONDS_DEV }}
           TF_VAR_runtime_sa_user_members: '["serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_DEV }}"]'
           TF_VAR_backend_domain: ""
           TF_VAR_frontend_domain: ""

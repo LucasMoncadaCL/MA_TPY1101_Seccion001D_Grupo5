@@ -1,13 +1,18 @@
 ﻿import {
   Bell,
+  BookOpenText,
   Boxes,
   ClipboardList,
   FileBarChart2,
   Handshake,
+  History,
+  LayoutDashboard,
   LogOut,
   MapPin,
   Menu,
   Search,
+  Siren,
+  Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -25,7 +30,35 @@ const menuInventory = [
   { key: "reports", label: "Reportes", icon: FileBarChart2, href: "#/inventory/implementos" },
 ] as const;
 
-export type InventorySection = "items" | "categories" | "locations" | "moves" | "loans" | "reports";
+const menuDirector = [
+  { key: "director-dashboard", label: "Dashboard", icon: LayoutDashboard, href: "#/director/dashboard" },
+  { key: "director-inventory", label: "Inventario", icon: Boxes, href: "#/director/dashboard" },
+  { key: "director-requests", label: "Solicitudes", icon: ClipboardList, href: "#/director/dashboard" },
+  { key: "director-users", label: "Usuarios", icon: Users, href: "#/director/users/create" },
+  { key: "director-subjects", label: "Asignaturas", icon: BookOpenText, href: "#/director/dashboard" },
+  { key: "director-alerts", label: "Alertas", icon: Siren, href: "#/director/dashboard" },
+  { key: "director-reports", label: "Reportes", icon: FileBarChart2, href: "#/director/dashboard" },
+  { key: "director-history", label: "Historial", icon: History, href: "#/director/dashboard" },
+] as const;
+
+export type InventorySection =
+  | "items"
+  | "categories"
+  | "locations"
+  | "moves"
+  | "loans"
+  | "reports"
+  | "director-dashboard"
+  | "director-users"
+  | "director-inventory"
+  | "director-requests"
+  | "director-subjects"
+  | "director-alerts"
+  | "director-reports"
+  | "director-history";
+
+export type NavigationMode = "inventory" | "director";
+
 export interface BreadcrumbPart {
   label: string;
   href?: string;
@@ -33,24 +66,28 @@ export interface BreadcrumbPart {
 
 export function Sidebar({
   activeSection,
+  navigationMode,
   onNavigate,
 }: {
   activeSection: InventorySection;
+  navigationMode: NavigationMode;
   onNavigate?: () => void;
 }) {
+  const menu = navigationMode === "director" ? menuDirector : menuInventory;
+
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
         <div>
-          <strong>Coordinador de laboratorio</strong>
-          <p>Escuela de salud</p>
+          <strong>{navigationMode === "director" ? "Pañol" : "Coordinador de laboratorio"}</strong>
+          <p>{navigationMode === "director" ? "Gestion de inventario y prestamos" : "Escuela de salud"}</p>
         </div>
       </div>
 
       <section>
-        <h3 className="sidebar__title">Inventario</h3>
+        <h3 className="sidebar__title">{navigationMode === "director" ? "Director de carrera" : "Inventario"}</h3>
         <ul className="sidebar__list">
-          {menuInventory.map((item) => {
+          {menu.map((item) => {
             const Icon = item.icon;
             const isActive = item.key === activeSection;
             return (
@@ -68,6 +105,13 @@ export function Sidebar({
           })}
         </ul>
       </section>
+
+      {navigationMode === "director" ? (
+        <section className="sidebar__help">
+          <h4>Institucion de Salud</h4>
+          <p>Ciencias de la Salud</p>
+        </section>
+      ) : null}
     </aside>
   );
 }
@@ -77,6 +121,8 @@ export function TopBar({
   onToggleSidebar,
   breadcrumbs,
   onLogout = () => {},
+  searchPlaceholder = "Buscar implementos...",
+  notificationCount = 0,
   userName = "Usuario",
   userRole = "COORDINADOR",
 }: {
@@ -84,6 +130,8 @@ export function TopBar({
   onToggleSidebar: () => void;
   breadcrumbs: BreadcrumbPart[];
   onLogout?: () => void;
+  searchPlaceholder?: string;
+  notificationCount?: number;
   userName?: string;
   userRole?: string;
 }) {
@@ -197,7 +245,7 @@ export function TopBar({
 
       <div className="topbar__search" ref={searchRef}>
         <Search size={16} />
-        <input type="search" placeholder="Buscar implementos..." value={search} onChange={(event) => { setSearch(event.target.value); setSuggestionsOpen(true); setHoverIndex(-1); }} onFocus={() => setSuggestionsOpen(true)} onKeyDown={handleSearchKeyDown} />
+        <input type="search" placeholder={searchPlaceholder} value={search} onChange={(event) => { setSearch(event.target.value); setSuggestionsOpen(true); setHoverIndex(-1); }} onFocus={() => setSuggestionsOpen(true)} onKeyDown={handleSearchKeyDown} />
         {shouldShowSuggestions ? (
           <div className="topbar-search-suggest">
             {loadingSuggestions ? <div className="topbar-search-suggest__hint">Buscando implementos...</div> : suggestions.length === 0 ? <div className="topbar-search-suggest__hint">Sin coincidencias</div> : suggestions.map((row, index) => (
@@ -211,7 +259,10 @@ export function TopBar({
       </div>
 
       <div className="topbar__user">
-        <button type="button" className="topbar__icon" aria-label="Notificaciones"><Bell size={18} /></button>
+        <button type="button" className="topbar__icon topbar__icon--notify" aria-label="Notificaciones">
+          <Bell size={18} />
+          {notificationCount > 0 ? <span className="topbar__notify-badge">{notificationCount}</span> : null}
+        </button>
         <div className="topbar__avatar">{userName.split(" ").map(x => x[0]).slice(0, 2).join("")}</div>
         <div>
           <strong>{userName}</strong>
@@ -226,15 +277,21 @@ export function TopBar({
 export function InventoryLayout({
   children,
   activeSection = "categories",
+  navigationMode = "inventory",
   breadcrumbs = [{ label: "Inventario", href: "#/inventory/implementos" }],
   onLogout = () => {},
+  searchPlaceholder = "Buscar implementos...",
+  notificationCount = 0,
   userName = "Usuario",
   userRole = "COORDINADOR",
 }: {
   children: ReactNode;
   activeSection?: InventorySection;
+  navigationMode?: NavigationMode;
   breadcrumbs?: BreadcrumbPart[];
   onLogout?: () => void;
+  searchPlaceholder?: string;
+  notificationCount?: number;
   userName?: string;
   userRole?: string;
 }) {
@@ -259,13 +316,21 @@ export function InventoryLayout({
 
   return (
     <div className={`app-shell ${sidebarOpen ? "app-shell--sidebar-open" : ""}`}>
-      <Sidebar activeSection={activeSection} onNavigate={closeSidebarOnNavigate} />
+      <Sidebar activeSection={activeSection} navigationMode={navigationMode} onNavigate={closeSidebarOnNavigate} />
       <div className="app-shell__workspace">
-        <TopBar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((value) => !value)} breadcrumbs={breadcrumbs} onLogout={onLogout} userName={userName} userRole={userRole} />
+        <TopBar
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((value) => !value)}
+          breadcrumbs={breadcrumbs}
+          onLogout={onLogout}
+          searchPlaceholder={searchPlaceholder}
+          notificationCount={notificationCount}
+          userName={userName}
+          userRole={userRole}
+        />
         <main className="app-shell__main">{children}</main>
       </div>
       {sidebarOpen ? <button type="button" className="sidebar-overlay" aria-label="Cerrar menu lateral" onClick={() => setSidebarOpen(false)} /> : null}
     </div>
   );
 }
-

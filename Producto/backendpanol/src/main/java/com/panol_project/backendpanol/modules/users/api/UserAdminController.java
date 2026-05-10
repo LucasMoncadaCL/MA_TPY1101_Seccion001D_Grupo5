@@ -2,15 +2,22 @@ package com.panol_project.backendpanol.modules.users.api;
 
 import com.panol_project.backendpanol.modules.users.api.dto.ChangeRoleRequest;
 import com.panol_project.backendpanol.modules.users.api.dto.CreateUserRequest;
+import com.panol_project.backendpanol.modules.users.api.dto.UpdateUserRequest;
+import com.panol_project.backendpanol.modules.users.api.dto.UserAdminSummaryResponse;
 import com.panol_project.backendpanol.modules.users.application.UserAdminService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,6 +30,12 @@ public class UserAdminController {
 
     public UserAdminController(UserAdminService userAdminService) {
         this.userAdminService = userAdminService;
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('DIRECTOR')")
+    List<UserAdminSummaryResponse> listUsers() {
+        return userAdminService.listUsers();
     }
 
     @PostMapping
@@ -40,6 +53,38 @@ public class UserAdminController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         userAdminService.changeRole(userId, request.role(), jwt);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{userId}")
+    @PreAuthorize("hasRole('DIRECTOR')")
+    ResponseEntity<Void> updateUser(
+            @PathVariable Integer userId,
+            @Valid @RequestBody UpdateUserRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        userAdminService.updateUser(userId, request, jwt);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{userId}/active")
+    @PreAuthorize("hasRole('DIRECTOR')")
+    ResponseEntity<Void> setActive(
+            @PathVariable Integer userId,
+            @RequestParam boolean active,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        userAdminService.setActive(userId, active, jwt);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{userId}")
+    @PreAuthorize("hasRole('DIRECTOR')")
+    ResponseEntity<Void> deleteUser(
+            @PathVariable Integer userId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        userAdminService.deleteUser(userId, jwt);
         return ResponseEntity.noContent().build();
     }
 }

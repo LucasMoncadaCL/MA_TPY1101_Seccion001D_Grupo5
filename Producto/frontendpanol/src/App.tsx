@@ -1,6 +1,13 @@
 ﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { InventoryLayout, type BreadcrumbPart, type InventorySection } from "./components/layout/InventoryLayout";
+import {
+  InventoryLayout,
+  type BreadcrumbPart,
+  type InventorySection,
+  type NavigationMode,
+} from "./components/layout/InventoryLayout";
 import { InventoryCategoriesPage } from "./pages/InventoryCategoriesPage";
+import { DirectorCreateUserPage } from "./pages/DirectorCreateUserPage";
+import { DirectorDashboardPage } from "./pages/DirectorDashboardPage";
 import { InventoryItemDetailPage } from "./pages/InventoryItemDetailPage";
 import { InventoryItemsPage } from "./pages/InventoryItemsPage";
 import { InventoryLocationsPage } from "./pages/InventoryLocationsPage";
@@ -13,9 +20,15 @@ import { clearSession, getUserRoleFromToken, isAuthenticated } from "./utils/aut
 interface RouteView {
   key: string;
   activeSection: InventorySection;
+  navigationMode: NavigationMode;
   breadcrumbs: BreadcrumbPart[];
   content: ReactNode;
   notFound?: boolean;
+}
+
+function getDefaultHashByRole(role: string): string {
+  if (role === "DIRECTOR") return "#/director/dashboard";
+  return "#/inventory/categories";
 }
 
 function App() {
@@ -40,10 +53,11 @@ function App() {
   const role = getUserRoleFromToken();
   const authenticated = isAuthenticated();
   const normalizedHash = hash || "#/login";
+  const defaultHash = getDefaultHashByRole(role);
   const effectiveHash = !authenticated
     ? "#/login"
     : normalizedHash === "#/login"
-      ? "#/inventory/categories"
+      ? defaultHash
       : normalizedHash;
 
   useEffect(() => {
@@ -52,35 +66,61 @@ function App() {
       window.location.hash = "#/login";
       return;
     }
-    if (authenticated && normalizedHash === "#/login") {
-      window.location.hash = "#/inventory/categories";
+    if (authenticated && role === "DIRECTOR" && normalizedHash.startsWith("#/inventory")) {
+      window.location.hash = "#/director/dashboard";
       return;
     }
-  }, [authenticated, normalizedHash]);
+    if (authenticated && normalizedHash === "#/login") {
+      window.location.hash = defaultHash;
+      return;
+    }
+  }, [authenticated, normalizedHash, defaultHash, role]);
 
   const routeView = useMemo<RouteView>(() => {
-    const normalizedHash = effectiveHash;
+    const currentHash = effectiveHash;
 
-    if ((role === "DIRECTOR" || role === "DOCENTE") && normalizedHash.startsWith("#/inventory")) {
+    if (role !== "DIRECTOR" && currentHash.startsWith("#/director")) {
       return {
-        key: "role-home",
+        key: "director-forbidden",
+        navigationMode: "inventory",
         activeSection: "items",
-        breadcrumbs: [{ label: "Panel" }, { label: role }],
+        breadcrumbs: [{ label: "Acceso" }, { label: "Denegado" }],
         content: (
           <section className="panel">
-            <div className="content-header"><h1>Panel {role}</h1></div>
-            <p className="text-muted">Tu acceso esta activo. Las vistas especializadas por rol quedaran habilitadas en los siguientes incrementos.</p>
+            <div className="content-header"><h1>Acceso denegado</h1></div>
+            <p className="text-muted">Esta vista solo esta disponible para Director de carrera.</p>
           </section>
         ),
       };
     }
 
-    const itemDetailMatch = normalizedHash.match(/^#\/inventory\/(?:implementos|items)\/(\d+)$/);
+    if (role === "DIRECTOR" && currentHash.startsWith("#/director/dashboard")) {
+      return {
+        key: "director-dashboard",
+        navigationMode: "director",
+        activeSection: "director-dashboard",
+        breadcrumbs: [{ label: "Dashboard" }, { label: "Director de Carrera" }],
+        content: <DirectorDashboardPage embedded />,
+      };
+    }
+
+    if (role === "DIRECTOR" && currentHash.startsWith("#/director/users/create")) {
+      return {
+        key: "director-users-create",
+        navigationMode: "director",
+        activeSection: "director-users",
+        breadcrumbs: [{ label: "Usuarios" }, { label: "Director de Carrera" }],
+        content: <DirectorCreateUserPage embedded />,
+      };
+    }
+
+    const itemDetailMatch = currentHash.match(/^#\/inventory\/(?:implementos|items)\/(\d+)$/);
     if (itemDetailMatch) {
       const implementId = Number(itemDetailMatch[1]);
       if (Number.isFinite(implementId)) {
         return {
           key: `detail-${implementId}`,
+          navigationMode: "inventory",
           activeSection: "items",
           breadcrumbs: [
             { label: "Inventario", href: "#/inventory/implementos" },
@@ -92,21 +132,22 @@ function App() {
       }
     }
 
-    if (normalizedHash.startsWith("#/inventory/implementos") || normalizedHash.startsWith("#/inventory/items")) {
-      return { key: "items", activeSection: "items", breadcrumbs: [{ label: "Inventario" }, { label: "Implementos" }], content: <InventoryItemsPage embedded /> };
+    if (currentHash.startsWith("#/inventory/implementos") || currentHash.startsWith("#/inventory/items")) {
+      return { key: "items", navigationMode: "inventory", activeSection: "items", breadcrumbs: [{ label: "Inventario" }, { label: "Implementos" }], content: <InventoryItemsPage embedded /> };
     }
-    if (normalizedHash.startsWith("#/inventory/locations")) {
-      return { key: "locations", activeSection: "locations", breadcrumbs: [{ label: "Inventario" }, { label: "Ubicaciones" }], content: <InventoryLocationsPage embedded /> };
+    if (currentHash.startsWith("#/inventory/locations")) {
+      return { key: "locations", navigationMode: "inventory", activeSection: "locations", breadcrumbs: [{ label: "Inventario" }, { label: "Ubicaciones" }], content: <InventoryLocationsPage embedded /> };
     }
-    if (normalizedHash.startsWith("#/inventory/moves")) {
-      return { key: "moves", activeSection: "moves", breadcrumbs: [{ label: "Inventario" }, { label: "Movimientos" }], content: <InventoryMovesPage embedded /> };
+    if (currentHash.startsWith("#/inventory/moves")) {
+      return { key: "moves", navigationMode: "inventory", activeSection: "moves", breadcrumbs: [{ label: "Inventario" }, { label: "Movimientos" }], content: <InventoryMovesPage embedded /> };
     }
-    if (normalizedHash.startsWith("#/inventory/categories")) {
-      return { key: "categories", activeSection: "categories", breadcrumbs: [{ label: "Inventario" }, { label: "Categorias" }], content: <InventoryCategoriesPage embedded /> };
+    if (currentHash.startsWith("#/inventory/categories")) {
+      return { key: "categories", navigationMode: "inventory", activeSection: "categories", breadcrumbs: [{ label: "Inventario" }, { label: "Categorias" }], content: <InventoryCategoriesPage embedded /> };
     }
 
     return {
       key: "404",
+      navigationMode: "inventory",
       activeSection: "items",
       breadcrumbs: [{ label: "Error" }, { label: "404" }],
       content: <NotFoundPage />,
@@ -119,7 +160,20 @@ function App() {
   }
 
   return (
-    <InventoryLayout activeSection={routeView.activeSection} breadcrumbs={routeView.breadcrumbs} onLogout={handleLogout} userName="Usuario" userRole={role}>
+    <InventoryLayout
+      activeSection={routeView.activeSection}
+      navigationMode={routeView.navigationMode}
+      breadcrumbs={routeView.breadcrumbs}
+      onLogout={handleLogout}
+      searchPlaceholder={
+        routeView.navigationMode === "director"
+          ? "Buscar implementos, solicitudes, usuarios..."
+          : "Buscar implementos..."
+      }
+      notificationCount={routeView.navigationMode === "director" ? 3 : 0}
+      userName={role === "DIRECTOR" ? "Director de Carrera" : "Usuario"}
+      userRole={role === "DIRECTOR" ? "Director de Carrera" : role}
+    >
       <div key={`${routeView.key}-${routeTransitionKey}`} className="route-transition">
         {routeView.content}
       </div>
@@ -128,3 +182,4 @@ function App() {
 }
 
 export default App;
+
