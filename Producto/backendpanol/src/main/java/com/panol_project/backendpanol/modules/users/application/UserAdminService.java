@@ -9,6 +9,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.jooq.DSLContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -73,12 +74,13 @@ public class UserAdminService {
         auditLogService.log("user_created", getUserId(jwt), null, Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail, "role", role));
     }
 
-    public void changeRole(Integer userId, String roleInput, Jwt jwt) {
+    public void changeRole(String userRef, String roleInput, Jwt jwt) {
         String role = normalizeRole(roleInput);
         Integer roleId = findRoleId(role);
         if (roleId == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ROLE_NOT_SUPPORTED", "Rol invalido");
         }
+        Integer userId = resolveUserId(userRef);
 
         int updated = dsl.update(table(name("user")))
                 .set(field(name("role_id")), roleId)
@@ -95,6 +97,7 @@ public class UserAdminService {
     public List<UserAdminSummaryResponse> listUsers() {
         return dsl.select(
                         field(name("user", "id"), Integer.class),
+                        field(name("user", "uuid"), UUID.class),
                         field(name("user", "name"), String.class),
                         field(name("user", "rut"), String.class),
                         field(name("user", "email"), String.class),
@@ -106,15 +109,17 @@ public class UserAdminService {
                 .orderBy(field(name("user", "id")).asc())
                 .fetch(record -> new UserAdminSummaryResponse(
                         record.value1(),
-                        record.value2(),
+                        record.value2() == null ? null : record.value2().toString(),
                         record.value3(),
                         record.value4(),
-                        normalizeRole(record.value5()),
-                        Boolean.TRUE.equals(record.value6()),
-                        record.value7()));
+                        record.value5(),
+                        normalizeRole(record.value6()),
+                        Boolean.TRUE.equals(record.value7()),
+                        record.value8()));
     }
 
-    public void setActive(Integer userId, boolean active, Jwt jwt) {
+    public void setActive(String userRef, boolean active, Jwt jwt) {
+        Integer userId = resolveUserId(userRef);
         Integer actorId = getUserId(jwt);
         if (actorId != null && actorId.equals(userId) && !active) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "USER_SELF_DEACTIVATION_NOT_ALLOWED", "No puedes desactivar tu propio usuario");
@@ -136,7 +141,8 @@ public class UserAdminService {
                 Map.of("active", active));
     }
 
-    public void updateUser(Integer userId, UpdateUserRequest request, Jwt jwt) {
+    public void updateUser(String userRef, UpdateUserRequest request, Jwt jwt) {
+        Integer userId = resolveUserId(userRef);
         Integer actorId = getUserId(jwt);
         String normalizedRut = normalizeRut(request.rut());
         String normalizedEmail = normalizeEmail(request.email());
@@ -175,8 +181,8 @@ public class UserAdminService {
         auditLogService.log("user_updated", actorId, userId, Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail));
     }
 
-    public void deleteUser(Integer userId, Jwt jwt) {
-        setActive(userId, false, jwt);
+    public void deleteUser(String userRef, Jwt jwt) {
+        setActive(userRef, false, jwt);
     }
 
     private Integer findRoleId(String normalizedRole) {
@@ -219,6 +225,48 @@ public class UserAdminService {
         if (jwt == null) return null;
         Number userId = jwt.getClaim("user_id");
         return userId == null ? null : userId.intValue();
+    }
+
+    private Integer resolveUserId(String userRef) {
+        if (userRef == null || userRef.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "USER_ID_INVALID", "Usuario no encontrado");
+        }
+
+        Integer legacyId = tryParseInteger(userRef);
+        if (legacyId != null) {
+            return legacyId;
+        }
+
+        UUID uuid = tryParseUuid(userRef);
+        if (uuid == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "USER_ID_INVALID", "Usuario no encontrado");
+        }
+
+        Integer userId = dsl.select(field(name("id"), Integer.class))
+                .from(table(name("user")))
+                .where(field(name("uuid")).eq(uuid))
+                .fetchOne(0, Integer.class);
+
+        if (userId == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
+        }
+        return userId;
+    }
+
+    private Integer tryParseInteger(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private UUID tryParseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 }
 

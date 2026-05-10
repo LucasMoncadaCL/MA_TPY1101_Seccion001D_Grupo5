@@ -48,7 +48,7 @@ public class UserAdminController {
     @PutMapping("/{userId}/role")
     @PreAuthorize("hasRole('DIRECTOR')")
     ResponseEntity<Void> changeRole(
-            @PathVariable Integer userId,
+            @PathVariable String userId,
             @Valid @RequestBody ChangeRoleRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
@@ -59,7 +59,7 @@ public class UserAdminController {
     @PutMapping("/{userId}")
     @PreAuthorize("hasRole('DIRECTOR')")
     ResponseEntity<Void> updateUser(
-            @PathVariable Integer userId,
+            @PathVariable String userId,
             @Valid @RequestBody UpdateUserRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
@@ -70,7 +70,7 @@ public class UserAdminController {
     @PatchMapping("/{userId}/active")
     @PreAuthorize("hasRole('DIRECTOR')")
     ResponseEntity<Void> setActive(
-            @PathVariable Integer userId,
+            @PathVariable String userId,
             @RequestParam boolean active,
             @AuthenticationPrincipal Jwt jwt
     ) {
@@ -81,7 +81,7 @@ public class UserAdminController {
     @DeleteMapping("/{userId}")
     @PreAuthorize("hasRole('DIRECTOR')")
     ResponseEntity<Void> deleteUser(
-            @PathVariable Integer userId,
+            @PathVariable String userId,
             @AuthenticationPrincipal Jwt jwt
     ) {
         userAdminService.deleteUser(userId, jwt);

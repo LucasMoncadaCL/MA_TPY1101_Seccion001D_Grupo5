@@ -84,8 +84,9 @@ public class AuthService {
                 .issuer(jwtIssuer)
                 .issuedAt(now)
                 .expiresAt(exp)
-                .subject(String.valueOf(user.id()))
+                .subject(user.uuid().toString())
                 .claim("user_id", user.id())
+                .claim("user_uuid", user.uuid().toString())
                 .claim("role", normalizedRole)
                 .claim("jti", jti)
                 .build();
@@ -104,8 +105,17 @@ public class AuthService {
         }
         String jti = jwt.getId();
         Number userId = jwt.getClaim("user_id");
+        UUID userUuid = null;
+        try {
+            String subject = jwt.getSubject();
+            if (subject != null && !subject.isBlank()) {
+                userUuid = UUID.fromString(subject);
+            }
+        } catch (IllegalArgumentException ignored) {
+            // transitional token with legacy subject
+        }
         OffsetDateTime expiresAt = OffsetDateTime.ofInstant(jwt.getExpiresAt(), ZoneOffset.UTC);
-        tokenRevocationRepository.revokeToken(jti, userId != null ? userId.intValue() : null, expiresAt);
+        tokenRevocationRepository.revokeToken(jti, userId != null ? userId.intValue() : null, userUuid, expiresAt);
         auditLogService.log("user_logged_out", userId != null ? userId.intValue() : null, null, Map.of("jti", jti));
     }
 

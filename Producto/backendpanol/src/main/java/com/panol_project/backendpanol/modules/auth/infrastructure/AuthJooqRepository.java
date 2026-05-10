@@ -2,6 +2,7 @@ package com.panol_project.backendpanol.modules.auth.infrastructure;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
@@ -28,6 +29,7 @@ public class AuthJooqRepository implements UserAuthRepository, TokenRevocationRe
                 field(name("user", "rut")));
         return dsl.select(
                         field(name("user", "id"), Integer.class),
+                        field(name("user", "uuid"), UUID.class),
                         field(name("user", "rut"), String.class),
                         field(name("user", "password_hash"), String.class),
                         field(name("role", "name"), String.class),
@@ -42,8 +44,9 @@ public class AuthJooqRepository implements UserAuthRepository, TokenRevocationRe
                         record.value2(),
                         record.value3(),
                         record.value4(),
-                        record.value5() == null ? 0 : record.value5(),
-                        record.value6()
+                        record.value5(),
+                        record.value6() == null ? 0 : record.value6(),
+                        record.value7()
                 ));
     }
 
@@ -67,13 +70,14 @@ public class AuthJooqRepository implements UserAuthRepository, TokenRevocationRe
     }
 
     @Override
-    public void revokeToken(String jti, Integer userId, OffsetDateTime expiresAt) {
+    public void revokeToken(String jti, Integer userId, UUID userUuid, OffsetDateTime expiresAt) {
         dsl.insertInto(table(name("token_revocation")))
                 .columns(
                         field(name("jti")),
                         field(name("user_id")),
+                        field(name("user_uuid")),
                         field(name("expires_at")))
-                .values(jti, userId, expiresAt)
+                .values(jti, userId, userUuid, expiresAt)
                 .onConflict(field(name("jti")))
                 .doNothing()
                 .execute();

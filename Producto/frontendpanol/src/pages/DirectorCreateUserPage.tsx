@@ -49,7 +49,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
   const [users, setUsers] = useState<UserAdminSummary[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [creatingOpen, setCreatingOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserAdminSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -127,9 +127,10 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
     if (user.role === role) return;
     setError(null);
     setSuccess(null);
-    setUpdatingUserId(user.id);
+    const userRef = getUserRef(user);
+    setUpdatingUserId(userRef);
     try {
-      await changeUserRole(user.id, role);
+      await changeUserRole(userRef, role);
       setSuccess(`Rol actualizado para ${user.name}.`);
       await loadUsers();
     } catch (requestError) {
@@ -145,9 +146,10 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
 
     setError(null);
     setSuccess(null);
-    setUpdatingUserId(user.id);
+    const userRef = getUserRef(user);
+    setUpdatingUserId(userRef);
     try {
-      await deleteUser(user.id);
+      await deleteUser(userRef);
       setSuccess(`Usuario ${user.name} eliminado (desactivado).`);
       await loadUsers();
     } catch (requestError) {
@@ -173,9 +175,10 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
 
     setError(null);
     setSuccess(null);
-    setUpdatingUserId(editingUser.id);
+    const userRef = getUserRef(editingUser);
+    setUpdatingUserId(userRef);
     try {
-      await updateUser(editingUser.id, {
+      await updateUser(userRef, {
         name: editingUser.name.trim(),
         rut: digitsOnly(editingUser.rut),
         email: editingUser.email?.trim() ? editingUser.email.trim().toLowerCase() : null,
@@ -190,7 +193,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
     }
   }
 
-  const sortedUsers = useMemo(() => [...users].sort((a, b) => a.id - b.id), [users]);
+  const sortedUsers = useMemo(() => [...users].sort((a, b) => a.name.localeCompare(b.name)), [users]);
 
   const content = (
     <>
@@ -233,7 +236,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
               </thead>
               <tbody>
                 {sortedUsers.map((user) => (
-                  <tr key={user.id}>
+                  <tr key={getUserRef(user)}>
                     <td>{user.id}</td>
                     <td>{user.name}</td>
                     <td>{formatRutDisplay(user.rut)}</td>
@@ -242,7 +245,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
                       <select
                         value={user.role}
                         onChange={(event) => void handleRoleChange(user, event.target.value as AdminRole)}
-                        disabled={updatingUserId === user.id || !user.active}
+                        disabled={updatingUserId === getUserRef(user) || !user.active}
                       >
                         <option value="DIRECTOR">{ROLE_LABELS.DIRECTOR}</option>
                         <option value="COORDINADOR">{ROLE_LABELS.COORDINADOR}</option>
@@ -260,7 +263,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
                           type="button"
                           className="button button--ghost button--table"
                           onClick={() => setEditingUser({ ...user, rut: formatRutDisplay(user.rut), email: user.email ?? "" })}
-                          disabled={updatingUserId === user.id}
+                          disabled={updatingUserId === getUserRef(user)}
                         >
                           <Pencil size={14} /> Editar
                         </button>
@@ -268,7 +271,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
                           type="button"
                           className="button button--ghost button--table"
                           onClick={() => void handleDelete(user)}
-                          disabled={updatingUserId === user.id || !user.active}
+                          disabled={updatingUserId === getUserRef(user) || !user.active}
                         >
                           <Trash2 size={14} /> Eliminar
                         </button>
@@ -353,8 +356,8 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
             />
 
             <div className="modal-actions">
-              <button type="button" className="button button--ghost" onClick={() => setEditingUser(null)} disabled={updatingUserId === editingUser.id}>Cancelar</button>
-              <button type="submit" className="button" disabled={updatingUserId === editingUser.id}>{updatingUserId === editingUser.id ? "Guardando..." : "Guardar cambios"}</button>
+              <button type="button" className="button button--ghost" onClick={() => setEditingUser(null)} disabled={updatingUserId === getUserRef(editingUser)}>Cancelar</button>
+              <button type="submit" className="button" disabled={updatingUserId === getUserRef(editingUser)}>{updatingUserId === getUserRef(editingUser) ? "Guardando..." : "Guardar cambios"}</button>
             </div>
           </form>
         </div>
@@ -364,3 +367,6 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
 
   return embedded ? content : content;
 }
+  function getUserRef(user: UserAdminSummary): string {
+    return user.uuid ?? String(user.id);
+  }

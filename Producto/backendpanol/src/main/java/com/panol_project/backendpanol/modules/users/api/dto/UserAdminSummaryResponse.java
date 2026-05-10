@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 
 public record UserAdminSummaryResponse(
         Integer id,
+        String uuid,
         String name,
         String rut,
         String email,

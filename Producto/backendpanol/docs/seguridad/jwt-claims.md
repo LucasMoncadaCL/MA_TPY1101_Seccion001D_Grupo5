@@ -1,6 +1,6 @@
 ﻿# JWT Claims - Pañol Salud
 
-- Última actualización: 2026-05-07
+- Última actualización: 2026-05-09
 - Fuente: `AuthService` + configuración de seguridad backend
 
 ## Claims emitidos por `/api/v1/auth/login`
@@ -12,24 +12,28 @@
 
 2. `sub` (string)
 - Identificador principal del usuario autenticado.
-- Corresponde al `id` del usuario en PostgreSQL.
+- Corresponde al `uuid` canónico del usuario en PostgreSQL.
 
 3. `user_id` (number)
 - Identificador numérico del usuario autenticado.
-- Redundante con `sub` para facilitar consumo en frontend/backend.
+- Claim legado temporal para compatibilidad durante migración dual-key.
 
-4. `role` (string)
+4. `user_uuid` (string)
+- Refuerzo explícito del identificador UUID del usuario.
+- Debe coincidir con `sub`.
+
+5. `role` (string)
 - Rol normalizado del usuario.
 - Valores esperados: `COORDINADOR`, `DIRECTOR`, `DOCENTE`.
 
-5. `jti` (string)
+6. `jti` (string)
 - Identificador único del token (UUID).
 - Se usa para revocación en logout.
 
-6. `iat` (number, epoch seconds)
+7. `iat` (number, epoch seconds)
 - Fecha/hora de emisión.
 
-7. `exp` (number, epoch seconds)
+8. `exp` (number, epoch seconds)
 - Fecha/hora de expiración.
 
 ## Header JWT
