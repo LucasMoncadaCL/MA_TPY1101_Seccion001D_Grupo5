@@ -20,6 +20,8 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -29,6 +31,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v2/implements")
 public class ImplementV2Controller {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ImplementV2Controller.class);
 
     private final ImplementService service;
     private final InventoryMovementService inventoryMovementService;
@@ -142,20 +146,7 @@ public class ImplementV2Controller {
             );
         }
 
-        var movements = inventoryMovementService.obtenerUltimosMovimientos(implemento.uuid());
-        Map<UUID, String> userNames = userService.getNombresUsuariosByUuid(
-                movements.stream().map(m -> m.getPerformedByUuid()).filter(uuid -> uuid != null).distinct().toList()
-        );
-        List<InventoryMovementV2Response> movementRows = movements.stream()
-                .map(movement -> new InventoryMovementV2Response(
-                        movement.getId(),
-                        movement.getImplementUuid(),
-                        movement.getAction(),
-                        movement.getQuantity(),
-                        resolvePerformerName(userNames, movement.getPerformedByUuid()),
-                        movement.getTimestamp(),
-                        movement.getNotes()))
-                .toList();
+        List<InventoryMovementV2Response> movementRows = buildMovementRowsSafely(implemento.uuid());
 
         return new ImplementV2Response(
                 implemento.uuid(),
@@ -179,6 +170,28 @@ public class ImplementV2Controller {
                 stockResponse,
                 movementRows
         );
+    }
+
+    private List<InventoryMovementV2Response> buildMovementRowsSafely(UUID implementUuid) {
+        try {
+            var movements = inventoryMovementService.obtenerUltimosMovimientos(implementUuid);
+            Map<UUID, String> userNames = userService.getNombresUsuariosByUuid(
+                    movements.stream().map(m -> m.getPerformedByUuid()).filter(uuid -> uuid != null).distinct().toList()
+            );
+            return movements.stream()
+                    .map(movement -> new InventoryMovementV2Response(
+                            movement.getId(),
+                            movement.getImplementUuid(),
+                            movement.getAction(),
+                            movement.getQuantity(),
+                            resolvePerformerName(userNames, movement.getPerformedByUuid()),
+                            movement.getTimestamp(),
+                            movement.getNotes()))
+                    .toList();
+        } catch (Exception ex) {
+            LOG.warn("inventory_movements_unavailable_for_implement {}", implementUuid, ex);
+            return List.of();
+        }
     }
 
     private boolean hasRole(Authentication authentication, String role) {

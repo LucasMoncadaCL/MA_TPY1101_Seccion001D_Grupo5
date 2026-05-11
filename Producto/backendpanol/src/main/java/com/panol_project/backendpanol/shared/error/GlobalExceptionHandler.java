@@ -7,6 +7,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,42 +32,58 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ErrorResponse> handleApiException(ApiException ex, HttpServletRequest request) {
         logStructured("client_error_handled", request, ex.getStatus().value(), ex.getCode(), ex.getClass().getSimpleName(), ex.getMessage(), null, null);
-        return buildResponse(ex.getStatus());
+        return buildResponse(ex.getStatus(), ex.getCode(), ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         String cause = ex.getBindingResult().getFieldErrors().stream().map(FieldError::getDefaultMessage).collect(Collectors.joining("; "));
         logStructured("client_error_handled", request, 400, "VALIDATION_ERROR", ex.getClass().getSimpleName(), cause, null, null);
-        return buildResponse(HttpStatus.BAD_REQUEST);
+        return buildResponse(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", cause);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     ResponseEntity<ErrorResponse> handleConstraint(ConstraintViolationException ex, HttpServletRequest request) {
         logStructured("client_error_handled", request, 400, "VALIDATION_ERROR", ex.getClass().getSimpleName(), ex.getMessage(), null, null);
-        return buildResponse(HttpStatus.BAD_REQUEST);
+        return buildResponse(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", ex.getMessage());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<ErrorResponse> handleMalformedJson(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        logStructured("client_error_handled", request, 400, "MALFORMED_JSON", ex.getClass().getSimpleName(), ex.getMessage(), null, null);
+        return buildResponse(HttpStatus.BAD_REQUEST, "MALFORMED_JSON", "Payload JSON invalido");
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        logStructured("client_error_handled", request, 400, "INVALID_ARGUMENT", ex.getClass().getSimpleName(), ex.getMessage(), null, null);
+        return buildResponse(HttpStatus.BAD_REQUEST, "INVALID_ARGUMENT", ex.getMessage());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
-        logStructured("client_error_handled", request, 409, "DATA_INTEGRITY_VIOLATION", ex.getClass().getSimpleName(), ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage(), null, null);
-        return buildResponse(HttpStatus.CONFLICT);
+        String cause = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        String errorCode = isDuplicateKey(ex) ? "DUPLICATE_RESOURCE" : "DATA_INTEGRITY_VIOLATION";
+        logStructured("client_error_handled", request, 409, errorCode, ex.getClass().getSimpleName(), cause, null, null);
+        return buildResponse(HttpStatus.CONFLICT, errorCode, "No fue posible procesar la solicitud");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         logStructured("client_error_handled", request, 403, "FORBIDDEN", ex.getClass().getSimpleName(), ex.getMessage(), null, null);
-        return buildResponse(HttpStatus.FORBIDDEN);
+        return buildResponse(HttpStatus.FORBIDDEN, "FORBIDDEN", publicMessage(HttpStatus.FORBIDDEN));
     }
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
         logStructured("server_error_handled", request, 500, "INTERNAL_ERROR", ex.getClass().getSimpleName(), ex.getMessage(), null, ex);
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", publicMessage(HttpStatus.INTERNAL_SERVER_ERROR));
     }
 
-    private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status) {
-        return ResponseEntity.status(status).body(new ErrorResponse(String.valueOf(status.value()), publicMessage(status), OffsetDateTime.now()));
+    private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String code, String message) {
+        String safeCode = code == null || code.isBlank() ? String.valueOf(status.value()) : code;
+        String safeMessage = message == null || message.isBlank() ? publicMessage(status) : message;
+        return ResponseEntity.status(status).body(new ErrorResponse(safeCode, safeMessage, OffsetDateTime.now()));
     }
 
     private String publicMessage(HttpStatus status) {
@@ -114,6 +131,18 @@ public class GlobalExceptionHandler {
             return parts[2];
         }
         return parts[0];
+    }
+
+    private boolean isDuplicateKey(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && (message.contains("duplicate key") || message.contains("SQLSTATE 23505"))) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }
 

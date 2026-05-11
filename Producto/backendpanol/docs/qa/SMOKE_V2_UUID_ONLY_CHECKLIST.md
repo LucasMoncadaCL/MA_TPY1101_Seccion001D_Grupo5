@@ -58,3 +58,20 @@ Validar rápidamente que el backend `v2` está estable, sin errores `500` y sin 
 - Lista de endpoints probados con `status code` y timestamp.
 - Enlace a logs de Cloud Run del intervalo de prueba.
 - Confirmación explícita: `sin 500`, `sin legacy id funcional`.
+
+## Ejecuci�n automatizada recomendada
+1. Copiar `Producto/backendpanol/docs/qa/.env.qa.example` a `Producto/backendpanol/docs/qa/.env.qa`.
+2. Configurar `QA_BASE_URL` (backend) y credenciales de `COORDINADOR` / `DIRECTOR`.
+3. Ejecutar:
+
+```powershell
+node Producto/backendpanol/scripts/qa/run-v2-smoke.mjs --env-file Producto/backendpanol/docs/qa/.env.qa
+```
+
+4. Revisar carpeta de resultados en `Producto/backendpanol/docs/qa/reports/<RUN_ID>/`:
+- `results.json`
+- `summary.md`
+- `findings.md`
+- `remediation-plan.md`
+
+Gu�a completa: `Producto/backendpanol/docs/qa/QA_V2_INVESTIGATION_RUNBOOK.md`.

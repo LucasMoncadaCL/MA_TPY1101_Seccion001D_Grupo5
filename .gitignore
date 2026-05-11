@@ -7,6 +7,9 @@
 
 # Local helper scripts
 scripts/
+!Producto/backendpanol/scripts/
+!Producto/backendpanol/scripts/qa/
+!Producto/backendpanol/scripts/qa/**
 
 # Node / JS
 node_modules/
