@@ -13,6 +13,7 @@ BEGIN
         JOIN pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_proc p ON p.oid = t.tgfoid
         WHERE NOT t.tgisinternal
+          AND p.prokind = 'f'
           AND n.nspname = 'public'
           AND c.relname = 'implement'
           AND pg_get_functiondef(p.oid) ILIKE '%implement_id%'
@@ -35,6 +36,7 @@ BEGIN
         FROM pg_proc p
         JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'public'
+          AND p.prokind = 'f'
           AND pg_get_functiondef(p.oid) ILIKE '%implement_id%'
           AND pg_get_functiondef(p.oid) ILIKE '%stock%'
           AND NOT EXISTS (
