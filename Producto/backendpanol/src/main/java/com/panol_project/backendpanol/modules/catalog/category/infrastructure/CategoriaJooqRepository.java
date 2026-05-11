@@ -12,14 +12,19 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.Field;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class CategoriaJooqRepository implements CategoriaRepository {
 
     private final DSLContext dsl;
+    private static final Field<UUID> CATEGORY_UUID = DSL.field(DSL.name("uuid"), UUID.class);
+    private static final Field<UUID> IMPLEMENT_CATEGORY_UUID = DSL.field(DSL.name("category_uuid"), UUID.class);
 
     public CategoriaJooqRepository(DSLContext dsl) {
         this.dsl = dsl;
@@ -36,27 +41,27 @@ public class CategoriaJooqRepository implements CategoriaRepository {
     }
 
     @Override
-    public Optional<Categoria> findById(Integer id) {
+    public Optional<Categoria> findByUuid(UUID uuid) {
         return dsl.selectFrom(CATEGORY)
-                .where(CATEGORY.ID.eq(id))
+                .where(CATEGORY_UUID.eq(uuid))
                 .fetchOptional()
                 .map(this::toDomain);
     }
 
     @Override
-    public boolean existsByNombre(String nombre, Integer excludingId) {
+    public boolean existsByNombre(String nombre, UUID excludingUuid) {
         Condition condition = lower(CATEGORY.NAME).eq(nombre.toLowerCase(Locale.ROOT));
-        if (excludingId != null) {
-            condition = condition.and(CATEGORY.ID.ne(excludingId));
+        if (excludingUuid != null) {
+            condition = condition.and(CATEGORY_UUID.ne(excludingUuid));
         }
 
         return dsl.fetchExists(dsl.selectOne().from(CATEGORY).where(condition));
     }
 
     @Override
-    public Optional<Categoria> findActiveById(Integer id) {
+    public Optional<Categoria> findActiveByUuid(UUID uuid) {
         return dsl.selectFrom(CATEGORY)
-                .where(CATEGORY.ID.eq(id).and(CATEGORY.ACTIVE.isTrue()))
+                .where(CATEGORY_UUID.eq(uuid).and(CATEGORY.ACTIVE.isTrue()))
                 .fetchOptional()
                 .map(this::toDomain);
     }
@@ -75,11 +80,11 @@ public class CategoriaJooqRepository implements CategoriaRepository {
     }
 
     @Override
-    public Categoria updateNombre(Integer id, String nombre, String descripcion) {
+    public Categoria updateNombre(UUID uuid, String nombre, String descripcion) {
         return dsl.update(CATEGORY)
                 .set(CATEGORY.NAME, nombre)
                 .set(CATEGORY.DESCRIPTION, descripcion)
-                .where(CATEGORY.ID.eq(id))
+                .where(CATEGORY_UUID.eq(uuid))
                 .returning()
                 .fetchOptional()
                 .map(this::toDomain)
@@ -87,42 +92,42 @@ public class CategoriaJooqRepository implements CategoriaRepository {
     }
 
     @Override
-    public void deactivate(Integer id) {
+    public void deactivate(UUID uuid) {
         dsl.update(CATEGORY)
                 .set(CATEGORY.ACTIVE, false)
-                .where(CATEGORY.ID.eq(id))
+                .where(CATEGORY_UUID.eq(uuid))
                 .execute();
     }
 
     @Override
-    public void deleteById(Integer id) {
+    public void deleteByUuid(UUID uuid) {
         dsl.deleteFrom(CATEGORY)
-                .where(CATEGORY.ID.eq(id))
+                .where(CATEGORY_UUID.eq(uuid))
                 .execute();
     }
 
     @Override
-    public int countImplementsByCategoryId(Integer categoryId) {
+    public int countImplementsByCategoryUuid(UUID categoryUuid) {
         return dsl.fetchCount(
                 dsl.selectOne()
                         .from(IMPLEMENT)
-                        .where(IMPLEMENT.CATEGORY_ID.eq(categoryId))
+                        .where(IMPLEMENT_CATEGORY_UUID.eq(categoryUuid))
         );
     }
 
     @Override
-    public int countActiveImplementsByCategoryId(Integer categoryId) {
+    public int countActiveImplementsByCategoryUuid(UUID categoryUuid) {
         return dsl.fetchCount(
                 dsl.selectOne()
                         .from(IMPLEMENT)
-                        .where(IMPLEMENT.CATEGORY_ID.eq(categoryId)
+                        .where(IMPLEMENT_CATEGORY_UUID.eq(categoryUuid)
                                 .and(IMPLEMENT.ACTIVE.isTrue()))
         );
     }
 
     private Categoria toDomain(CategoryRecord record) {
         return new Categoria(
-                record.getId(),
+                record.get(CATEGORY_UUID),
                 record.getName(),
                 record.getDescription(),
                 record.getActive(),

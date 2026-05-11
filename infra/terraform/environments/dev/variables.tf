@@ -43,6 +43,31 @@ variable "supabase_db_ssl_mode" {
   default = "require"
 }
 
+variable "app_security_enabled" {
+  type    = bool
+  default = false
+}
+
+variable "app_auth_max_failed_attempts" {
+  type    = number
+  default = 5
+}
+
+variable "app_auth_lock_minutes" {
+  type    = number
+  default = 15
+}
+
+variable "app_auth_jwt_issuer" {
+  type    = string
+  default = "panol-backend-dev"
+}
+
+variable "app_auth_jwt_expiration_seconds" {
+  type    = number
+  default = 3600
+}
+
 variable "frontend_domain" {
   type = string
 }
@@ -100,4 +125,24 @@ variable "mongodb_uri_secret_value" {
   type      = string
   default   = ""
   sensitive = true
+}
+
+variable "db_supabase_password_secret_value" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "app_auth_jwt_secret_value" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "jwt_issuer_uri" {
+  type = string
+}
+
+variable "vite_supabase_publishable_key" {
+  type = string
 }

@@ -2,6 +2,7 @@ package com.panol_project.backendpanol.modules.catalog.location.domain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface LocationRepository {
 
@@ -9,18 +10,17 @@ public interface LocationRepository {
 
     List<LocationOption> findAllForManagement();
 
-    Optional<LocationOption> findById(Integer id);
+    Optional<LocationOption> findByUuid(UUID uuid);
 
-    boolean existsById(Integer id);
+    boolean existsByUuid(UUID uuid);
 
     boolean existsByNameIgnoreCase(String name);
-
-    boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);
+    boolean existsByNameIgnoreCaseAndUuidNot(String name, UUID uuid);
 
     LocationOption create(String name, String description);
 
-    LocationOption update(Integer id, String name, String description);
+    LocationOption update(UUID uuid, String name, String description);
 
-    int updateActive(Integer id, boolean active);
+    int updateActive(UUID uuid, boolean active);
 }
 

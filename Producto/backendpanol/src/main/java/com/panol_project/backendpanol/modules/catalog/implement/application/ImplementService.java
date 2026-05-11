@@ -10,6 +10,7 @@ import com.panol_project.backendpanol.modules.catalog.location.application.Locat
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.NotFoundException;
 import java.util.List;
+import java.util.UUID;
 import java.sql.SQLException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -36,36 +37,36 @@ public class ImplementService {
     public Implemento crear(
             String nombre,
             String descripcion,
-            Integer categoriaId,
-            Integer locationId,
+            UUID categoriaUuid,
+            UUID locationUuid,
             String itemType,
             Integer minStock,
             String barcode,
             String imgUrl,
             String observations
     ) {
-        categoriaService.validarCategoriaActivaParaImplemento(categoriaId);
+        categoriaService.validarCategoriaActivaParaImplemento(categoriaUuid);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
         String normalizedBarcode = normalizeBarcode(barcode);
         String normalizedImgUrl = normalizeOptional(imgUrl);
         String normalizedObservations = normalizeObservations(observations);
         ImplementItemType normalizedItemType = parseItemType(itemType);
-        locationService.validarLocationExistente(locationId);
+        locationService.validarLocationExistente(locationUuid);
         validateUniqueActiveNameForCreate(normalizedName);
 
         try {
             Implemento created = repository.create(
                     normalizedName,
                     normalizedDescription,
-                    categoriaId,
-                    locationId,
+                    categoriaUuid,
+                    locationUuid,
                     normalizedItemType,
                     normalizedBarcode,
                     normalizedImgUrl,
                     normalizedObservations
             );
-            repository.updateMinStockByImplementId(created.id(), minStock);
+            repository.updateMinStockByImplementUuid(created.uuid(), minStock);
             return created;
         } catch (DataIntegrityViolationException ex) {
             if (isUniqueViolation(ex)) {
@@ -77,44 +78,44 @@ public class ImplementService {
 
     @Transactional
     public Implemento editar(
-            Integer id,
+            UUID uuid,
             String nombre,
             String descripcion,
-            Integer categoriaId,
-            Integer locationId,
+            UUID categoriaUuid,
+            UUID locationUuid,
             String itemType,
             Integer minStock,
             String barcode,
             String imgUrl,
             String observations
     ) {
-        Implemento existing = requireImplement(id);
+        Implemento existing = requireImplement(uuid);
         if (!Boolean.TRUE.equals(existing.activo())) {
             throw new BadRequestException("IMPLEMENT_INACTIVE", "No se puede editar un producto inactivo");
         }
-        categoriaService.validarCategoriaActivaParaImplemento(categoriaId);
-        locationService.validarLocationExistente(locationId);
+        categoriaService.validarCategoriaActivaParaImplemento(categoriaUuid);
+        locationService.validarLocationExistente(locationUuid);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
         String normalizedBarcode = normalizeBarcode(barcode);
         String normalizedImgUrl = normalizeOptional(imgUrl);
         String normalizedObservations = normalizeObservations(observations);
         ImplementItemType normalizedItemType = parseItemType(itemType);
-        validateUniqueActiveNameForUpdate(normalizedName, id);
+        validateUniqueActiveNameForUpdate(normalizedName, uuid);
 
         try {
             Implemento updated = repository.update(
-                    id,
+                    uuid,
                     normalizedName,
                     normalizedDescription,
-                    categoriaId,
-                    locationId,
+                    categoriaUuid,
+                    locationUuid,
                     normalizedItemType,
                     normalizedBarcode,
                     normalizedImgUrl,
                     normalizedObservations
             );
-            repository.updateMinStockByImplementId(updated.id(), minStock);
+            repository.updateMinStockByImplementUuid(updated.uuid(), minStock);
             return updated;
         } catch (DataIntegrityViolationException ex) {
             if (isUniqueViolation(ex)) {
@@ -125,24 +126,24 @@ public class ImplementService {
     }
 
     @Transactional(readOnly = true)
-    public Implemento obtener(Integer id) {
-        return requireImplement(id);
+    public Implemento obtener(UUID uuid) {
+        return requireImplement(uuid);
     }
 
     @Transactional
-    public Implemento setActive(Integer id, boolean active) {
-        Implemento existing = requireImplement(id);
+    public Implemento setActive(UUID uuid, boolean active) {
+        Implemento existing = requireImplement(uuid);
         if (Boolean.TRUE.equals(existing.activo()) == active) {
             return existing;
         }
-        repository.updateActive(id, active);
-        return requireImplement(id);
+        repository.updateActive(uuid, active);
+        return requireImplement(uuid);
     }
 
     @Transactional(readOnly = true)
-    public ImplementSummary obtenerSummary(Integer id) {
+    public ImplementSummary obtenerSummary(UUID uuid) {
         // Reusa el join que ya existe para el listado para resolver categoria y ubicacion (incluyendo inactivas).
-        return repository.findSummaryById(id)
+        return repository.findSummaryByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("IMPLEMENT_NOT_FOUND", "Implemento no encontrado"));
     }
 
@@ -160,21 +161,21 @@ public class ImplementService {
     }
 
     @Transactional(readOnly = true)
-    public Integer obtenerStockMinimo(Integer implementId) {
-        return repository.findMinStockByImplementId(implementId).orElse(null);
+    public Integer obtenerStockMinimo(UUID implementUuid) {
+        return repository.findMinStockByImplementUuid(implementUuid).orElse(null);
     }
 
     @Transactional(readOnly = true)
-    public List<ImplementSummary> listar(String name, Integer categoryId, StockStatusFilter stockStatusFilter) {
+    public List<ImplementSummary> listar(String name, UUID categoryUuid, StockStatusFilter stockStatusFilter) {
         return repository.findAllSummaries(
                 normalizeFiltroNombre(name),
-                categoryId,
+                categoryUuid,
                 stockStatusFilter
         );
     }
 
-    private Implemento requireImplement(Integer id) {
-        return repository.findById(id)
+    private Implemento requireImplement(UUID uuid) {
+        return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("IMPLEMENT_NOT_FOUND", "Implemento no encontrado"));
     }
 
@@ -219,8 +220,8 @@ public class ImplementService {
         }
     }
 
-    private void validateUniqueActiveNameForUpdate(String normalizedName, Integer id) {
-        if (repository.existsActiveByNameIgnoreCaseAndIdNot(normalizedName, id)) {
+    private void validateUniqueActiveNameForUpdate(String normalizedName, UUID uuid) {
+        if (repository.existsActiveByNameIgnoreCaseAndUuidNot(normalizedName, uuid)) {
             throw duplicateNameException(normalizedName);
         }
     }

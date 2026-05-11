@@ -1,25 +1,43 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { InventoryLayout, type BreadcrumbPart, type InventorySection } from "./components/layout/InventoryLayout";
+﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  InventoryLayout,
+  type BreadcrumbPart,
+  type InventorySection,
+  type NavigationMode,
+} from "./components/layout/InventoryLayout";
 import { InventoryCategoriesPage } from "./pages/InventoryCategoriesPage";
+import { DirectorCreateUserPage } from "./pages/DirectorCreateUserPage";
+import { DirectorDashboardPage } from "./pages/DirectorDashboardPage";
 import { InventoryItemDetailPage } from "./pages/InventoryItemDetailPage";
 import { InventoryItemsPage } from "./pages/InventoryItemsPage";
 import { InventoryLocationsPage } from "./pages/InventoryLocationsPage";
 import { InventoryMovesPage } from "./pages/InventoryMovesPage";
+import { LoginPage } from "./pages/LoginPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
+import { logout } from "./services/authService";
+import { clearSession, getUserRoleFromToken, isAuthenticated } from "./utils/auth";
 
 interface RouteView {
   key: string;
   activeSection: InventorySection;
+  navigationMode: NavigationMode;
   breadcrumbs: BreadcrumbPart[];
   content: ReactNode;
+  notFound?: boolean;
+}
+
+function getDefaultHashByRole(role: string): string {
+  if (role === "DIRECTOR") return "#/director/dashboard";
+  return "#/inventory/categories";
 }
 
 function App() {
-  const [hash, setHash] = useState(() => window.location.hash);
+  const [hash, setHash] = useState(() => window.location.hash || "#/login");
   const [routeTransitionKey, setRouteTransitionKey] = useState(0);
 
   useEffect(() => {
     function handleHashChange() {
-      setHash(window.location.hash);
+      setHash(window.location.hash || "#/login");
       setRouteTransitionKey((previous) => previous + 1);
     }
 
@@ -27,63 +45,135 @@ function App() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
+  async function handleLogout() {
+    await logout();
+    window.location.hash = "#/login";
+  }
+
+  const role = getUserRoleFromToken();
+  const authenticated = isAuthenticated();
+  const normalizedHash = hash || "#/login";
+  const defaultHash = getDefaultHashByRole(role);
+  const effectiveHash = !authenticated
+    ? "#/login"
+    : normalizedHash === "#/login"
+      ? defaultHash
+      : normalizedHash;
+
+  useEffect(() => {
+    if (!authenticated && normalizedHash !== "#/login") {
+      clearSession();
+      window.location.hash = "#/login";
+      return;
+    }
+    if (authenticated && role === "DIRECTOR" && normalizedHash.startsWith("#/inventory")) {
+      window.location.hash = "#/director/dashboard";
+      return;
+    }
+    if (authenticated && normalizedHash === "#/login") {
+      window.location.hash = defaultHash;
+      return;
+    }
+  }, [authenticated, normalizedHash, defaultHash, role]);
+
   const routeView = useMemo<RouteView>(() => {
-    const normalizedHash = hash || "#/inventory/categories";
-    const itemDetailMatch = normalizedHash.match(/^#\/inventory\/(?:implementos|items)\/(\d+)$/);
+    const currentHash = effectiveHash;
 
-    if (itemDetailMatch) {
-      const implementId = Number(itemDetailMatch[1]);
-      if (Number.isFinite(implementId)) {
-        return {
-          key: `detail-${implementId}`,
-          activeSection: "items",
-          breadcrumbs: [
-            { label: "Inventario", href: "#/inventory/implementos" },
-            { label: "Implementos", href: "#/inventory/implementos" },
-            { label: "Detalle" },
-          ],
-          content: <InventoryItemDetailPage implementId={implementId} embedded />,
-        };
-      }
-    }
-
-    if (normalizedHash.startsWith("#/inventory/implementos") || normalizedHash.startsWith("#/inventory/items")) {
+    if (role !== "DIRECTOR" && currentHash.startsWith("#/director")) {
       return {
-        key: "items",
+        key: "director-forbidden",
+        navigationMode: "inventory",
         activeSection: "items",
-        breadcrumbs: [{ label: "Inventario" }, { label: "Implementos" }],
-        content: <InventoryItemsPage embedded />,
+        breadcrumbs: [{ label: "Acceso" }, { label: "Denegado" }],
+        content: (
+          <section className="panel">
+            <div className="content-header"><h1>Acceso denegado</h1></div>
+            <p className="text-muted">Esta vista solo esta disponible para Director de carrera.</p>
+          </section>
+        ),
       };
     }
 
-    if (normalizedHash.startsWith("#/inventory/locations")) {
+    if (role === "DIRECTOR" && currentHash.startsWith("#/director/dashboard")) {
       return {
-        key: "locations",
-        activeSection: "locations",
-        breadcrumbs: [{ label: "Inventario" }, { label: "Ubicaciones" }],
-        content: <InventoryLocationsPage embedded />,
+        key: "director-dashboard",
+        navigationMode: "director",
+        activeSection: "director-dashboard",
+        breadcrumbs: [{ label: "Dashboard" }, { label: "Director de Carrera" }],
+        content: <DirectorDashboardPage embedded />,
       };
     }
 
-    if (normalizedHash.startsWith("#/inventory/moves")) {
+    if (role === "DIRECTOR" && currentHash.startsWith("#/director/users/create")) {
       return {
-        key: "moves",
-        activeSection: "moves",
-        breadcrumbs: [{ label: "Inventario" }, { label: "Movimientos" }],
-        content: <InventoryMovesPage embedded />,
+        key: "director-users-create",
+        navigationMode: "director",
+        activeSection: "director-users",
+        breadcrumbs: [{ label: "Usuarios" }, { label: "Director de Carrera" }],
+        content: <DirectorCreateUserPage embedded />,
       };
+    }
+
+    const itemDetailMatch = currentHash.match(
+      /^#\/inventory\/(?:implementos|items)\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/,
+    );
+    if (itemDetailMatch) {
+      const implementUuid = itemDetailMatch[1];
+      return {
+        key: `detail-${implementUuid}`,
+        navigationMode: "inventory",
+        activeSection: "items",
+        breadcrumbs: [
+          { label: "Inventario", href: "#/inventory/implementos" },
+          { label: "Implementos", href: "#/inventory/implementos" },
+          { label: "Detalle" },
+        ],
+        content: <InventoryItemDetailPage implementUuid={implementUuid} embedded />,
+      };
+    }
+
+    if (currentHash.startsWith("#/inventory/implementos") || currentHash.startsWith("#/inventory/items")) {
+      return { key: "items", navigationMode: "inventory", activeSection: "items", breadcrumbs: [{ label: "Inventario" }, { label: "Implementos" }], content: <InventoryItemsPage embedded /> };
+    }
+    if (currentHash.startsWith("#/inventory/locations")) {
+      return { key: "locations", navigationMode: "inventory", activeSection: "locations", breadcrumbs: [{ label: "Inventario" }, { label: "Ubicaciones" }], content: <InventoryLocationsPage embedded /> };
+    }
+    if (currentHash.startsWith("#/inventory/moves")) {
+      return { key: "moves", navigationMode: "inventory", activeSection: "moves", breadcrumbs: [{ label: "Inventario" }, { label: "Movimientos" }], content: <InventoryMovesPage embedded /> };
+    }
+    if (currentHash.startsWith("#/inventory/categories")) {
+      return { key: "categories", navigationMode: "inventory", activeSection: "categories", breadcrumbs: [{ label: "Inventario" }, { label: "Categorias" }], content: <InventoryCategoriesPage embedded /> };
     }
 
     return {
-      key: "categories",
-      activeSection: "categories",
-      breadcrumbs: [{ label: "Inventario" }, { label: "Categorias" }],
-      content: <InventoryCategoriesPage embedded />,
+      key: "404",
+      navigationMode: "inventory",
+      activeSection: "items",
+      breadcrumbs: [{ label: "Error" }, { label: "404" }],
+      content: <NotFoundPage />,
+      notFound: true,
     };
-  }, [hash]);
+  }, [effectiveHash, role]);
+
+  if (effectiveHash === "#/login") {
+    return <LoginPage />;
+  }
 
   return (
-    <InventoryLayout activeSection={routeView.activeSection} breadcrumbs={routeView.breadcrumbs}>
+    <InventoryLayout
+      activeSection={routeView.activeSection}
+      navigationMode={routeView.navigationMode}
+      breadcrumbs={routeView.breadcrumbs}
+      onLogout={handleLogout}
+      searchPlaceholder={
+        routeView.navigationMode === "director"
+          ? "Buscar implementos, solicitudes, usuarios..."
+          : "Buscar implementos..."
+      }
+      notificationCount={routeView.navigationMode === "director" ? 3 : 0}
+      userName={role === "DIRECTOR" ? "Director de Carrera" : "Usuario"}
+      userRole={role === "DIRECTOR" ? "Director de Carrera" : role}
+    >
       <div key={`${routeView.key}-${routeTransitionKey}`} className="route-transition">
         {routeView.content}
       </div>
@@ -92,3 +182,4 @@ function App() {
 }
 
 export default App;
+

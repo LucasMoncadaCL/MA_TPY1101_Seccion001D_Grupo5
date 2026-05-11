@@ -3,27 +3,28 @@ package com.panol_project.backendpanol.modules.catalog.stock.domain;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface StockRepository {
 
-    Optional<ImplementStockContext> findImplementContext(Integer implementId);
+    Optional<ImplementStockContext> findImplementContext(UUID implementUuid);
 
-    void ensureStockRow(Integer implementId);
+    void ensureStockRow(UUID implementUuid);
 
-    Optional<StockCounters> findStockByImplementId(Integer implementId);
+    Optional<StockCounters> findStockByImplementUuid(UUID implementUuid);
 
-    List<IndividualItem> findActiveIndividualsByImplementId(Integer implementId);
+    List<IndividualItem> findActiveIndividualsByImplementUuid(UUID implementUuid);
 
-    List<IndividualItem> findActiveIndividualsByIds(Integer implementId, List<Integer> individualIds);
+    List<IndividualItem> findActiveIndividualsByUuids(UUID implementUuid, List<UUID> individualUuids);
 
-    void createIndividuals(Integer implementId, Integer locationId, List<String> assetCodes);
+    void createIndividuals(UUID implementUuid, UUID locationUuid, List<String> assetCodes);
 
-    void updateStock(Integer implementId, int totalDelta, int availableDelta, int reservedDelta, int loanedDelta, int damagedDelta);
+    void updateStock(UUID implementUuid, int totalDelta, int availableDelta, int reservedDelta, int loanedDelta, int damagedDelta);
 
-    void replaceStock(Integer implementId, int total, int available, int reserved, int loaned, int damaged);
+    void replaceStock(UUID implementUuid, int total, int available, int reserved, int loaned, int damaged);
 
-    void updateIndividualsState(List<Integer> individualIds, String statusLiteral, String conditionLiteral, Integer locationId, Boolean active);
+    void updateIndividualsState(List<UUID> individualUuids, String statusLiteral, String conditionLiteral, UUID locationUuid, Boolean active);
 
-    record ImplementStockContext(Integer implementId, Integer locationId, ImplementItemType itemType, Boolean active) {
+    record ImplementStockContext(UUID implementUuid, UUID locationUuid, ImplementItemType itemType, Boolean active) {
     }
 }

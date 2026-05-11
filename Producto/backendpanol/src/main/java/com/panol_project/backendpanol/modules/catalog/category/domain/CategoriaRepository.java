@@ -2,26 +2,27 @@ package com.panol_project.backendpanol.modules.catalog.category.domain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface CategoriaRepository {
 
     List<Categoria> findAll(boolean includeInactive);
 
-    Optional<Categoria> findById(Integer id);
+    Optional<Categoria> findByUuid(UUID uuid);
 
-    boolean existsByNombre(String nombre, Integer excludingId);
+    boolean existsByNombre(String nombre, UUID excludingUuid);
 
-    Optional<Categoria> findActiveById(Integer id);
+    Optional<Categoria> findActiveByUuid(UUID uuid);
 
     Categoria create(String nombre, String descripcion);
 
-    Categoria updateNombre(Integer id, String nombre, String descripcion);
+    Categoria updateNombre(UUID uuid, String nombre, String descripcion);
 
-    void deactivate(Integer id);
+    void deactivate(UUID uuid);
 
-    void deleteById(Integer id);
+    void deleteByUuid(UUID uuid);
 
-    int countImplementsByCategoryId(Integer categoryId);
+    int countImplementsByCategoryUuid(UUID categoryUuid);
 
-    int countActiveImplementsByCategoryId(Integer categoryId);
+    int countActiveImplementsByCategoryUuid(UUID categoryUuid);
 }

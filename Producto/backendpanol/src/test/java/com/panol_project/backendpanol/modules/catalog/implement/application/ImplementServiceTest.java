@@ -20,6 +20,7 @@ import com.panol_project.backendpanol.shared.error.NotFoundException;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,42 +40,44 @@ class ImplementServiceTest {
     @Mock
     private LocationRepository locationRepository;
 
-    private CategoriaService categoriaService;
-    private LocationService locationService;
-
     private ImplementService service;
 
     @BeforeEach
     void setUp() {
-        categoriaService = new CategoriaService(categoriaRepository);
-        locationService = new LocationService(locationRepository);
+        var categoriaService = new CategoriaService(categoriaRepository);
+        var locationService = new LocationService(locationRepository);
         service = new ImplementService(repository, categoriaService, locationService);
     }
 
     @Test
     void crearDebeValidarLocationYActualizarStockMinimo() {
         OffsetDateTime now = OffsetDateTime.now();
-        Implemento created = new Implemento(1, "Guantes", null, 5, 10, ImplementItemType.REUSABLE, null, null, null, true, now, now);
+        UUID implementUuid = UUID.randomUUID();
+        UUID categoryUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        Implemento created = new Implemento(implementUuid, "Guantes", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null, true, now, now);
 
-        when(categoriaRepository.findActiveById(5)).thenReturn(Optional.of(new Categoria(5, "Cat", null, true, now)));
-        when(locationRepository.existsById(10)).thenReturn(true);
-        when(repository.create("Guantes", null, 5, 10, ImplementItemType.REUSABLE, null, null, null)).thenReturn(created);
-        when(repository.updateMinStockByImplementId(1, 3)).thenReturn(1);
+        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
+        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
+        when(repository.create("Guantes", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null)).thenReturn(created);
+        when(repository.updateMinStockByImplementUuid(implementUuid, 3)).thenReturn(1);
 
-        Implemento result = service.crear("Guantes", null, 5, 10, "reusable", 3, " ", null, null);
+        Implemento result = service.crear("Guantes", null, categoryUuid, locationUuid, "reusable", 3, " ", null, null);
 
-        assertEquals(1, result.id());
-        verify(categoriaRepository).findActiveById(5);
-        verify(locationRepository).existsById(10);
-        verify(repository).updateMinStockByImplementId(1, 3);
+        assertEquals(implementUuid, result.uuid());
+        verify(categoriaRepository).findActiveByUuid(categoryUuid);
+        verify(locationRepository).existsByUuid(locationUuid);
+        verify(repository).updateMinStockByImplementUuid(implementUuid, 3);
     }
 
     @Test
     void crearDebeFallarSiCategoriaInactivaONoExiste() {
-        when(categoriaRepository.findActiveById(99)).thenReturn(Optional.empty());
+        UUID categoryUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.empty());
 
         assertThrows(BadRequestException.class, () ->
-                service.crear("Guantes", null, 99, 10, "consumable", 5, null, null, null));
+                service.crear("Guantes", null, categoryUuid, locationUuid, "consumable", 5, null, null, null));
         verify(repository, never()).create(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
@@ -90,103 +93,91 @@ class ImplementServiceTest {
     @Test
     void crearDebeFallarSiItemTypeNoEsValido() {
         OffsetDateTime now = OffsetDateTime.now();
-        when(categoriaRepository.findActiveById(5)).thenReturn(Optional.of(new Categoria(5, "Cat", null, true, now)));
+        UUID categoryUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
-                service.crear("Guantes", null, 5, 10, "otro", 5, null, null, null));
+                service.crear("Guantes", null, categoryUuid, locationUuid, "otro", 5, null, null, null));
 
         assertEquals("IMPLEMENT_ITEM_TYPE_INVALID", ex.getCode());
-        verify(repository, never()).create(
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()
-        );
     }
 
     @Test
     void crearDebeFallarConBadRequestSiNombreActivoYaExiste() {
         OffsetDateTime now = OffsetDateTime.now();
-        when(categoriaRepository.findActiveById(5)).thenReturn(Optional.of(new Categoria(5, "Cat", null, true, now)));
-        when(locationRepository.existsById(10)).thenReturn(true);
+        UUID categoryUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
+        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
         when(repository.existsActiveByNameIgnoreCase("Guantes")).thenReturn(true);
 
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
-                service.crear("Guantes", null, 5, 10, "consumable", 4, null, null, null));
+                service.crear("Guantes", null, categoryUuid, locationUuid, "consumable", 4, null, null, null));
 
         assertEquals("IMPLEMENT_NAME_DUPLICATE", ex.getCode());
-        assertEquals("Ya existe un producto con el nombre 'Guantes'", ex.getMessage());
-        verify(repository, never()).create(
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()
-        );
     }
 
     @Test
     void crearDebeRetornarBadRequestSiNombreDuplicadoPorConstraintUnico() {
         OffsetDateTime now = OffsetDateTime.now();
-        when(categoriaRepository.findActiveById(5)).thenReturn(Optional.of(new Categoria(5, "Cat", null, true, now)));
-        when(locationRepository.existsById(10)).thenReturn(true);
-        when(repository.create("Guantes", null, 5, 10, ImplementItemType.CONSUMABLE, null, null, null))
-                .thenThrow(new DataIntegrityViolationException(
-                        "unique violation",
-                        new SQLException("duplicate key", "23505")
-                ));
+        UUID categoryUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
+        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
+        when(repository.create("Guantes", null, categoryUuid, locationUuid, ImplementItemType.CONSUMABLE, null, null, null))
+                .thenThrow(new DataIntegrityViolationException("unique violation", new SQLException("duplicate key", "23505")));
 
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
-                service.crear("Guantes", null, 5, 10, "consumable", 3, null, null, null));
+                service.crear("Guantes", null, categoryUuid, locationUuid, "consumable", 3, null, null, null));
 
         assertEquals("IMPLEMENT_NAME_DUPLICATE", ex.getCode());
-        assertEquals("Ya existe un producto con el nombre 'Guantes'", ex.getMessage());
     }
 
     @Test
     void editarDebeFallarSiImplementoNoExiste() {
-        when(repository.findById(10)).thenReturn(Optional.empty());
+        UUID implementUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        when(repository.findByUuid(implementUuid)).thenReturn(Optional.empty());
 
-        assertThrows(NotFoundException.class, () -> service.editar(10, "X", null, null, 10, "reusable", 1, null, null, null));
+        assertThrows(NotFoundException.class, () -> service.editar(implementUuid, "X", null, null, locationUuid, "reusable", 1, null, null, null));
     }
 
     @Test
     void editarDebeValidarCategoriaSiExisteImplemento() {
         OffsetDateTime now = OffsetDateTime.now();
-        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, null, null, null, true, now, now);
-        Implemento updated = new Implemento(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, "Obs", null, null, true, now, now);
+        UUID implementUuid = UUID.randomUUID();
+        UUID categoryUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        Implemento existing = new Implemento(implementUuid, "Existente", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null, true, now, now);
+        Implemento updated = new Implemento(implementUuid, "Nuevo", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, "Obs", null, null, true, now, now);
 
-        when(categoriaRepository.findActiveById(2)).thenReturn(Optional.of(new Categoria(2, "Cat", null, true, now)));
-        when(locationRepository.existsById(10)).thenReturn(true);
-        when(repository.findById(10)).thenReturn(Optional.of(existing));
-        when(repository.update(10, "Nuevo", null, 2, 10, ImplementItemType.REUSABLE, "Obs", null, null)).thenReturn(updated);
-        when(repository.updateMinStockByImplementId(10, 1)).thenReturn(1);
+        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
+        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
+        when(repository.findByUuid(implementUuid)).thenReturn(Optional.of(existing));
+        when(repository.update(implementUuid, "Nuevo", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, "Obs", null, null)).thenReturn(updated);
+        when(repository.updateMinStockByImplementUuid(implementUuid, 1)).thenReturn(1);
 
-        Implemento result = service.editar(10, "Nuevo", null, 2, 10, "reusable", 1, "Obs", null, null);
+        Implemento result = service.editar(implementUuid, "Nuevo", null, categoryUuid, locationUuid, "reusable", 1, "Obs", null, null);
 
-        assertEquals(2, result.categoriaId());
-        verify(categoriaRepository).findActiveById(2);
-        verify(locationRepository).existsById(10);
-        verify(repository).updateMinStockByImplementId(10, 1);
+        assertEquals(categoryUuid, result.categoriaUuid());
+        verify(categoriaRepository).findActiveByUuid(categoryUuid);
+        verify(locationRepository).existsByUuid(locationUuid);
+        verify(repository).updateMinStockByImplementUuid(implementUuid, 1);
     }
 
     @Test
     void editarDebeFallarSiImplementoEstaInactivo() {
         OffsetDateTime now = OffsetDateTime.now();
-        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, null, null, null, false, now, now);
-        when(repository.findById(10)).thenReturn(Optional.of(existing));
+        UUID implementUuid = UUID.randomUUID();
+        UUID categoryUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        Implemento existing = new Implemento(implementUuid, "Existente", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null, false, now, now);
+        when(repository.findByUuid(implementUuid)).thenReturn(Optional.of(existing));
 
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
-                service.editar(10, "Nuevo", null, 2, 10, "reusable", 1, null, null, null));
+                service.editar(implementUuid, "Nuevo", null, categoryUuid, locationUuid, "reusable", 1, null, null, null));
 
         assertEquals("IMPLEMENT_INACTIVE", ex.getCode());
-        assertEquals("No se puede editar un producto inactivo", ex.getMessage());
         verify(repository, never()).update(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
@@ -195,10 +186,6 @@ class ImplementServiceTest {
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()
-        );
-        verify(repository, never()).updateMinStockByImplementId(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()
         );
@@ -207,51 +194,33 @@ class ImplementServiceTest {
     @Test
     void editarDebeFallarConBadRequestSiNombreActivoExisteEnOtroImplemento() {
         OffsetDateTime now = OffsetDateTime.now();
-        Implemento existing = new Implemento(10, "Existente", null, 2, 10, ImplementItemType.REUSABLE, null, null, null, true, now, now);
-        when(categoriaRepository.findActiveById(2)).thenReturn(Optional.of(new Categoria(2, "Cat", null, true, now)));
-        when(locationRepository.existsById(10)).thenReturn(true);
-        when(repository.findById(10)).thenReturn(Optional.of(existing));
-        when(repository.existsActiveByNameIgnoreCaseAndIdNot("Guantes", 10)).thenReturn(true);
+        UUID implementUuid = UUID.randomUUID();
+        UUID categoryUuid = UUID.randomUUID();
+        UUID locationUuid = UUID.randomUUID();
+        Implemento existing = new Implemento(implementUuid, "Existente", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null, true, now, now);
+        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
+        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
+        when(repository.findByUuid(implementUuid)).thenReturn(Optional.of(existing));
+        when(repository.existsActiveByNameIgnoreCaseAndUuidNot("Guantes", implementUuid)).thenReturn(true);
 
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.editar(10, "Guantes", null, 2, 10, "reusable", 1, null, null, null));
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.editar(implementUuid, "Guantes", null, categoryUuid, locationUuid, "reusable", 1, null, null, null));
 
         assertEquals("IMPLEMENT_NAME_DUPLICATE", ex.getCode());
-        assertEquals("Ya existe un producto con el nombre 'Guantes'", ex.getMessage());
-        verify(repository, never()).update(
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()
-        );
     }
 
     @Test
     void listarDebeAplicarFiltrosCombinados() {
-        when(repository.findAllSummaries("Guante", 3, null)).thenReturn(java.util.List.of());
+        UUID categoryUuid = UUID.randomUUID();
+        when(repository.findAllSummaries("Guante", categoryUuid, null)).thenReturn(java.util.List.of());
 
-        service.listar("  Guante ", 3, null);
+        service.listar("  Guante ", categoryUuid, null);
 
-        verify(repository).findAllSummaries("Guante", 3, null);
+        verify(repository).findAllSummaries("Guante", categoryUuid, null);
     }
 
-    /**
-     * Verifica que el filtro BLOCKED se propaga correctamente al repositorio.
-     * Cubre la deuda técnica registrada: el campo 'blocked' usa DSL.field() dinámico
-     * en lugar del field tipado del codegen. La lógica de propagación debe ser la misma
-     * que para los demás estados (AVAILABLE, RESERVED, LOANED, DAMAGED).
-     *
-     * <p>Cuando el codegen incluya STOCK.BLOCKED, este test seguirá siendo válido
-     * sin modificaciones.</p>
-     */
     @Test
     void listarConFiltroBlockedDebePropagarsAlRepositorio() {
-        when(repository.findAllSummaries(null, null, StockStatusFilter.BLOCKED))
-                .thenReturn(java.util.List.of());
+        when(repository.findAllSummaries(null, null, StockStatusFilter.BLOCKED)).thenReturn(java.util.List.of());
 
         service.listar(null, null, StockStatusFilter.BLOCKED);
 

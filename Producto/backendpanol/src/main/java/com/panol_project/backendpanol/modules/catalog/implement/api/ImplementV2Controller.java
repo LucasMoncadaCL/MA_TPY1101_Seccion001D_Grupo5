@@ -1,0 +1,192 @@
+package com.panol_project.backendpanol.modules.catalog.implement.api;
+
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.CreateImplementV2Request;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementCategorySummaryV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementDetailStockResponse;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementLocationSummaryV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementStockSummaryResponse;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementSummaryV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.UpdateImplementV2Request;
+import com.panol_project.backendpanol.modules.catalog.implement.application.ImplementService;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
+import com.panol_project.backendpanol.modules.catalog.stock.api.dto.InventoryMovementV2Response;
+import com.panol_project.backendpanol.modules.catalog.stock.application.InventoryMovementService;
+import com.panol_project.backendpanol.modules.users.application.UserService;
+import com.panol_project.backendpanol.shared.error.ApiException;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v2/implements")
+public class ImplementV2Controller {
+
+    private final ImplementService service;
+    private final InventoryMovementService inventoryMovementService;
+    private final UserService userService;
+
+    public ImplementV2Controller(
+            ImplementService service,
+            InventoryMovementService inventoryMovementService,
+            UserService userService
+    ) {
+        this.service = service;
+        this.inventoryMovementService = inventoryMovementService;
+        this.userService = userService;
+    }
+
+    @PostMapping
+    ImplementV2Response crear(@Valid @RequestBody CreateImplementV2Request request, Authentication authentication) {
+        Implemento created = service.crear(
+                request.name(),
+                request.description(),
+                request.categoryUuid(),
+                request.locationUuid(),
+                request.itemType(),
+                request.minStock(),
+                request.barcode(),
+                request.imgUrl(),
+                request.observations()
+        );
+        return buildDetailResponse(created, authentication);
+    }
+
+    @PutMapping("/{implementUuid}")
+    ImplementV2Response editar(@PathVariable UUID implementUuid, @Valid @RequestBody UpdateImplementV2Request request, Authentication authentication) {
+        Implemento updated = service.editar(
+                implementUuid,
+                request.name(),
+                request.description(),
+                request.categoryUuid(),
+                request.locationUuid(),
+                request.itemType(),
+                request.minStock(),
+                request.barcode(),
+                request.imgUrl(),
+                request.observations()
+        );
+        return buildDetailResponse(updated, authentication);
+    }
+
+    @GetMapping("/{implementUuid}")
+    ImplementV2Response obtener(@PathVariable UUID implementUuid, Authentication authentication) {
+        return buildDetailResponse(service.obtener(implementUuid), authentication);
+    }
+
+    @PatchMapping("/{implementUuid}/active")
+    ImplementV2Response setActive(@PathVariable UUID implementUuid, @RequestParam boolean active, Authentication authentication) {
+        Implemento updated = service.setActive(implementUuid, active);
+        return buildDetailResponse(updated, authentication);
+    }
+
+    @GetMapping
+    List<ImplementSummaryV2Response> listar(@RequestParam(required = false) String name, @RequestParam(required = false) UUID categoryUuid,
+            @RequestParam(required = false) String stockStatus, Authentication authentication) {
+        boolean isCoordinador = hasRole(authentication, "ROLE_COORDINADOR");
+        StockStatusFilter resolvedFilter = null;
+        if (stockStatus != null) {
+            if (!isCoordinador) {
+                throw new AccessDeniedException("El filtro por estado de stock es exclusivo del rol Coordinador.");
+            }
+            resolvedFilter = StockStatusFilter.fromValue(stockStatus)
+                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_STOCK_STATUS",
+                            "Valor invalido para stockStatus: " + stockStatus));
+        }
+        List<ImplementSummary> rows = service.listar(name, categoryUuid, resolvedFilter);
+        return rows.stream().map(row -> new ImplementSummaryV2Response(
+                row.uuid(),
+                row.name(),
+                row.description(),
+                row.barcode(),
+                row.imgUrl(),
+                row.active(),
+                row.stock() != null && row.stock().hasAvailability(),
+                row.category() == null ? null : new ImplementCategorySummaryV2Response(
+                        row.category().uuid(), row.category().name(), row.category().active()),
+                row.location() == null ? null : new ImplementLocationSummaryV2Response(
+                        row.location().uuid(), row.location().name(), row.location().description()),
+                row.stock() == null ? null : new ImplementStockSummaryResponse(
+                        row.stock().totalStock(),
+                        row.stock().minStock(),
+                        row.stock().available(),
+                        row.stock().reserved(),
+                        row.stock().loaned(),
+                        row.stock().damaged()
+                )
+        )).toList();
+    }
+
+    private ImplementV2Response buildDetailResponse(Implemento implemento, Authentication authentication) {
+        ImplementSummary summary = service.obtenerSummary(implemento.uuid());
+        Integer minStock = service.obtenerStockMinimo(implemento.uuid());
+        String displayLocation = service.resolveDisplayLocation(summary);
+
+        ImplementDetailStockResponse stockResponse = null;
+        if (summary.stock() != null) {
+            stockResponse = new ImplementDetailStockResponse(
+                    summary.stock().totalStock(),
+                    summary.stock().available(),
+                    summary.stock().reserved(),
+                    summary.stock().loaned(),
+                    summary.stock().damaged(),
+                    null
+            );
+        }
+
+        var movements = inventoryMovementService.obtenerUltimosMovimientos(implemento.uuid());
+        Map<UUID, String> userNames = userService.getNombresUsuariosByUuid(
+                movements.stream().map(m -> m.getPerformedByUuid()).filter(uuid -> uuid != null).distinct().toList()
+        );
+        List<InventoryMovementV2Response> movementRows = movements.stream()
+                .map(movement -> new InventoryMovementV2Response(
+                        movement.getId(),
+                        movement.getImplementUuid(),
+                        movement.getAction(),
+                        movement.getQuantity(),
+                        userNames.getOrDefault(movement.getPerformedByUuid(), "Usuario no identificado"),
+                        movement.getTimestamp(),
+                        movement.getNotes()))
+                .toList();
+
+        return new ImplementV2Response(
+                implemento.uuid(),
+                implemento.nombre(),
+                implemento.descripcion(),
+                implemento.itemType() == null ? null : implemento.itemType().literal(),
+                summary.category() == null ? null : new ImplementCategorySummaryV2Response(
+                        summary.category().uuid(), summary.category().name(), summary.category().active()),
+                summary.location() == null ? null : new ImplementLocationSummaryV2Response(
+                        summary.location().uuid(), summary.location().name(), summary.location().description()),
+                displayLocation,
+                implemento.categoriaUuid(),
+                implemento.locationUuid(),
+                minStock,
+                summary.barcode(),
+                summary.imgUrl(),
+                implemento.observations(),
+                implemento.activo(),
+                implemento.createdAt(),
+                implemento.updatedAt(),
+                stockResponse,
+                movementRows
+        );
+    }
+
+    private boolean hasRole(Authentication authentication, String role) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role::equals);
+    }
+}

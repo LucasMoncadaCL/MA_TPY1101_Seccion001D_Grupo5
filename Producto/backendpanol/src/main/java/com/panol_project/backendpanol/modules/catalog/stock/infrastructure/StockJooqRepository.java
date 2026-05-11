@@ -14,7 +14,10 @@ import com.panol_project.backendpanol.modules.catalog.stock.domain.StockReposito
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.jooq.DSLContext;
+import org.jooq.Field;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -22,37 +25,46 @@ public class StockJooqRepository implements StockRepository {
 
     private final DSLContext dsl;
 
+    private static final Field<UUID> IMPLEMENT_UUID = DSL.field(DSL.name("implement", "uuid"), UUID.class);
+    private static final Field<UUID> IMPLEMENT_LOCATION_UUID = DSL.field(DSL.name("implement", "location_uuid"), UUID.class);
+
+    private static final Field<UUID> STOCK_IMPLEMENT_UUID = DSL.field(DSL.name("stock", "implement_uuid"), UUID.class);
+
+    private static final Field<UUID> INDIVIDUAL_UUID = DSL.field(DSL.name("individual", "uuid"), UUID.class);
+    private static final Field<UUID> INDIVIDUAL_IMPLEMENT_UUID = DSL.field(DSL.name("individual", "implement_uuid"), UUID.class);
+    private static final Field<UUID> INDIVIDUAL_CURRENT_LOCATION_UUID = DSL.field(DSL.name("individual", "current_location_uuid"), UUID.class);
+
     public StockJooqRepository(DSLContext dsl) {
         this.dsl = dsl;
     }
 
     @Override
-    public Optional<ImplementStockContext> findImplementContext(Integer implementId) {
-        return dsl.select(IMPLEMENT.ID, IMPLEMENT.LOCATION_ID, IMPLEMENT.ITEM_TYPE, IMPLEMENT.ACTIVE)
+    public Optional<ImplementStockContext> findImplementContext(UUID implementUuid) {
+        return dsl.select(IMPLEMENT_UUID, IMPLEMENT_LOCATION_UUID, IMPLEMENT.ITEM_TYPE, IMPLEMENT.ACTIVE)
                 .from(IMPLEMENT)
-                .where(IMPLEMENT.ID.eq(implementId))
+                .where(IMPLEMENT_UUID.eq(implementUuid))
                 .fetchOptional(record -> new ImplementStockContext(
-                        record.get(IMPLEMENT.ID),
-                        record.get(IMPLEMENT.LOCATION_ID),
+                        record.get(IMPLEMENT_UUID),
+                        record.get(IMPLEMENT_LOCATION_UUID),
                         toDomainItemType(record.get(IMPLEMENT.ITEM_TYPE)),
                         record.get(IMPLEMENT.ACTIVE)
                 ));
     }
 
     @Override
-    public void ensureStockRow(Integer implementId) {
+    public void ensureStockRow(UUID implementUuid) {
         dsl.insertInto(STOCK)
-                .set(STOCK.IMPLEMENT_ID, implementId)
-                .onConflict(STOCK.IMPLEMENT_ID)
+                .set(STOCK_IMPLEMENT_UUID, implementUuid)
+                .onConflict(STOCK_IMPLEMENT_UUID)
                 .doNothing()
                 .execute();
     }
 
     @Override
-    public Optional<StockCounters> findStockByImplementId(Integer implementId) {
+    public Optional<StockCounters> findStockByImplementUuid(UUID implementUuid) {
         return dsl.select(STOCK.TOTAL_STOCK, STOCK.MIN_STOCK, STOCK.AVAILABLE, STOCK.RESERVED, STOCK.LOANED, STOCK.DAMAGED)
                 .from(STOCK)
-                .where(STOCK.IMPLEMENT_ID.eq(implementId))
+                .where(STOCK_IMPLEMENT_UUID.eq(implementUuid))
                 .fetchOptional(record -> new StockCounters(
                         record.get(STOCK.TOTAL_STOCK),
                         record.get(STOCK.MIN_STOCK),
@@ -64,45 +76,45 @@ public class StockJooqRepository implements StockRepository {
     }
 
     @Override
-    public List<IndividualItem> findActiveIndividualsByImplementId(Integer implementId) {
+    public List<IndividualItem> findActiveIndividualsByImplementUuid(UUID implementUuid) {
         return dsl.selectFrom(INDIVIDUAL)
-                .where(INDIVIDUAL.IMPLEMENT_ID.eq(implementId).and(INDIVIDUAL.ACTIVE.isTrue()))
-                .orderBy(INDIVIDUAL.ID.asc())
+                .where(INDIVIDUAL_IMPLEMENT_UUID.eq(implementUuid).and(INDIVIDUAL.ACTIVE.isTrue()))
+                .orderBy(INDIVIDUAL_UUID.asc())
                 .fetch(record -> new IndividualItem(
-                        record.getId(),
-                        record.getImplementId(),
+                        record.get(INDIVIDUAL_UUID),
+                        record.get(INDIVIDUAL_IMPLEMENT_UUID),
                         record.getAssetCode(),
                         record.getStatus() == null ? null : record.getStatus().getLiteral(),
                         record.getCondition() == null ? null : record.getCondition().getLiteral(),
-                        record.getCurrentLocationId(),
+                        record.get(INDIVIDUAL_CURRENT_LOCATION_UUID),
                         record.getActive()
                 ));
     }
 
     @Override
-    public List<IndividualItem> findActiveIndividualsByIds(Integer implementId, List<Integer> individualIds) {
-        if (individualIds == null || individualIds.isEmpty()) {
+    public List<IndividualItem> findActiveIndividualsByUuids(UUID implementUuid, List<UUID> individualUuids) {
+        if (individualUuids == null || individualUuids.isEmpty()) {
             return List.of();
         }
 
         return dsl.selectFrom(INDIVIDUAL)
-                .where(INDIVIDUAL.IMPLEMENT_ID.eq(implementId)
+                .where(INDIVIDUAL_IMPLEMENT_UUID.eq(implementUuid)
                         .and(INDIVIDUAL.ACTIVE.isTrue())
-                        .and(INDIVIDUAL.ID.in(individualIds)))
-                .orderBy(INDIVIDUAL.ID.asc())
+                        .and(INDIVIDUAL_UUID.in(individualUuids)))
+                .orderBy(INDIVIDUAL_UUID.asc())
                 .fetch(record -> new IndividualItem(
-                        record.getId(),
-                        record.getImplementId(),
+                        record.get(INDIVIDUAL_UUID),
+                        record.get(INDIVIDUAL_IMPLEMENT_UUID),
                         record.getAssetCode(),
                         record.getStatus() == null ? null : record.getStatus().getLiteral(),
                         record.getCondition() == null ? null : record.getCondition().getLiteral(),
-                        record.getCurrentLocationId(),
+                        record.get(INDIVIDUAL_CURRENT_LOCATION_UUID),
                         record.getActive()
                 ));
     }
 
     @Override
-    public void createIndividuals(Integer implementId, Integer locationId, List<String> assetCodes) {
+    public void createIndividuals(UUID implementUuid, UUID locationUuid, List<String> assetCodes) {
         if (assetCodes == null || assetCodes.isEmpty()) {
             return;
         }
@@ -110,11 +122,11 @@ public class StockJooqRepository implements StockRepository {
         var now = OffsetDateTime.now();
         var insert = dsl.insertInto(
                 INDIVIDUAL,
-                INDIVIDUAL.IMPLEMENT_ID,
+                INDIVIDUAL_IMPLEMENT_UUID,
                 INDIVIDUAL.ASSET_CODE,
                 INDIVIDUAL.STATUS,
                 INDIVIDUAL.CONDITION,
-                INDIVIDUAL.CURRENT_LOCATION_ID,
+                INDIVIDUAL_CURRENT_LOCATION_UUID,
                 INDIVIDUAL.ACTIVE,
                 INDIVIDUAL.CREATED_AT,
                 INDIVIDUAL.UPDATED_AT
@@ -122,11 +134,11 @@ public class StockJooqRepository implements StockRepository {
 
         for (String code : assetCodes) {
             insert = insert.values(
-                    implementId,
+                    implementUuid,
                     code,
                     IndividualStatusEnum.available,
                     IndividualConditionEnum.good,
-                    locationId,
+                    locationUuid,
                     true,
                     now,
                     now
@@ -137,7 +149,7 @@ public class StockJooqRepository implements StockRepository {
     }
 
     @Override
-    public void updateStock(Integer implementId, int totalDelta, int availableDelta, int reservedDelta, int loanedDelta, int damagedDelta) {
+    public void updateStock(UUID implementUuid, int totalDelta, int availableDelta, int reservedDelta, int loanedDelta, int damagedDelta) {
         dsl.update(STOCK)
                 .set(STOCK.TOTAL_STOCK, STOCK.TOTAL_STOCK.add(totalDelta))
                 .set(STOCK.AVAILABLE, STOCK.AVAILABLE.add(availableDelta))
@@ -145,12 +157,12 @@ public class StockJooqRepository implements StockRepository {
                 .set(STOCK.LOANED, STOCK.LOANED.add(loanedDelta))
                 .set(STOCK.DAMAGED, STOCK.DAMAGED.add(damagedDelta))
                 .set(STOCK.UPDATED_AT, OffsetDateTime.now())
-                .where(STOCK.IMPLEMENT_ID.eq(implementId))
+                .where(STOCK_IMPLEMENT_UUID.eq(implementUuid))
                 .execute();
     }
 
     @Override
-    public void replaceStock(Integer implementId, int total, int available, int reserved, int loaned, int damaged) {
+    public void replaceStock(UUID implementUuid, int total, int available, int reserved, int loaned, int damaged) {
         dsl.update(STOCK)
                 .set(STOCK.TOTAL_STOCK, total)
                 .set(STOCK.AVAILABLE, available)
@@ -158,13 +170,13 @@ public class StockJooqRepository implements StockRepository {
                 .set(STOCK.LOANED, loaned)
                 .set(STOCK.DAMAGED, damaged)
                 .set(STOCK.UPDATED_AT, OffsetDateTime.now())
-                .where(STOCK.IMPLEMENT_ID.eq(implementId))
+                .where(STOCK_IMPLEMENT_UUID.eq(implementUuid))
                 .execute();
     }
 
     @Override
-    public void updateIndividualsState(List<Integer> individualIds, String statusLiteral, String conditionLiteral, Integer locationId, Boolean active) {
-        if (individualIds == null || individualIds.isEmpty()) {
+    public void updateIndividualsState(List<UUID> individualUuids, String statusLiteral, String conditionLiteral, UUID locationUuid, Boolean active) {
+        if (individualUuids == null || individualUuids.isEmpty()) {
             return;
         }
 
@@ -177,14 +189,14 @@ public class StockJooqRepository implements StockRepository {
         if (conditionLiteral != null) {
             update = update.set(INDIVIDUAL.CONDITION, IndividualConditionEnum.lookupLiteral(conditionLiteral));
         }
-        if (locationId != null) {
-            update = update.set(INDIVIDUAL.CURRENT_LOCATION_ID, locationId);
+        if (locationUuid != null) {
+            update = update.set(INDIVIDUAL_CURRENT_LOCATION_UUID, locationUuid);
         }
         if (active != null) {
             update = update.set(INDIVIDUAL.ACTIVE, active);
         }
 
-        update.where(INDIVIDUAL.ID.in(individualIds)).execute();
+        update.where(INDIVIDUAL_UUID.in(individualUuids)).execute();
     }
 
     private ImplementItemType toDomainItemType(ItemTypeEnum itemType) {

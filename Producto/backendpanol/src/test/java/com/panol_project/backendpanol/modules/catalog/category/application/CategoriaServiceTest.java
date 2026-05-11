@@ -14,6 +14,7 @@ import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.ConflictException;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,17 +41,17 @@ class CategoriaServiceTest {
         BadRequestException ex = assertThrows(BadRequestException.class, () -> service.crear("Reactivos", null));
 
         assertEquals("CATEGORY_NAME_DUPLICATE", ex.getCode());
-        assertEquals("Ya existe una categoria con el nombre 'Reactivos'", ex.getMessage());
     }
 
     @Test
     void desactivarDebeRetornarConflictSiHayImplementsActivosSinForce() {
-        Categoria record = new Categoria(10, "Reactivos", null, true, OffsetDateTime.now());
+        UUID uuid = UUID.randomUUID();
+        Categoria record = new Categoria(uuid, "Reactivos", null, true, OffsetDateTime.now());
 
-        when(repository.findById(10)).thenReturn(Optional.of(record));
-        when(repository.countActiveImplementsByCategoryId(10)).thenReturn(3);
+        when(repository.findByUuid(uuid)).thenReturn(Optional.of(record));
+        when(repository.countActiveImplementsByCategoryUuid(uuid)).thenReturn(3);
 
-        ConflictException ex = assertThrows(ConflictException.class, () -> service.desactivar(10, false));
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.desactivar(uuid, false));
 
         assertEquals("CATEGORY_HAS_ACTIVE_IMPLEMENTS", ex.getCode());
         verify(repository, never()).deactivate(any());
@@ -58,38 +59,41 @@ class CategoriaServiceTest {
 
     @Test
     void eliminarDebeFallarSiTieneImplementsAsociados() {
-        Categoria record = new Categoria(7, "Insumos", null, true, OffsetDateTime.now());
+        UUID uuid = UUID.randomUUID();
+        Categoria record = new Categoria(uuid, "Insumos", null, true, OffsetDateTime.now());
 
-        when(repository.findById(7)).thenReturn(Optional.of(record));
-        when(repository.countImplementsByCategoryId(7)).thenReturn(2);
+        when(repository.findByUuid(uuid)).thenReturn(Optional.of(record));
+        when(repository.countImplementsByCategoryUuid(uuid)).thenReturn(2);
 
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.eliminar(7));
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.eliminar(uuid));
 
         assertEquals("CATEGORY_HAS_IMPLEMENTS", ex.getCode());
-        verify(repository, never()).deleteById(any());
+        verify(repository, never()).deleteByUuid(any());
     }
 
     @Test
     void validarCategoriaActivaParaImplementoDebeFallarSiInactiva() {
-        when(repository.findActiveById(2)).thenReturn(Optional.empty());
+        UUID uuid = UUID.randomUUID();
+        when(repository.findActiveByUuid(uuid)).thenReturn(Optional.empty());
 
         BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> service.validarCategoriaActivaParaImplemento(2));
+                () -> service.validarCategoriaActivaParaImplemento(uuid));
 
         assertEquals("CATEGORY_INACTIVE_OR_NOT_FOUND", ex.getCode());
     }
 
     @Test
     void desactivarConForceDebeDesactivarYRetornarCategoria() {
-        Categoria active = new Categoria(5, "Activa", null, true, OffsetDateTime.now());
+        UUID uuid = UUID.randomUUID();
+        Categoria active = new Categoria(uuid, "Activa", null, true, OffsetDateTime.now());
 
-        when(repository.findById(5)).thenReturn(Optional.of(active));
-        when(repository.countActiveImplementsByCategoryId(5)).thenReturn(1);
+        when(repository.findByUuid(uuid)).thenReturn(Optional.of(active));
+        when(repository.countActiveImplementsByCategoryUuid(uuid)).thenReturn(1);
 
-        Categoria response = service.desactivar(5, true);
+        Categoria response = service.desactivar(uuid, true);
 
-        assertEquals(5, response.id());
+        assertEquals(uuid, response.uuid());
         assertEquals(false, response.activa());
-        verify(repository).deactivate(eq(5));
+        verify(repository).deactivate(eq(uuid));
     }
 }

@@ -7,6 +7,7 @@ import com.panol_project.backendpanol.shared.error.ConflictException;
 import com.panol_project.backendpanol.shared.error.NotFoundException;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,15 +48,15 @@ public class CategoriaService {
     }
 
     @Transactional
-    public Categoria editar(Integer id, String nombre, String descripcion) {
-        Categoria categoria = requireCategoria(id);
+    public Categoria editar(UUID uuid, String nombre, String descripcion) {
+        Categoria categoria = requireCategoria(uuid);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
 
-        validateNombreUnico(normalizedName, categoria.id());
+        validateNombreUnico(normalizedName, categoria.uuid());
 
         try {
-            return repository.updateNombre(id, normalizedName, normalizedDescription);
+            return repository.updateNombre(uuid, normalizedName, normalizedDescription);
         } catch (DataIntegrityViolationException ex) {
             if (isUniqueViolation(ex)) {
                 throw duplicateNameError(normalizedName);
@@ -65,13 +66,13 @@ public class CategoriaService {
     }
 
     @Transactional
-    public Categoria desactivar(Integer id, boolean force) {
-        Categoria categoria = requireCategoria(id);
+    public Categoria desactivar(UUID uuid, boolean force) {
+        Categoria categoria = requireCategoria(uuid);
         if (!Boolean.TRUE.equals(categoria.activa())) {
             return categoria;
         }
 
-        int activeImplements = repository.countActiveImplementsByCategoryId(id);
+        int activeImplements = repository.countActiveImplementsByCategoryUuid(uuid);
         if (activeImplements > 0 && !force) {
             throw new ConflictException(
                     "CATEGORY_HAS_ACTIVE_IMPLEMENTS",
@@ -79,9 +80,9 @@ public class CategoriaService {
             );
         }
 
-        repository.deactivate(id);
+        repository.deactivate(uuid);
         return new Categoria(
-                categoria.id(),
+                categoria.uuid(),
                 categoria.nombre(),
                 categoria.descripcion(),
                 false,
@@ -90,10 +91,10 @@ public class CategoriaService {
     }
 
     @Transactional
-    public void eliminar(Integer id) {
-        requireCategoria(id);
+    public void eliminar(UUID uuid) {
+        requireCategoria(uuid);
 
-        int totalImplements = repository.countImplementsByCategoryId(id);
+        int totalImplements = repository.countImplementsByCategoryUuid(uuid);
         if (totalImplements > 0) {
             throw new BadRequestException(
                     "CATEGORY_HAS_IMPLEMENTS",
@@ -101,16 +102,16 @@ public class CategoriaService {
             );
         }
 
-        repository.deleteById(id);
+        repository.deleteByUuid(uuid);
     }
 
     @Transactional(readOnly = true)
-    public void validarCategoriaActivaParaImplemento(Integer categoryId) {
-        if (categoryId == null) {
+    public void validarCategoriaActivaParaImplemento(UUID categoryUuid) {
+        if (categoryUuid == null) {
             return;
         }
 
-        boolean existsActive = repository.findActiveById(categoryId).isPresent();
+        boolean existsActive = repository.findActiveByUuid(categoryUuid).isPresent();
         if (!existsActive) {
             throw new BadRequestException(
                     "CATEGORY_INACTIVE_OR_NOT_FOUND",
@@ -120,19 +121,19 @@ public class CategoriaService {
     }
 
     @Transactional(readOnly = true)
-    public int contarImplementsAsociados(Integer id) {
-        requireCategoria(id);
-        return repository.countImplementsByCategoryId(id);
+    public int contarImplementsAsociados(UUID uuid) {
+        requireCategoria(uuid);
+        return repository.countImplementsByCategoryUuid(uuid);
     }
 
-    private void validateNombreUnico(String nombre, Integer excludingId) {
-        if (repository.existsByNombre(nombre, excludingId)) {
+    private void validateNombreUnico(String nombre, UUID excludingUuid) {
+        if (repository.existsByNombre(nombre, excludingUuid)) {
             throw duplicateNameError(nombre);
         }
     }
 
-    private Categoria requireCategoria(Integer id) {
-        return repository.findById(id)
+    private Categoria requireCategoria(UUID uuid) {
+        return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("CATEGORY_NOT_FOUND", "Categoria no encontrada"));
     }
 
