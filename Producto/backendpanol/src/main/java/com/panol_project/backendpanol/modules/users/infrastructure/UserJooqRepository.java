@@ -22,18 +22,6 @@ public class UserJooqRepository implements UserRepository {
     }
 
     @Override
-    public Map<Integer, String> findNamesByIds(List<Integer> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return Map.of();
-        }
-
-        return dsl.select(USER.ID, USER.NAME)
-                .from(USER)
-                .where(USER.ID.in(ids))
-                .fetchMap(USER.ID, USER.NAME);
-    }
-
-    @Override
     public Map<UUID, String> findNamesByUuids(List<UUID> uuids) {
         if (uuids == null || uuids.isEmpty()) {
             return Map.of();
