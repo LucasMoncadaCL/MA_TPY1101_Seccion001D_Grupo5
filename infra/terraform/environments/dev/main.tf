@@ -9,26 +9,26 @@ locals {
   }
 
   backend_env = merge({
-    APP_DB_ENV           = "supabase"
-    APP_PORT             = "8080"
-    APP_SECURITY_ENABLED = tostring(var.app_security_enabled)
+    APP_DB_ENV                       = "supabase"
+    APP_PORT                         = "8080"
+    APP_SECURITY_ENABLED             = tostring(var.app_security_enabled)
     APP_AUTH_MAX_FAILED_ATTEMPTS = tostring(var.app_auth_max_failed_attempts)
-    APP_AUTH_LOCK_MINUTES = tostring(var.app_auth_lock_minutes)
-    APP_AUTH_JWT_ISSUER = var.app_auth_jwt_issuer
+    APP_AUTH_LOCK_MINUTES         = tostring(var.app_auth_lock_minutes)
+    APP_AUTH_JWT_ISSUER           = var.app_auth_jwt_issuer
     APP_AUTH_JWT_EXPIRATION_SECONDS = tostring(var.app_auth_jwt_expiration_seconds)
-    JWT_ISSUER_URI       = var.jwt_issuer_uri
-    FRONTEND_ORIGIN      = local.frontend_origin
-    CORS_ALLOWED_ORIGINS = local.frontend_origin
-    DB_SUPABASE_HOST     = var.supabase_db_host
-    DB_SUPABASE_PORT     = tostring(var.supabase_db_port)
-    DB_SUPABASE_NAME     = var.supabase_db_name
-    DB_SUPABASE_USER     = var.supabase_db_user
-    DB_SUPABASE_SSL_MODE = var.supabase_db_ssl_mode
+    JWT_ISSUER_URI                   = var.jwt_issuer_uri
+    FRONTEND_ORIGIN                  = local.frontend_origin
+    CORS_ALLOWED_ORIGINS             = local.frontend_origin
+    DB_SUPABASE_HOST                 = var.supabase_db_host
+    DB_SUPABASE_PORT                 = tostring(var.supabase_db_port)
+    DB_SUPABASE_NAME                 = var.supabase_db_name
+    DB_SUPABASE_USER                 = var.supabase_db_user
+    DB_SUPABASE_SSL_MODE             = var.supabase_db_ssl_mode
   })
 
   frontend_env = {
-    VITE_API_BASE_URL                = var.backend_domain != "" ? "https://${var.backend_domain}" : module.backend_service.service_uri
-    VITE_SUPABASE_PUBLISHABLE_KEY    = var.vite_supabase_publishable_key
+    VITE_API_BASE_URL             = var.backend_domain != "" ? "https://${var.backend_domain}" : module.backend_service.service_uri
+    VITE_SUPABASE_PUBLISHABLE_KEY = var.vite_supabase_publishable_key
   }
 }
 
@@ -126,7 +126,7 @@ module "frontend_service" {
   timeout_seconds                  = var.frontend_timeout_seconds
   max_instance_request_concurrency = var.frontend_concurrency
   env_vars                         = local.frontend_env
-  secret_env_vars = {}
+  secret_env_vars                  = {}
   custom_domain = var.frontend_domain
   providers = {
     google      = google
