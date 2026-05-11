@@ -69,10 +69,6 @@ export function isAuthenticated(): boolean {
   return payload.exp * 1000 > Date.now();
 }
 
-export function getUserIdFromToken(): number | null {
-  return null;
-}
-
 export function getUserUuidFromToken(): string | null {
   const payload = parseTokenPayload();
   if (typeof payload?.sub === "string" && payload.sub.length > 0) return payload.sub;
