@@ -12,7 +12,7 @@ locals {
     APP_DB_ENV                       = "supabase"
     APP_PORT                         = "8080"
     APP_SECURITY_ENABLED             = tostring(var.app_security_enabled)
-    APP_AUTH_MAX_FAILED_ATTEMPTS = tostring(var.app_auth_max_failed_attempts)
+    APP_AUTH_MAX_FAILED_ATTEMPTS     = tostring(var.app_auth_max_failed_attempts)
     APP_AUTH_LOCK_MINUTES         = tostring(var.app_auth_lock_minutes)
     APP_AUTH_JWT_ISSUER           = var.app_auth_jwt_issuer
     APP_AUTH_JWT_EXPIRATION_SECONDS = tostring(var.app_auth_jwt_expiration_seconds)
