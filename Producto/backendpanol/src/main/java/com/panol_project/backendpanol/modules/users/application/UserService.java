@@ -16,10 +16,6 @@ public class UserService {
         this.repository = repository;
     }
 
-    public Map<Integer, String> getNombresUsuarios(List<Integer> userIds) {
-        return repository.findNamesByIds(userIds);
-    }
-
     public Map<UUID, String> getNombresUsuariosByUuid(List<UUID> userUuids) {
         return repository.findNamesByUuids(userUuids);
     }
