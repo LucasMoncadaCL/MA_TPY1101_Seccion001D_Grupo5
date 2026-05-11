@@ -49,7 +49,7 @@ public class InventoryMovementV2Controller {
                 m.getImplementUuid(),
                 m.getAction(),
                 m.getQuantity(),
-                userNames.getOrDefault(m.getPerformedByUuid(), "Usuario no identificado"),
+                resolvePerformerName(userNames, m.getPerformedByUuid()),
                 m.getTimestamp(),
                 m.getNotes()
         )).toList();
@@ -102,5 +102,12 @@ public class InventoryMovementV2Controller {
         } catch (IllegalArgumentException ex) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTH_SUBJECT_INVALID", "Token invalido");
         }
+    }
+
+    private String resolvePerformerName(Map<UUID, String> userNames, UUID performedByUuid) {
+        if (performedByUuid == null) {
+            return "Usuario no identificado";
+        }
+        return userNames.getOrDefault(performedByUuid, "Usuario no identificado");
     }
 }
