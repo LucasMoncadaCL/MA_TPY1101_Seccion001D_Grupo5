@@ -2,24 +2,25 @@ package com.panol_project.backendpanol.modules.catalog.implement.domain;
 
 import java.util.Optional;
 import java.util.List;
+import java.util.UUID;
 
 public interface ImplementRepository {
 
-    Optional<Implemento> findById(Integer id);
+    Optional<Implemento> findByUuid(UUID uuid);
 
-    Optional<ImplementSummary> findSummaryById(Integer id);
+    Optional<ImplementSummary> findSummaryByUuid(UUID uuid);
 
-    List<ImplementSummary> findAllSummaries(String name, Integer categoryId, StockStatusFilter stockStatusFilter);
+    List<ImplementSummary> findAllSummaries(String name, UUID categoryUuid, StockStatusFilter stockStatusFilter);
 
     boolean existsActiveByNameIgnoreCase(String nombre);
 
-    boolean existsActiveByNameIgnoreCaseAndIdNot(String nombre, Integer excludedId);
+    boolean existsActiveByNameIgnoreCaseAndUuidNot(String nombre, UUID excludedUuid);
 
     Implemento create(
             String nombre,
             String descripcion,
-            Integer categoriaId,
-            Integer locationId,
+            UUID categoriaUuid,
+            UUID locationUuid,
             ImplementItemType itemType,
             String barcode,
             String imgUrl,
@@ -27,20 +28,20 @@ public interface ImplementRepository {
     );
 
     Implemento update(
-            Integer id,
+            UUID uuid,
             String nombre,
             String descripcion,
-            Integer categoriaId,
-            Integer locationId,
+            UUID categoriaUuid,
+            UUID locationUuid,
             ImplementItemType itemType,
             String barcode,
             String imgUrl,
             String observations
     );
 
-    int updateActive(Integer id, boolean active);
+    int updateActive(UUID uuid, boolean active);
 
-    int updateMinStockByImplementId(Integer implementId, Integer minStock);
+    int updateMinStockByImplementUuid(UUID implementUuid, Integer minStock);
 
-    Optional<Integer> findMinStockByImplementId(Integer implementId);
+    Optional<Integer> findMinStockByImplementUuid(UUID implementUuid);
 }

@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -50,10 +51,10 @@ public class BarcodeLabelService {
     }
 
     @Transactional(readOnly = true)
-    public byte[] generateLabelsPdf(Integer implementId, String scopeRaw, Integer quantity, Integer individualId) {
-        Implemento implemento = implementService.obtener(implementId);
+    public byte[] generateLabelsPdf(UUID implementUuid, String scopeRaw, Integer quantity, UUID individualUuid) {
+        Implemento implemento = implementService.obtener(implementUuid);
         LabelScope scope = LabelScope.from(scopeRaw);
-        List<LabelData> labels = resolveLabels(implemento, scope, quantity, individualId);
+        List<LabelData> labels = resolveLabels(implemento, scope, quantity, individualUuid);
         try {
             return renderPdf(labels);
         } catch (IOException ex) {
@@ -61,7 +62,7 @@ public class BarcodeLabelService {
         }
     }
 
-    private List<LabelData> resolveLabels(Implemento implemento, LabelScope scope, Integer quantity, Integer individualId) {
+    private List<LabelData> resolveLabels(Implemento implemento, LabelScope scope, Integer quantity, UUID individualUuid) {
         if (scope == LabelScope.INDIVIDUAL) {
             if (implemento.itemType() != ImplementItemType.INDIVIDUAL) {
                 throw new BadRequestException(
@@ -69,18 +70,18 @@ public class BarcodeLabelService {
                         "Solo los implementos de tipo individual permiten etiquetas individuales"
                 );
             }
-            if (individualId != null) {
-                var selected = stockRepository.findActiveIndividualsByIds(implemento.id(), List.of(individualId));
+            if (individualUuid != null) {
+                var selected = stockRepository.findActiveIndividualsByUuids(implemento.uuid(), List.of(individualUuid));
                 if (selected.isEmpty()) {
                     throw new BadRequestException("LABEL_INDIVIDUAL_NOT_FOUND", "La unidad individual no existe o no está activa");
                 }
                 var individual = selected.getFirst();
-                String code = normalizeCode(individual.assetCode(), "IND-" + individual.id());
+                String code = normalizeCode(individual.assetCode(), "IND-" + individual.uuid());
                 return List.of(new LabelData(implemento.nombre(), code, "Unidad individual"));
             }
 
             int qty = normalizeQuantity(quantity);
-            var individuals = stockRepository.findActiveIndividualsByImplementId(implemento.id());
+            var individuals = stockRepository.findActiveIndividualsByImplementUuid(implemento.uuid());
             if (qty > individuals.size()) {
                 throw new BadRequestException(
                         "LABEL_QUANTITY_EXCEEDS_INDIVIDUALS",
@@ -90,17 +91,17 @@ public class BarcodeLabelService {
             List<LabelData> labels = new ArrayList<>();
             for (int i = 0; i < qty; i++) {
                 var individual = individuals.get(i);
-                String code = normalizeCode(individual.assetCode(), "IND-" + individual.id());
+                String code = normalizeCode(individual.assetCode(), "IND-" + individual.uuid());
                 labels.add(new LabelData(implemento.nombre(), code, "Unidad individual"));
             }
             return labels;
         }
 
-        if (individualId != null) {
-            throw new BadRequestException("LABEL_SCOPE_GENERAL_ONLY", "individual_id solo aplica para scope INDIVIDUAL");
+        if (individualUuid != null) {
+            throw new BadRequestException("LABEL_SCOPE_GENERAL_ONLY", "individual_uuid solo aplica para scope INDIVIDUAL");
         }
         int qty = normalizeQuantity(quantity);
-        String generalCode = normalizeCode(implemento.barcode(), "IMP-" + implemento.id());
+        String generalCode = normalizeCode(implemento.barcode(), "IMP-" + implemento.uuid());
         List<LabelData> labels = new ArrayList<>();
         for (int i = 0; i < qty; i++) {
             labels.add(new LabelData(implemento.nombre(), generalCode, "Implemento general"));

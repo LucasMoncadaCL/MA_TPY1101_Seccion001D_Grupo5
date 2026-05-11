@@ -1,12 +1,14 @@
 package com.panol_project.backendpanol.modules.catalog.stock.domain;
 
+import java.util.UUID;
+
 public record IndividualItem(
-        Integer id,
-        Integer implementId,
+        UUID uuid,
+        UUID implementUuid,
         String assetCode,
         String status,
         String condition,
-        Integer currentLocationId,
+        UUID currentLocationUuid,
         Boolean active
 ) {
 }

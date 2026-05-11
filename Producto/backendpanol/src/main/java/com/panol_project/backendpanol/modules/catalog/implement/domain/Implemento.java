@@ -1,13 +1,14 @@
 package com.panol_project.backendpanol.modules.catalog.implement.domain;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 public record Implemento(
-        Integer id,
+        UUID uuid,
         String nombre,
         String descripcion,
-        Integer categoriaId,
-        Integer locationId,
+        UUID categoriaUuid,
+        UUID locationUuid,
         ImplementItemType itemType,
         String barcode,
         String imgUrl,

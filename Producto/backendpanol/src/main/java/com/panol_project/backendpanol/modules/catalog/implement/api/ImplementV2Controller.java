@@ -1,107 +1,192 @@
 package com.panol_project.backendpanol.modules.catalog.implement.api;
 
-import com.panol_project.backendpanol.modules.catalog.implement.api.dto.*;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.CreateImplementV2Request;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementCategorySummaryV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementDetailStockResponse;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementLocationSummaryV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementStockSummaryResponse;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementSummaryV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.UpdateImplementV2Request;
+import com.panol_project.backendpanol.modules.catalog.implement.application.ImplementService;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
+import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
 import com.panol_project.backendpanol.modules.catalog.stock.api.dto.InventoryMovementV2Response;
+import com.panol_project.backendpanol.modules.catalog.stock.application.InventoryMovementService;
+import com.panol_project.backendpanol.modules.users.application.UserService;
 import com.panol_project.backendpanol.shared.error.ApiException;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import org.jooq.DSLContext;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
-
-import static org.jooq.impl.DSL.field;
-import static org.jooq.impl.DSL.name;
-import static org.jooq.impl.DSL.table;
 
 @RestController
 @RequestMapping("/api/v2/implements")
 public class ImplementV2Controller {
 
-    private final ImplementController legacyController;
-    private final DSLContext dsl;
+    private final ImplementService service;
+    private final InventoryMovementService inventoryMovementService;
+    private final UserService userService;
 
-    public ImplementV2Controller(ImplementController legacyController, DSLContext dsl) {
-        this.legacyController = legacyController;
-        this.dsl = dsl;
+    public ImplementV2Controller(
+            ImplementService service,
+            InventoryMovementService inventoryMovementService,
+            UserService userService
+    ) {
+        this.service = service;
+        this.inventoryMovementService = inventoryMovementService;
+        this.userService = userService;
     }
 
     @PostMapping
     ImplementV2Response crear(@Valid @RequestBody CreateImplementV2Request request, Authentication authentication) {
-        ImplementResponse response = legacyController.crear(new CreateImplementRequest(
-                request.name(), request.description(),
-                findIdByUuid("category", request.categoryUuid(), "CATEGORY_NOT_FOUND"),
-                findIdByUuid("location", request.locationUuid(), "LOCATION_NOT_FOUND"),
-                request.itemType(), request.minStock(), request.barcode(), request.imgUrl(), request.observations()), authentication);
-        return toV2Response(response);
+        Implemento created = service.crear(
+                request.name(),
+                request.description(),
+                request.categoryUuid(),
+                request.locationUuid(),
+                request.itemType(),
+                request.minStock(),
+                request.barcode(),
+                request.imgUrl(),
+                request.observations()
+        );
+        return buildDetailResponse(created, authentication);
     }
 
     @PutMapping("/{implementUuid}")
     ImplementV2Response editar(@PathVariable UUID implementUuid, @Valid @RequestBody UpdateImplementV2Request request, Authentication authentication) {
-        Integer implementId = findIdByUuid("implement", implementUuid, "IMPLEMENT_NOT_FOUND");
-        ImplementResponse response = legacyController.editar(implementId, new UpdateImplementRequest(
-                request.name(), request.description(),
-                findIdByUuid("category", request.categoryUuid(), "CATEGORY_NOT_FOUND"),
-                findIdByUuid("location", request.locationUuid(), "LOCATION_NOT_FOUND"),
-                request.itemType(), request.minStock(), request.barcode(), request.imgUrl(), request.observations()), authentication);
-        return toV2Response(response);
+        Implemento updated = service.editar(
+                implementUuid,
+                request.name(),
+                request.description(),
+                request.categoryUuid(),
+                request.locationUuid(),
+                request.itemType(),
+                request.minStock(),
+                request.barcode(),
+                request.imgUrl(),
+                request.observations()
+        );
+        return buildDetailResponse(updated, authentication);
     }
 
     @GetMapping("/{implementUuid}")
     ImplementV2Response obtener(@PathVariable UUID implementUuid, Authentication authentication) {
-        return toV2Response(legacyController.obtener(findIdByUuid("implement", implementUuid, "IMPLEMENT_NOT_FOUND"), authentication));
+        return buildDetailResponse(service.obtener(implementUuid), authentication);
     }
 
     @PatchMapping("/{implementUuid}/active")
     ImplementV2Response setActive(@PathVariable UUID implementUuid, @RequestParam boolean active, Authentication authentication) {
-        return toV2Response(legacyController.setActive(findIdByUuid("implement", implementUuid, "IMPLEMENT_NOT_FOUND"), active, authentication));
+        Implemento updated = service.setActive(implementUuid, active);
+        return buildDetailResponse(updated, authentication);
     }
 
     @GetMapping
     List<ImplementSummaryV2Response> listar(@RequestParam(required = false) String name, @RequestParam(required = false) UUID categoryUuid,
             @RequestParam(required = false) String stockStatus, Authentication authentication) {
-        Integer categoryId = categoryUuid == null ? null : findIdByUuid("category", categoryUuid, "CATEGORY_NOT_FOUND");
-        var legacyRows = legacyController.listar(name, categoryId, stockStatus, authentication);
-        Map<Integer, UUID> implementUuids = findUuidsByIds("implement", legacyRows.stream().map(row -> row.id()).toList());
-        Map<Integer, UUID> categoryUuids = findUuidsByIds("category", legacyRows.stream().map(row -> row.category() == null ? null : row.category().id()).filter(id -> id != null).toList());
-        Map<Integer, UUID> locationUuids = findUuidsByIds("location", legacyRows.stream().map(row -> row.location() == null ? null : row.location().id()).filter(id -> id != null).toList());
-        return legacyRows.stream().map(row -> new ImplementSummaryV2Response(
-                implementUuids.get(row.id()), row.name(), row.description(), row.barcode(), row.imgUrl(), row.active(), row.available(),
-                row.category() == null ? null : new ImplementCategorySummaryV2Response(categoryUuids.get(row.category().id()), row.category().name(), row.category().active()),
-                row.location() == null ? null : new ImplementLocationSummaryV2Response(locationUuids.get(row.location().id()), row.location().name(), row.location().description()),
-                row.stock())).toList();
+        boolean isCoordinador = hasRole(authentication, "ROLE_COORDINADOR");
+        StockStatusFilter resolvedFilter = null;
+        if (stockStatus != null) {
+            if (!isCoordinador) {
+                throw new AccessDeniedException("El filtro por estado de stock es exclusivo del rol Coordinador.");
+            }
+            resolvedFilter = StockStatusFilter.fromValue(stockStatus)
+                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_STOCK_STATUS",
+                            "Valor invalido para stockStatus: " + stockStatus));
+        }
+        List<ImplementSummary> rows = service.listar(name, categoryUuid, resolvedFilter);
+        return rows.stream().map(row -> new ImplementSummaryV2Response(
+                row.uuid(),
+                row.name(),
+                row.description(),
+                row.barcode(),
+                row.imgUrl(),
+                row.active(),
+                row.stock() != null && row.stock().hasAvailability(),
+                row.category() == null ? null : new ImplementCategorySummaryV2Response(
+                        row.category().uuid(), row.category().name(), row.category().active()),
+                row.location() == null ? null : new ImplementLocationSummaryV2Response(
+                        row.location().uuid(), row.location().name(), row.location().description()),
+                row.stock() == null ? null : new ImplementStockSummaryResponse(
+                        row.stock().totalStock(),
+                        row.stock().minStock(),
+                        row.stock().available(),
+                        row.stock().reserved(),
+                        row.stock().loaned(),
+                        row.stock().damaged()
+                )
+        )).toList();
     }
 
-    private ImplementV2Response toV2Response(ImplementResponse response) {
-        UUID implementUuid = findUuidById("implement", response.id(), "IMPLEMENT_NOT_FOUND");
-        UUID categoryUuid = response.categoryId() == null ? null : findUuidById("category", response.categoryId(), "CATEGORY_NOT_FOUND");
-        UUID locationUuid = response.locationId() == null ? null : findUuidById("location", response.locationId(), "LOCATION_NOT_FOUND");
-        List<InventoryMovementV2Response> movementRows = response.recentMovements() == null ? null : response.recentMovements().stream().map(movement -> new InventoryMovementV2Response(
-                movement.id(), movement.implementUuid(), movement.action(), movement.quantity(), movement.performedBy(), movement.timestamp(), movement.notes())).toList();
-        return new ImplementV2Response(implementUuid, response.name(), response.description(), response.itemType(),
-                response.category() == null ? null : new ImplementCategorySummaryV2Response(categoryUuid, response.category().name(), response.category().active()),
-                response.location() == null ? null : new ImplementLocationSummaryV2Response(locationUuid, response.location().name(), response.location().description()),
-                response.displayLocation(), categoryUuid, locationUuid, response.minStock(), response.barcode(), response.imgUrl(), response.observations(),
-                response.active(), response.createdAt(), response.updatedAt(), response.stock(), movementRows);
+    private ImplementV2Response buildDetailResponse(Implemento implemento, Authentication authentication) {
+        ImplementSummary summary = service.obtenerSummary(implemento.uuid());
+        Integer minStock = service.obtenerStockMinimo(implemento.uuid());
+        String displayLocation = service.resolveDisplayLocation(summary);
+
+        ImplementDetailStockResponse stockResponse = null;
+        if (summary.stock() != null) {
+            stockResponse = new ImplementDetailStockResponse(
+                    summary.stock().totalStock(),
+                    summary.stock().available(),
+                    summary.stock().reserved(),
+                    summary.stock().loaned(),
+                    summary.stock().damaged(),
+                    null
+            );
+        }
+
+        var movements = inventoryMovementService.obtenerUltimosMovimientos(implemento.uuid());
+        Map<UUID, String> userNames = userService.getNombresUsuariosByUuid(
+                movements.stream().map(m -> m.getPerformedByUuid()).filter(uuid -> uuid != null).distinct().toList()
+        );
+        List<InventoryMovementV2Response> movementRows = movements.stream()
+                .map(movement -> new InventoryMovementV2Response(
+                        movement.getId(),
+                        movement.getImplementUuid(),
+                        movement.getAction(),
+                        movement.getQuantity(),
+                        userNames.getOrDefault(movement.getPerformedByUuid(), "Usuario no identificado"),
+                        movement.getTimestamp(),
+                        movement.getNotes()))
+                .toList();
+
+        return new ImplementV2Response(
+                implemento.uuid(),
+                implemento.nombre(),
+                implemento.descripcion(),
+                implemento.itemType() == null ? null : implemento.itemType().literal(),
+                summary.category() == null ? null : new ImplementCategorySummaryV2Response(
+                        summary.category().uuid(), summary.category().name(), summary.category().active()),
+                summary.location() == null ? null : new ImplementLocationSummaryV2Response(
+                        summary.location().uuid(), summary.location().name(), summary.location().description()),
+                displayLocation,
+                implemento.categoriaUuid(),
+                implemento.locationUuid(),
+                minStock,
+                summary.barcode(),
+                summary.imgUrl(),
+                implemento.observations(),
+                implemento.activo(),
+                implemento.createdAt(),
+                implemento.updatedAt(),
+                stockResponse,
+                movementRows
+        );
     }
 
-    private Integer findIdByUuid(String tableName, UUID uuid, String code) {
-        Integer id = dsl.select(field(name("id"), Integer.class)).from(table(name(tableName))).where(field(name("uuid")).eq(uuid)).fetchOne(0, Integer.class);
-        if (id == null) throw new ApiException(HttpStatus.NOT_FOUND, code, "Recurso no encontrado");
-        return id;
-    }
-    private UUID findUuidById(String tableName, Integer id, String code) {
-        UUID uuid = dsl.select(field(name("uuid"), UUID.class)).from(table(name(tableName))).where(field(name("id")).eq(id)).fetchOne(0, UUID.class);
-        if (uuid == null) throw new ApiException(HttpStatus.NOT_FOUND, code, "Recurso no encontrado");
-        return uuid;
-    }
-    private Map<Integer, UUID> findUuidsByIds(String tableName, List<Integer> ids) {
-        if (ids == null || ids.isEmpty()) return Map.of();
-        var idField = field(name("id"), Integer.class);
-        var uuidField = field(name("uuid"), UUID.class);
-        return dsl.select(idField, uuidField).from(table(name(tableName))).where(idField.in(ids)).fetch().stream().collect(Collectors.toMap(r -> r.get(idField), r -> r.get(uuidField), (a, b) -> a));
+    private boolean hasRole(Authentication authentication, String role) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role::equals);
     }
 }

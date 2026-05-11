@@ -5,6 +5,7 @@ import com.panol_project.backendpanol.modules.catalog.location.domain.LocationRe
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.NotFoundException;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,38 +39,38 @@ public class LocationService {
     }
 
     @Transactional
-    public LocationOption editar(Integer id, String name, String description) {
-        requireLocation(id);
+    public LocationOption editar(UUID uuid, String name, String description) {
+        requireLocation(uuid);
         String normalizedName = normalizeRequired(name, "LOCATION_NAME_REQUIRED", "El nombre es obligatorio");
         String normalizedDescription = normalizeOptional(description);
-        if (repository.existsByNameIgnoreCaseAndIdNot(normalizedName, id)) {
+        if (repository.existsByNameIgnoreCaseAndUuidNot(normalizedName, uuid)) {
             throw new BadRequestException("LOCATION_NAME_DUPLICATE", "Ya existe una ubicacion con ese nombre");
         }
-        return repository.update(id, normalizedName, normalizedDescription);
+        return repository.update(uuid, normalizedName, normalizedDescription);
     }
 
     @Transactional
-    public LocationOption setActive(Integer id, boolean active) {
-        LocationOption existing = requireLocation(id);
+    public LocationOption setActive(UUID uuid, boolean active) {
+        LocationOption existing = requireLocation(uuid);
         if (Boolean.TRUE.equals(existing.active()) == active) {
             return existing;
         }
-        repository.updateActive(id, active);
-        return requireLocation(id);
+        repository.updateActive(uuid, active);
+        return requireLocation(uuid);
     }
 
     @Transactional(readOnly = true)
-    public void validarLocationExistente(Integer locationId) {
-        if (locationId == null) {
+    public void validarLocationExistente(UUID locationUuid) {
+        if (locationUuid == null) {
             throw new BadRequestException("LOCATION_REQUIRED", "La ubicacion es obligatoria");
         }
-        if (!repository.existsById(locationId)) {
+        if (!repository.existsByUuid(locationUuid)) {
             throw new BadRequestException("LOCATION_NOT_FOUND", "La ubicacion no existe");
         }
     }
 
-    private LocationOption requireLocation(Integer id) {
-        return repository.findById(id)
+    private LocationOption requireLocation(UUID uuid) {
+        return repository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("LOCATION_NOT_FOUND", "Ubicacion no encontrada"));
     }
 

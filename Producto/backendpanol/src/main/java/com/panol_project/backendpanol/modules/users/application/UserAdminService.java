@@ -92,10 +92,6 @@ public class UserAdminService {
         auditLogService.log("user_role_changed", getUserUuid(jwt), userUuid, Map.of("new_role", role));
     }
 
-    public void changeRole(String userRef, String roleInput, Jwt jwt) {
-        changeRole(resolveUserUuid(userRef), roleInput, jwt);
-    }
-
     public List<UserAdminSummaryResponse> listUsers() {
         return dsl.select(
                         field(name("user", "uuid"), UUID.class),
@@ -140,12 +136,8 @@ public class UserAdminService {
                 Map.of("active", active));
     }
 
-    public void setActive(String userRef, boolean active, Jwt jwt) {
-        setActive(resolveUserUuid(userRef), active, jwt);
-    }
-
     public void updateUser(UUID userUuid, UpdateUserRequest request, Jwt jwt) {
-        if (findUserIdOrNullByUuid(userUuid) == null) {
+        if (!existsUserByUuid(userUuid)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
         }
         UUID actorUuid = getUserUuid(jwt);
@@ -186,16 +178,8 @@ public class UserAdminService {
         auditLogService.log("user_updated", actorUuid, userUuid, Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail));
     }
 
-    public void updateUser(String userRef, UpdateUserRequest request, Jwt jwt) {
-        updateUser(resolveUserUuid(userRef), request, jwt);
-    }
-
     public void deleteUser(UUID userUuid, Jwt jwt) {
         setActive(userUuid, false, jwt);
-    }
-
-    public void deleteUser(String userRef, Jwt jwt) {
-        deleteUser(resolveUserUuid(userRef), jwt);
     }
 
     private UUID findRoleUuid(String normalizedRole) {
@@ -250,35 +234,19 @@ public class UserAdminService {
         String subject = jwt.getSubject();
         if (subject != null && !subject.isBlank()) {
             UUID uuid = tryParseUuid(subject);
-            if (uuid != null && findUserIdOrNullByUuid(uuid) != null) {
+            if (uuid != null && existsUserByUuid(uuid)) {
                 return uuid;
             }
         }
         return null;
     }
 
-    private UUID resolveUserUuid(String userRef) {
-        if (userRef == null || userRef.isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "USER_ID_INVALID", "Usuario no encontrado");
-        }
-
-        UUID uuid = tryParseUuid(userRef);
-        if (uuid == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "USER_ID_INVALID", "Usuario no encontrado");
-        }
-
-        if (findUserIdOrNullByUuid(uuid) == null) {
-            throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
-        }
-        return uuid;
-    }
-
-    private Integer findUserIdOrNullByUuid(UUID uuid) {
-        Integer userId = dsl.selectCount()
+    private boolean existsUserByUuid(UUID uuid) {
+        Integer count = dsl.selectCount()
                 .from(table(name("user")))
                 .where(field(name("uuid")).eq(uuid))
                 .fetchOne(0, Integer.class);
-        return (userId != null && userId > 0) ? 1 : null;
+        return count != null && count > 0;
     }
 
     private UUID tryParseUuid(String value) {

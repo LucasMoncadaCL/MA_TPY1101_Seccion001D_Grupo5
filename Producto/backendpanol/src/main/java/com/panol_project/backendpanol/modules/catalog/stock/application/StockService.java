@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,68 +36,68 @@ public class StockService {
     }
 
     @Transactional(readOnly = true)
-    public StockDetail getStockDetail(Integer implementId) {
-        var context = requireContext(implementId);
+    public StockDetail getStockDetail(UUID implementUuid) {
+        var context = requireContext(implementUuid);
 
-        StockCounters counters = repository.findStockByImplementId(implementId)
+        StockCounters counters = repository.findStockByImplementUuid(implementUuid)
                 .orElse(new StockCounters(0, 0, 0, 0, 0, 0));
 
         List<IndividualItem> individuals = context.itemType() == ImplementItemType.INDIVIDUAL
-                ? repository.findActiveIndividualsByImplementId(implementId)
+                ? repository.findActiveIndividualsByImplementUuid(implementUuid)
                 : List.of();
 
         if (context.itemType() == ImplementItemType.INDIVIDUAL) {
             counters = deriveCountersForIndividuals(counters, individuals);
         }
 
-        return new StockDetail(implementId, context.itemType(), counters, individuals);
+        return new StockDetail(implementUuid, context.itemType(), counters, individuals);
     }
 
     @Transactional
-    public StockDetail addEntry(Integer implementId, Integer quantity, List<String> assetCodes) {
-        var context = requireContext(implementId);
+    public StockDetail addEntry(UUID implementUuid, Integer quantity, List<String> assetCodes) {
+        var context = requireContext(implementUuid);
         int qty = requirePositiveQuantity(quantity);
 
-        repository.ensureStockRow(implementId);
+        repository.ensureStockRow(implementUuid);
 
         if (context.itemType() == ImplementItemType.INDIVIDUAL) {
             List<String> normalizedCodes = normalizeAssetCodes(assetCodes, qty);
             try {
-                repository.createIndividuals(implementId, context.locationId(), normalizedCodes);
+                repository.createIndividuals(implementUuid, context.locationUuid(), normalizedCodes);
             } catch (DataIntegrityViolationException ex) {
                 throw new ConflictException("INDIVIDUAL_ASSET_CODE_DUPLICATE", "Uno o mas codigos de activo ya existen");
             }
         }
 
-        repository.updateStock(implementId, qty, qty, 0, 0, 0);
+        repository.updateStock(implementUuid, qty, qty, 0, 0, 0);
 
-        return getStockDetail(implementId);
+        return getStockDetail(implementUuid);
     }
 
     @Transactional
-    public StockDetail applyMovement(Integer implementId, String movementTypeRaw, Integer quantity, List<Integer> individualIds, String conditionRaw) {
-        var context = requireContext(implementId);
+    public StockDetail applyMovement(UUID implementUuid, String movementTypeRaw, Integer quantity, List<UUID> individualUuids, String conditionRaw) {
+        var context = requireContext(implementUuid);
         StockMovementType movementType = StockMovementType.fromLiteral(movementTypeRaw)
                 .orElseThrow(() -> new BadRequestException(
                         "STOCK_MOVEMENT_TYPE_INVALID",
                         "movement_type invalido. Usa increase_available, decrease_available, reserve, release_reserve, loan, return, damage o repair"
                 ));
 
-        repository.ensureStockRow(implementId);
+        repository.ensureStockRow(implementUuid);
 
         if (context.itemType() == ImplementItemType.INDIVIDUAL) {
-            applyMovementForIndividualImplement(context, movementType, individualIds, conditionRaw);
+            applyMovementForIndividualImplement(context, movementType, individualUuids, conditionRaw);
         } else {
             int qty = requirePositiveQuantity(quantity);
-            applyMovementDelta(context.implementId(), movementType, qty);
+            applyMovementDelta(context.implementUuid(), movementType, qty);
         }
 
-        return getStockDetail(implementId);
+        return getStockDetail(implementUuid);
     }
 
     @Transactional
-    public StockDetail updateIndividual(Integer implementId, Integer individualId, String statusRaw, String conditionRaw, Integer locationId, Boolean active) {
-        var context = requireContext(implementId);
+    public StockDetail updateIndividual(UUID implementUuid, UUID individualUuid, String statusRaw, String conditionRaw, UUID locationUuid, Boolean active) {
+        var context = requireContext(implementUuid);
         if (context.itemType() != ImplementItemType.INDIVIDUAL) {
             throw new BadRequestException("INDIVIDUAL_NOT_ALLOWED", "Solo los implementos de tipo individual tienen registros individuales");
         }
@@ -104,14 +105,14 @@ public class StockService {
         String status = normalizeOptionalLiteral(statusRaw, VALID_INDIVIDUAL_STATUS, "INDIVIDUAL_STATUS_INVALID", "status invalido");
         String condition = normalizeOptionalLiteral(conditionRaw, VALID_INDIVIDUAL_CONDITION, "INDIVIDUAL_CONDITION_INVALID", "condition invalido");
 
-        List<IndividualItem> items = repository.findActiveIndividualsByIds(implementId, List.of(individualId));
+        List<IndividualItem> items = repository.findActiveIndividualsByUuids(implementUuid, List.of(individualUuid));
         if (items.isEmpty()) {
             throw new NotFoundException("INDIVIDUAL_NOT_FOUND", "Individual no encontrado para el implemento");
         }
 
-        repository.updateIndividualsState(List.of(individualId), status, condition, locationId, active);
-        syncStockRowForIndividuals(implementId);
-        return getStockDetail(implementId);
+        repository.updateIndividualsState(List.of(individualUuid), status, condition, locationUuid, active);
+        syncStockRowForIndividuals(implementUuid);
+        return getStockDetail(implementUuid);
     }
 
     private StockCounters deriveCountersForIndividuals(StockCounters current, List<IndividualItem> individuals) {
@@ -129,7 +130,6 @@ public class StockService {
                 case "loaned" -> loaned++;
                 case "damaged", "maintenance" -> damaged++;
                 default -> {
-                    // estados no inventariables en KPI (por ejemplo retired) se mantienen solo en total.
                 }
             }
         }
@@ -137,10 +137,10 @@ public class StockService {
         return new StockCounters(total, current.minStock(), available, reserved, loaned, damaged);
     }
 
-    private void syncStockRowForIndividuals(Integer implementId) {
-        StockCounters current = repository.findStockByImplementId(implementId)
+    private void syncStockRowForIndividuals(UUID implementUuid) {
+        StockCounters current = repository.findStockByImplementUuid(implementUuid)
                 .orElse(new StockCounters(0, 0, 0, 0, 0, 0));
-        List<IndividualItem> individuals = repository.findActiveIndividualsByImplementId(implementId);
+        List<IndividualItem> individuals = repository.findActiveIndividualsByImplementUuid(implementUuid);
         StockCounters computed = deriveCountersForIndividuals(current, individuals);
 
         boolean isDifferent = safe(current.totalStock()) != safe(computed.totalStock())
@@ -151,7 +151,7 @@ public class StockService {
 
         if (isDifferent) {
             repository.replaceStock(
-                    implementId,
+                    implementUuid,
                     safe(computed.totalStock()),
                     safe(computed.available()),
                     safe(computed.reserved()),
@@ -161,10 +161,10 @@ public class StockService {
         }
     }
 
-    private void applyMovementForIndividualImplement(StockRepository.ImplementStockContext context, StockMovementType movementType, List<Integer> individualIds, String conditionRaw) {
-        List<Integer> ids = normalizeIndividualIds(individualIds);
-        List<IndividualItem> selected = repository.findActiveIndividualsByIds(context.implementId(), ids);
-        if (selected.size() != ids.size()) {
+    private void applyMovementForIndividualImplement(StockRepository.ImplementStockContext context, StockMovementType movementType, List<UUID> individualUuids, String conditionRaw) {
+        List<UUID> uuids = normalizeIndividualUuids(individualUuids);
+        List<IndividualItem> selected = repository.findActiveIndividualsByUuids(context.implementUuid(), uuids);
+        if (selected.size() != uuids.size()) {
             throw new BadRequestException("INDIVIDUAL_SELECTION_INVALID", "Algunos individuales no pertenecen al implemento o no estan activos");
         }
 
@@ -174,38 +174,38 @@ public class StockService {
         switch (movementType) {
             case INCREASE_AVAILABLE -> throw new BadRequestException("INDIVIDUAL_MOVEMENT_INVALID", "Para sumar stock individual usa /entries con asset_codes");
             case DECREASE_AVAILABLE -> {
-                applyMovementDelta(context.implementId(), movementType, qty);
-                repository.updateIndividualsState(ids, "retired", condition == null ? "irreparable" : condition, null, false);
+                applyMovementDelta(context.implementUuid(), movementType, qty);
+                repository.updateIndividualsState(uuids, "retired", condition == null ? "irreparable" : condition, null, false);
             }
             case RESERVE -> {
-                applyMovementDelta(context.implementId(), movementType, qty);
-                repository.updateIndividualsState(ids, "blocked", condition, null, null);
+                applyMovementDelta(context.implementUuid(), movementType, qty);
+                repository.updateIndividualsState(uuids, "blocked", condition, null, null);
             }
             case RELEASE_RESERVE -> {
-                applyMovementDelta(context.implementId(), movementType, qty);
-                repository.updateIndividualsState(ids, "available", condition, null, null);
+                applyMovementDelta(context.implementUuid(), movementType, qty);
+                repository.updateIndividualsState(uuids, "available", condition, null, null);
             }
             case LOAN -> {
-                applyMovementDelta(context.implementId(), movementType, qty);
-                repository.updateIndividualsState(ids, "loaned", condition, null, null);
+                applyMovementDelta(context.implementUuid(), movementType, qty);
+                repository.updateIndividualsState(uuids, "loaned", condition, null, null);
             }
             case RETURN -> {
-                applyMovementDelta(context.implementId(), movementType, qty);
-                repository.updateIndividualsState(ids, "available", condition == null ? "good" : condition, context.locationId(), null);
+                applyMovementDelta(context.implementUuid(), movementType, qty);
+                repository.updateIndividualsState(uuids, "available", condition == null ? "good" : condition, context.locationUuid(), null);
             }
             case DAMAGE -> {
-                applyMovementDelta(context.implementId(), movementType, qty);
-                repository.updateIndividualsState(ids, "damaged", condition == null ? "damaged_no_diagnosis" : condition, null, null);
+                applyMovementDelta(context.implementUuid(), movementType, qty);
+                repository.updateIndividualsState(uuids, "damaged", condition == null ? "damaged_no_diagnosis" : condition, null, null);
             }
             case REPAIR -> {
-                applyMovementDelta(context.implementId(), movementType, qty);
-                repository.updateIndividualsState(ids, "available", condition == null ? "good" : condition, null, null);
+                applyMovementDelta(context.implementUuid(), movementType, qty);
+                repository.updateIndividualsState(uuids, "available", condition == null ? "good" : condition, null, null);
             }
         }
     }
 
-    private void applyMovementDelta(Integer implementId, StockMovementType movementType, int qty) {
-        StockCounters current = repository.findStockByImplementId(implementId)
+    private void applyMovementDelta(UUID implementUuid, StockMovementType movementType, int qty) {
+        StockCounters current = repository.findStockByImplementUuid(implementUuid)
                 .orElse(new StockCounters(0, 0, 0, 0, 0, 0));
 
         int total = safe(current.totalStock());
@@ -269,11 +269,11 @@ public class StockService {
             throw new BadRequestException("STOCK_INVARIANT_BROKEN", "El movimiento rompe la invariante de stock");
         }
 
-        repository.updateStock(implementId, totalDelta, availableDelta, reservedDelta, loanedDelta, damagedDelta);
+        repository.updateStock(implementUuid, totalDelta, availableDelta, reservedDelta, loanedDelta, damagedDelta);
     }
 
-    private StockRepository.ImplementStockContext requireContext(Integer implementId) {
-        var context = repository.findImplementContext(implementId)
+    private StockRepository.ImplementStockContext requireContext(UUID implementUuid) {
+        var context = repository.findImplementContext(implementUuid)
                 .orElseThrow(() -> new NotFoundException("IMPLEMENT_NOT_FOUND", "Implemento no encontrado"));
 
         if (!Boolean.TRUE.equals(context.active())) {
@@ -316,17 +316,17 @@ public class StockService {
         return normalized;
     }
 
-    private List<Integer> normalizeIndividualIds(List<Integer> individualIds) {
-        if (individualIds == null || individualIds.isEmpty()) {
-            throw new BadRequestException("INDIVIDUAL_IDS_REQUIRED", "individual_ids es obligatorio para implementos individuales");
+    private List<UUID> normalizeIndividualUuids(List<UUID> individualUuids) {
+        if (individualUuids == null || individualUuids.isEmpty()) {
+            throw new BadRequestException("INDIVIDUAL_IDS_REQUIRED", "individual_uuids es obligatorio para implementos individuales");
         }
 
-        Set<Integer> unique = new HashSet<>();
-        for (Integer id : individualIds) {
-            if (id == null || id <= 0) {
-                throw new BadRequestException("INDIVIDUAL_ID_INVALID", "individual_ids contiene valores invalidos");
+        Set<UUID> unique = new HashSet<>();
+        for (UUID uuid : individualUuids) {
+            if (uuid == null) {
+                throw new BadRequestException("INDIVIDUAL_UUID_INVALID", "individual_uuids contiene valores invalidos");
             }
-            unique.add(id);
+            unique.add(uuid);
         }
         return new ArrayList<>(unique);
     }
