@@ -152,7 +152,7 @@ public class ImplementV2Controller {
                         movement.getImplementUuid(),
                         movement.getAction(),
                         movement.getQuantity(),
-                        userNames.getOrDefault(movement.getPerformedByUuid(), "Usuario no identificado"),
+                        resolvePerformerName(userNames, movement.getPerformedByUuid()),
                         movement.getTimestamp(),
                         movement.getNotes()))
                 .toList();
@@ -188,5 +188,12 @@ public class ImplementV2Controller {
         return authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch(role::equals);
+    }
+
+    private String resolvePerformerName(Map<UUID, String> userNames, UUID performedByUuid) {
+        if (performedByUuid == null) {
+            return "Usuario no identificado";
+        }
+        return userNames.getOrDefault(performedByUuid, "Usuario no identificado");
     }
 }

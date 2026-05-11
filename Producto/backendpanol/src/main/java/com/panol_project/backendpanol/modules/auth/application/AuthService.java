@@ -102,14 +102,14 @@ public class AuthService {
             return;
         }
         String jti = jwt.getId();
+        String subject = jwt.getSubject();
         UUID userUuid = null;
-        try {
-            String subject = jwt.getSubject();
-            if (subject != null && !subject.isBlank()) {
+        if (subject != null && !subject.isBlank()) {
+            try {
                 userUuid = UUID.fromString(subject);
+            } catch (IllegalArgumentException ex) {
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTH_SUBJECT_INVALID", "Token invalido");
             }
-        } catch (IllegalArgumentException ignored) {
-            // transitional token with legacy subject
         }
         OffsetDateTime expiresAt = OffsetDateTime.ofInstant(jwt.getExpiresAt(), ZoneOffset.UTC);
         tokenRevocationRepository.revokeToken(jti, userUuid, expiresAt);
