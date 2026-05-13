@@ -2,29 +2,29 @@
 
 ## Objetivo
 
-Este frontend implementa la sección de Inventario para gestionar categorías de implementos, manteniendo un diseño coherente con el panel de referencia.
+Este frontend implementa la seccion de Inventario para gestionar categorias de implementos, manteniendo un diseno coherente con el panel de referencia.
 
 ## Arquitectura
 
-- `pages/InventoryCategoriesPage.tsx`: orquestación de la pantalla.
+- `pages/InventoryCategoriesPage.tsx`: orquestacion de la pantalla.
 - `hooks/useCategories.ts`: estado de negocio y operaciones CRUD.
 - `services/categoryService.ts`: llamadas HTTP al backend.
 - `services/apiClient.ts`: cliente Axios + parseo de errores API.
 - `components/layout/*`: topbar, sidebar y shell.
 - `components/categories/*`: tabla, tarjetas, modal de formulario y confirmaciones.
 - `types/*`: contratos TypeScript.
-- `styles/theme.css`: diseño global.
+- `styles/theme.css`: diseno global.
 
 ## Flujo CRUD
 
-1. Carga inicial: `GET /api/categorias/gestion`
-2. Asociación por fila: `GET /api/categorias/{id}/asociaciones`
-3. Crear: `POST /api/categorias`
-4. Editar: `PUT /api/categorias/{id}`
+1. Carga inicial: `GET /api/v2/categories/gestion`
+2. Asociacion por fila: `GET /api/v2/categories/{id}/associations`
+3. Crear: `POST /api/v2/categories`
+4. Editar: `PUT /api/v2/categories/{id}`
 5. Desactivar:
-   - Primer intento `PATCH .../desactivar?force=false`
-   - Si responde `CATEGORY_HAS_ACTIVE_IMPLEMENTS`, se abre confirmación y luego `force=true`
-6. Eliminar: `DELETE /api/categorias/{id}`
+   - Primer intento `PATCH .../deactivate?force=false`
+   - Si responde `CATEGORY_HAS_ACTIVE_IMPLEMENTS`, se abre confirmacion y luego `force=true`
+6. Eliminar: `DELETE /api/v2/categories/{id}`
 
 ## Manejo de errores
 
@@ -43,9 +43,9 @@ Se interpreta payload backend:
 
 ## Variables de entorno
 
-- `VITE_API_BASE_URL`: URL pública del backend para el navegador.
+- `VITE_API_BASE_URL`: URL publica del backend para el navegador.
 
 ## Despliegue
 
 - Docker multi-stage (`node` build + `nginx` runtime).
-- Compose recomendado desde raíz `Producto/` para levantar frontend + backend + postgres juntos.
+- Compose recomendado desde raiz `Producto/` para levantar frontend + backend + postgres juntos.

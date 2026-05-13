@@ -7,9 +7,9 @@ import static com.panol_project.backendpanol.jooq.tables.Stock.STOCK;
 import com.panol_project.backendpanol.jooq.enums.IndividualConditionEnum;
 import com.panol_project.backendpanol.jooq.enums.IndividualStatusEnum;
 import com.panol_project.backendpanol.jooq.enums.ItemTypeEnum;
-import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.IndividualItem;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockCounters;
+import com.panol_project.backendpanol.modules.catalog.stock.domain.StockItemType;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -46,7 +46,7 @@ public class StockJooqRepository implements StockRepository {
                 .fetchOptional(record -> new ImplementStockContext(
                         record.get(IMPLEMENT_UUID),
                         record.get(IMPLEMENT_LOCATION_UUID),
-                        toDomainItemType(record.get(IMPLEMENT.ITEM_TYPE)),
+                        toStockItemType(record.get(IMPLEMENT.ITEM_TYPE)),
                         record.get(IMPLEMENT.ACTIVE)
                 ));
     }
@@ -199,9 +199,9 @@ public class StockJooqRepository implements StockRepository {
         update.where(INDIVIDUAL_UUID.in(individualUuids)).execute();
     }
 
-    private ImplementItemType toDomainItemType(ItemTypeEnum itemType) {
+    private StockItemType toStockItemType(ItemTypeEnum itemType) {
         return itemType == null
                 ? null
-                : ImplementItemType.fromLiteral(itemType.getLiteral()).orElse(null);
+                : StockItemType.fromLiteral(itemType.getLiteral()).orElse(null);
     }
 }

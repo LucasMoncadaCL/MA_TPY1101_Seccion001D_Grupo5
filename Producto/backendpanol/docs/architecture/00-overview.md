@@ -39,7 +39,12 @@ Las reglas 1 y 2 se validan con ArchUnit:
 
 ### Implementado hoy
 
+- `auth`
+- `users`
 - `catalog/category`
+- `catalog/implement`
+- `catalog/location`
+- `catalog/stock`
 
 ### Objetivo de expansion
 
@@ -55,10 +60,9 @@ Las reglas 1 y 2 se validan con ArchUnit:
 
 ## Gap actual vs arquitectura objetivo
 
-1. Solo hay un modulo de negocio implementado en produccion (`catalog/category`).
+1. Falta cerrar estandarizacion de contratos cross-modulo por eventos/puertos de aplicacion para todos los casos.
 2. Aun no existe carpeta `docs/modules/` completa para todos los modulos objetivo.
-3. No hay capa de eventos de dominio transversal documentada en `shared/events` (objetivo futuro).
-4. El dominio actual mezcla DTOs de request/response en `domain`; a futuro se recomienda separar modelos de dominio de modelos de transporte.
+3. El outbox ya existe como capacidad base, pero faltan metricas operacionales formales (pending/retry/dead-letter) en observabilidad central.
 
 ## Principios para siguientes cambios
 

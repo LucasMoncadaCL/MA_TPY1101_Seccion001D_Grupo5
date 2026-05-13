@@ -37,9 +37,15 @@ Referencia de tests: `src/test/java/com/panol_project/backendpanol/ArchitectureT
 
 ## Estado actual del backend
 
-- Modulo implementado: `modules/catalog/category`.
-- Capas presentes en ese modulo: `api`, `application`, `domain`, `infrastructure`.
-- Seguridad y errores transversales ya centralizados en `bootstrap` y `shared`.
+- Modulos implementados:
+  - `modules/auth`
+  - `modules/users`
+  - `modules/catalog/category`
+  - `modules/catalog/implement`
+  - `modules/catalog/location`
+  - `modules/catalog/stock`
+- Capas vigentes por modulo: `api`, `application`, `domain`, `infrastructure` (en `auth`, `domain` agregado para puertos).
+- Seguridad, errores y outbox transversal centralizados en `bootstrap` y `shared`.
 
 ## Modulos objetivo (roadmap)
 

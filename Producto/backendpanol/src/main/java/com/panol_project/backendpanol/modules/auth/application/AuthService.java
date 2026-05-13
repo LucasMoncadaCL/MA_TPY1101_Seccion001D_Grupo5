@@ -1,11 +1,13 @@
 package com.panol_project.backendpanol.modules.auth.application;
 
-import com.panol_project.backendpanol.modules.auth.api.dto.LoginRequest;
-import com.panol_project.backendpanol.modules.auth.api.dto.LoginResponse;
-import com.panol_project.backendpanol.modules.auth.infrastructure.AuthUserRow;
-import com.panol_project.backendpanol.modules.auth.infrastructure.TokenRevocationRepository;
-import com.panol_project.backendpanol.modules.auth.infrastructure.UserAuthRepository;
+import com.panol_project.backendpanol.modules.auth.application.dto.LoginCommand;
+import com.panol_project.backendpanol.modules.auth.application.dto.LoginResult;
+import com.panol_project.backendpanol.modules.auth.domain.AuthUser;
+import com.panol_project.backendpanol.modules.auth.domain.AuditLogPort;
+import com.panol_project.backendpanol.modules.auth.domain.TokenRevocationPort;
+import com.panol_project.backendpanol.modules.auth.domain.UserAuthPort;
 import com.panol_project.backendpanol.shared.error.ApiException;
+import com.panol_project.backendpanol.shared.outbox.application.OutboxService;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -21,24 +23,27 @@ import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
 
-    private final UserAuthRepository userAuthRepository;
-    private final TokenRevocationRepository tokenRevocationRepository;
+    private final UserAuthPort userAuthRepository;
+    private final TokenRevocationPort tokenRevocationRepository;
     private final JwtEncoder jwtEncoder;
-    private final AuditLogService auditLogService;
+    private final AuditLogPort auditLogPort;
+    private final OutboxService outboxService;
     private final int maxFailedAttempts;
     private final int lockMinutes;
     private final int tokenExpirationSeconds;
     private final String jwtIssuer;
 
     public AuthService(
-            UserAuthRepository userAuthRepository,
-            TokenRevocationRepository tokenRevocationRepository,
+            UserAuthPort userAuthRepository,
+            TokenRevocationPort tokenRevocationRepository,
             JwtEncoder jwtEncoder,
-            AuditLogService auditLogService,
+            AuditLogPort auditLogPort,
+            OutboxService outboxService,
             @Value("${app.auth.max-failed-attempts:5}") int maxFailedAttempts,
             @Value("${app.auth.lock-minutes:15}") int lockMinutes,
             @Value("${app.auth.jwt.expiration-seconds:3600}") int tokenExpirationSeconds,
@@ -47,23 +52,25 @@ public class AuthService {
         this.userAuthRepository = userAuthRepository;
         this.tokenRevocationRepository = tokenRevocationRepository;
         this.jwtEncoder = jwtEncoder;
-        this.auditLogService = auditLogService;
+        this.auditLogPort = auditLogPort;
+        this.outboxService = outboxService;
         this.maxFailedAttempts = maxFailedAttempts;
         this.lockMinutes = lockMinutes;
         this.tokenExpirationSeconds = tokenExpirationSeconds;
         this.jwtIssuer = jwtIssuer;
     }
 
-    public LoginResponse login(LoginRequest request) {
-        String rut = normalizeRut(request.rut());
-        AuthUserRow user = userAuthRepository.findAuthUserByRut(rut)
+    @Transactional
+    public LoginResult login(LoginCommand command) {
+        String rut = normalizeRut(command.rut());
+        AuthUser user = userAuthRepository.findAuthUserByRut(rut)
                 .orElseThrow(() -> invalidCredentials(rut));
 
         if (user.blockedUntil() != null && user.blockedUntil().isAfter(OffsetDateTime.now())) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "AUTH_TEMPORARILY_BLOCKED", "Credenciales incorrectas");
         }
 
-        boolean validPassword = BCrypt.checkpw(request.password(), user.passwordHash());
+        boolean validPassword = BCrypt.checkpw(command.password(), user.passwordHash());
         if (!validPassword) {
             int next = user.failedLoginAttempts() + 1;
             OffsetDateTime blockedUntil = next >= maxFailedAttempts
@@ -93,10 +100,12 @@ public class AuthService {
                 JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
                 .getTokenValue();
 
-        auditLogService.log("user_logged_in", user.uuid(), user.uuid(), Map.of("rut", rut, "role", normalizedRole));
-        return new LoginResponse(token, normalizedRole, tokenExpirationSeconds);
+        auditLogPort.log("user_logged_in", user.uuid(), user.uuid(), Map.of("rut", rut, "role", normalizedRole));
+        outboxService.enqueue("user", user.uuid(), "UserLoggedIn", user.uuid(), Map.of("rut", rut, "role", normalizedRole));
+        return new LoginResult(token, normalizedRole, tokenExpirationSeconds);
     }
 
+    @Transactional
     public void logout(Jwt jwt) {
         if (jwt == null) {
             return;
@@ -113,11 +122,13 @@ public class AuthService {
         }
         OffsetDateTime expiresAt = OffsetDateTime.ofInstant(jwt.getExpiresAt(), ZoneOffset.UTC);
         tokenRevocationRepository.revokeToken(jti, userUuid, expiresAt);
-        auditLogService.log("user_logged_out", null, null, Map.of("jti", jti));
+        auditLogPort.log("user_logged_out", null, null, Map.of("jti", jti));
+        outboxService.enqueue("auth", userUuid, "UserLoggedOut", userUuid, Map.of("jti", jti));
     }
 
     private ApiException invalidCredentials(String rut) {
-        auditLogService.log("login_failed", null, null, Map.of("rut", rut));
+        auditLogPort.log("login_failed", null, null, Map.of("rut", rut));
+        outboxService.enqueue("auth", null, "LoginFailed", null, Map.of("rut", rut));
         return new ApiException(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", "Credenciales incorrectas");
     }
 

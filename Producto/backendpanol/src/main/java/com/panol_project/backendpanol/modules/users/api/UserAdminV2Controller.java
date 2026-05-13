@@ -5,6 +5,8 @@ import com.panol_project.backendpanol.modules.users.api.dto.CreateUserRequest;
 import com.panol_project.backendpanol.modules.users.api.dto.UpdateUserRequest;
 import com.panol_project.backendpanol.modules.users.api.dto.UserAdminSummaryResponse;
 import com.panol_project.backendpanol.modules.users.application.UserAdminService;
+import com.panol_project.backendpanol.modules.users.application.dto.CreateUserCommand;
+import com.panol_project.backendpanol.modules.users.application.dto.UpdateUserCommand;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -36,13 +38,31 @@ public class UserAdminV2Controller {
     @GetMapping
     @PreAuthorize("hasRole('DIRECTOR')")
     List<UserAdminSummaryResponse> listUsers() {
-        return userAdminService.listUsers();
+        return userAdminService.listUsers().stream()
+                .map(row -> new UserAdminSummaryResponse(
+                        row.uuid(),
+                        row.name(),
+                        row.rut(),
+                        row.email(),
+                        row.role(),
+                        row.active(),
+                        row.createdAt()))
+                .toList();
     }
 
     @PostMapping
     @PreAuthorize("hasRole('DIRECTOR')")
     ResponseEntity<Void> createUser(@Valid @RequestBody CreateUserRequest request, @AuthenticationPrincipal Jwt jwt) {
-        userAdminService.createUser(request, jwt);
+        userAdminService.createUser(
+                new CreateUserCommand(
+                        request.name(),
+                        request.rut(),
+                        request.email(),
+                        request.role(),
+                        request.password()
+                ),
+                jwt
+        );
         return ResponseEntity.status(201).build();
     }
 
@@ -64,7 +84,11 @@ public class UserAdminV2Controller {
             @Valid @RequestBody UpdateUserRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        userAdminService.updateUser(userUuid, request, jwt);
+        userAdminService.updateUser(
+                userUuid,
+                new UpdateUserCommand(request.name(), request.rut(), request.email()),
+                jwt
+        );
         return ResponseEntity.noContent().build();
     }
 

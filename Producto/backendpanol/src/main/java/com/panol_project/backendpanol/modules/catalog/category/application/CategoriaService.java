@@ -1,5 +1,6 @@
 package com.panol_project.backendpanol.modules.catalog.category.application;
 
+import com.panol_project.backendpanol.modules.catalog.category.application.contract.CategoryValidationContract;
 import com.panol_project.backendpanol.modules.catalog.category.domain.Categoria;
 import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaRepository;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class CategoriaService {
+public class CategoriaService implements CategoryValidationContract {
 
     private final CategoriaRepository repository;
 
@@ -105,6 +106,7 @@ public class CategoriaService {
         repository.deleteByUuid(uuid);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public void validarCategoriaActivaParaImplemento(UUID categoryUuid) {
         if (categoryUuid == null) {

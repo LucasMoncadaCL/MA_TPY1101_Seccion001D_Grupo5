@@ -5,9 +5,8 @@ import com.google.zxing.EncodeHintType;
 import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
-import com.panol_project.backendpanol.modules.catalog.implement.application.ImplementService;
-import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
-import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
+import com.panol_project.backendpanol.modules.catalog.implement.application.contract.ImplementLookupContract;
+import com.panol_project.backendpanol.modules.catalog.stock.domain.StockItemType;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockRepository;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import java.awt.image.BufferedImage;
@@ -22,8 +21,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
@@ -42,17 +41,17 @@ public class BarcodeLabelService {
     private static final int BARCODE_WIDTH = 150;
     private static final int BARCODE_HEIGHT = 42;
 
-    private final ImplementService implementService;
+    private final ImplementLookupContract implementLookupContract;
     private final StockRepository stockRepository;
 
-    public BarcodeLabelService(ImplementService implementService, StockRepository stockRepository) {
-        this.implementService = implementService;
+    public BarcodeLabelService(ImplementLookupContract implementLookupContract, StockRepository stockRepository) {
+        this.implementLookupContract = implementLookupContract;
         this.stockRepository = stockRepository;
     }
 
     @Transactional(readOnly = true)
     public byte[] generateLabelsPdf(UUID implementUuid, String scopeRaw, Integer quantity, UUID individualUuid) {
-        Implemento implemento = implementService.obtener(implementUuid);
+        ImplementLookupContract.ImplementLookupSummary implemento = implementLookupContract.obtenerImplementoParaStock(implementUuid);
         LabelScope scope = LabelScope.from(scopeRaw);
         List<LabelData> labels = resolveLabels(implemento, scope, quantity, individualUuid);
         try {
@@ -62,9 +61,10 @@ public class BarcodeLabelService {
         }
     }
 
-    private List<LabelData> resolveLabels(Implemento implemento, LabelScope scope, Integer quantity, UUID individualUuid) {
+    private List<LabelData> resolveLabels(ImplementLookupContract.ImplementLookupSummary implemento, LabelScope scope, Integer quantity, UUID individualUuid) {
         if (scope == LabelScope.INDIVIDUAL) {
-            if (implemento.itemType() != ImplementItemType.INDIVIDUAL) {
+            StockItemType itemType = StockItemType.fromLiteral(implemento.itemTypeLiteral()).orElse(null);
+            if (itemType != StockItemType.INDIVIDUAL) {
                 throw new BadRequestException(
                         "LABEL_SCOPE_INVALID",
                         "Solo los implementos de tipo individual permiten etiquetas individuales"
@@ -73,11 +73,11 @@ public class BarcodeLabelService {
             if (individualUuid != null) {
                 var selected = stockRepository.findActiveIndividualsByUuids(implemento.uuid(), List.of(individualUuid));
                 if (selected.isEmpty()) {
-                    throw new BadRequestException("LABEL_INDIVIDUAL_NOT_FOUND", "La unidad individual no existe o no está activa");
+                    throw new BadRequestException("LABEL_INDIVIDUAL_NOT_FOUND", "La unidad individual no existe o no esta activa");
                 }
                 var individual = selected.getFirst();
                 String code = normalizeCode(individual.assetCode(), "IND-" + individual.uuid());
-                return List.of(new LabelData(implemento.nombre(), code, "Unidad individual"));
+                return List.of(new LabelData(implemento.name(), code, "Unidad individual"));
             }
 
             int qty = normalizeQuantity(quantity);
@@ -92,7 +92,7 @@ public class BarcodeLabelService {
             for (int i = 0; i < qty; i++) {
                 var individual = individuals.get(i);
                 String code = normalizeCode(individual.assetCode(), "IND-" + individual.uuid());
-                labels.add(new LabelData(implemento.nombre(), code, "Unidad individual"));
+                labels.add(new LabelData(implemento.name(), code, "Unidad individual"));
             }
             return labels;
         }
@@ -104,7 +104,7 @@ public class BarcodeLabelService {
         String generalCode = normalizeCode(implemento.barcode(), "IMP-" + implemento.uuid());
         List<LabelData> labels = new ArrayList<>();
         for (int i = 0; i < qty; i++) {
-            labels.add(new LabelData(implemento.nombre(), generalCode, "Implemento general"));
+            labels.add(new LabelData(implemento.name(), generalCode, "Implemento general"));
         }
         return labels;
     }
@@ -205,7 +205,7 @@ public class BarcodeLabelService {
             BitMatrix bitMatrix = new MultiFormatWriter().encode(value, BarcodeFormat.CODE_128, width, height, hints);
             return MatrixToImageWriter.toBufferedImage(bitMatrix);
         } catch (Exception ex) {
-            throw new BadRequestException("BARCODE_BUILD_ERROR", "No se pudo generar el código de barras para: " + value);
+            throw new BadRequestException("BARCODE_BUILD_ERROR", "No se pudo generar el codigo de barras para: " + value);
         }
     }
 

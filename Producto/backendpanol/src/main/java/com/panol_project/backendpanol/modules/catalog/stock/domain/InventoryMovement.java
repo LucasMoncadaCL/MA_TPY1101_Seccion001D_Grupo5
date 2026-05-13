@@ -1,25 +1,18 @@
 package com.panol_project.backendpanol.modules.catalog.stock.domain;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.Instant;
 import java.util.UUID;
 
-@Document(collection = "inventory_movement")
 public class InventoryMovement {
 
-    @Id
     private String id;
 
-    @Field("implement_uuid")
     private UUID implementUuid;
 
     private MovementAction action;
 
     private Integer quantity;
 
-    @Field("performed_by_uuid")
     private UUID performedByUuid;
 
     private Instant timestamp;

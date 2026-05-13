@@ -1,5 +1,8 @@
 package com.panol_project.backendpanol.modules.auth.infrastructure;
 
+import com.panol_project.backendpanol.modules.auth.domain.AuthUser;
+import com.panol_project.backendpanol.modules.auth.domain.TokenRevocationPort;
+import com.panol_project.backendpanol.modules.auth.domain.UserAuthPort;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,7 +14,7 @@ import static org.jooq.impl.DSL.name;
 import static org.jooq.impl.DSL.table;
 
 @Repository
-public class AuthJooqRepository implements UserAuthRepository, TokenRevocationRepository {
+public class AuthJooqRepository implements UserAuthPort, TokenRevocationPort {
 
     private final DSLContext dsl;
 
@@ -20,7 +23,7 @@ public class AuthJooqRepository implements UserAuthRepository, TokenRevocationRe
     }
 
     @Override
-    public Optional<AuthUserRow> findAuthUserByRut(String rut) {
+    public Optional<AuthUser> findAuthUserByRut(String rut) {
         var userTable = table(name("user"));
         var roleTable = table(name("role"));
         var normalizedRutField = field(
@@ -38,7 +41,7 @@ public class AuthJooqRepository implements UserAuthRepository, TokenRevocationRe
                 .join(roleTable).on(field(name("role", "uuid")).eq(field(name("user", "role_uuid"))))
                 .where(normalizedRutField.eq(rut))
                 .and(field(name("user", "active")).eq(true))
-                .fetchOptional(record -> new AuthUserRow(
+                .fetchOptional(record -> new AuthUser(
                         record.value1(),
                         record.value2(),
                         record.value3(),

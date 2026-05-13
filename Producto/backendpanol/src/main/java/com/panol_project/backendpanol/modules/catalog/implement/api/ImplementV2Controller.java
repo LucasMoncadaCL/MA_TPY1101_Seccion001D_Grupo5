@@ -4,17 +4,16 @@ import com.panol_project.backendpanol.modules.catalog.implement.api.dto.CreateIm
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementCategorySummaryV2Response;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementDetailStockResponse;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementLocationSummaryV2Response;
+import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementRecentMovementV2Response;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementStockSummaryResponse;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementSummaryV2Response;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.ImplementV2Response;
 import com.panol_project.backendpanol.modules.catalog.implement.api.dto.UpdateImplementV2Request;
+import com.panol_project.backendpanol.modules.catalog.implement.application.ImplementDetailFacade;
 import com.panol_project.backendpanol.modules.catalog.implement.application.ImplementService;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
-import com.panol_project.backendpanol.modules.catalog.stock.api.dto.InventoryMovementV2Response;
-import com.panol_project.backendpanol.modules.catalog.stock.application.InventoryMovementService;
-import com.panol_project.backendpanol.modules.users.application.UserService;
 import com.panol_project.backendpanol.shared.error.ApiException;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -35,17 +34,14 @@ public class ImplementV2Controller {
     private static final Logger LOG = LoggerFactory.getLogger(ImplementV2Controller.class);
 
     private final ImplementService service;
-    private final InventoryMovementService inventoryMovementService;
-    private final UserService userService;
+    private final ImplementDetailFacade detailFacade;
 
     public ImplementV2Controller(
             ImplementService service,
-            InventoryMovementService inventoryMovementService,
-            UserService userService
+            ImplementDetailFacade detailFacade
     ) {
         this.service = service;
-        this.inventoryMovementService = inventoryMovementService;
-        this.userService = userService;
+        this.detailFacade = detailFacade;
     }
 
     @PostMapping
@@ -146,7 +142,7 @@ public class ImplementV2Controller {
             );
         }
 
-        List<InventoryMovementV2Response> movementRows = buildMovementRowsSafely(implemento.uuid());
+        List<ImplementRecentMovementV2Response> movementRows = buildMovementRowsSafely(implemento.uuid());
 
         return new ImplementV2Response(
                 implemento.uuid(),
@@ -172,21 +168,21 @@ public class ImplementV2Controller {
         );
     }
 
-    private List<InventoryMovementV2Response> buildMovementRowsSafely(UUID implementUuid) {
+    private List<ImplementRecentMovementV2Response> buildMovementRowsSafely(UUID implementUuid) {
         try {
-            var movements = inventoryMovementService.obtenerUltimosMovimientos(implementUuid);
-            Map<UUID, String> userNames = userService.getNombresUsuariosByUuid(
-                    movements.stream().map(m -> m.getPerformedByUuid()).filter(uuid -> uuid != null).distinct().toList()
+            var movements = detailFacade.getRecentMovements(implementUuid);
+            Map<UUID, String> userNames = detailFacade.getUserNamesByUuid(
+                    movements.stream().map(m -> m.performedByUuid()).filter(uuid -> uuid != null).distinct().toList()
             );
             return movements.stream()
-                    .map(movement -> new InventoryMovementV2Response(
-                            movement.getId(),
-                            movement.getImplementUuid(),
-                            movement.getAction(),
-                            movement.getQuantity(),
-                            resolvePerformerName(userNames, movement.getPerformedByUuid()),
-                            movement.getTimestamp(),
-                            movement.getNotes()))
+                    .map(movement -> new ImplementRecentMovementV2Response(
+                            movement.id(),
+                            movement.implementUuid(),
+                            movement.action(),
+                            movement.quantity(),
+                            resolvePerformerName(userNames, movement.performedByUuid()),
+                            movement.timestamp(),
+                            movement.notes()))
                     .toList();
         } catch (Exception ex) {
             LOG.warn("inventory_movements_unavailable_for_implement {}", implementUuid, ex);

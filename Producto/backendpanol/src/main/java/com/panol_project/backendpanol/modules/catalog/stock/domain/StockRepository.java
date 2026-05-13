@@ -1,6 +1,5 @@
 package com.panol_project.backendpanol.modules.catalog.stock.domain;
 
-import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +24,6 @@ public interface StockRepository {
 
     void updateIndividualsState(List<UUID> individualUuids, String statusLiteral, String conditionLiteral, UUID locationUuid, Boolean active);
 
-    record ImplementStockContext(UUID implementUuid, UUID locationUuid, ImplementItemType itemType, Boolean active) {
+    record ImplementStockContext(UUID implementUuid, UUID locationUuid, StockItemType itemType, Boolean active) {
     }
 }
