@@ -1,24 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: panol-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${DB_DOCKER_NAME:-panol}
-      POSTGRES_USER: ${DB_DOCKER_USER:-panol_user}
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    ports:
-      - "${DB_DOCKER_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_DOCKER_USER:-panol_user} -d ${DB_DOCKER_NAME:-panol}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    secrets:
-      - db_password
-
   backend:
     build:
       context: .
@@ -29,22 +9,11 @@ services:
         JOOQ_DB_PASSWORD: ${JOOQ_DB_PASSWORD}
     container_name: panol-backend
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     env_file:
       - .env.local
     environment:
-      APP_DB_ENV: ${APP_DB_ENV:-docker}
-      DB_DOCKER_HOST: postgres
+      APP_DB_ENV: supabase
     volumes:
       - ./secrets:/app/secrets:ro
     ports:
       - "${APP_PORT:-8080}:8080"
-
-volumes:
-  postgres_data:
-
-secrets:
-  db_password:
-    file: ./secrets/db_password.txt

@@ -1,73 +1,35 @@
-# Modulo: catalog/category
+﻿# Modulo: catalog/category
+
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: `CategoryV2Controller`, `CategoriaService`, `ArchitectureTest`
 
 ## Responsabilidad
 
-Gestionar el ciclo de vida de categorias de implementos (crear, listar, editar, desactivar, eliminar) y exponer validaciones necesarias para integracion con inventario/implementos.
+Gestion de categorias de implementos con reglas de unicidad, activacion/desactivacion y validaciones de uso por otros modulos.
 
-## Casos de uso implementados
+## API vigente
 
-- HU-74: gestion de categorias
-  - listar para gestion
-  - listar para selector
-  - listar activas para selector de producto (PSD-92)
-  - crear categoria
-  - editar categoria
-  - desactivar categoria (con `force`)
-  - eliminar categoria
-  - validar asociaciones y asignacion de implementos
+Base path: `/api/v2/categories`
 
-## Fronteras
+- `GET /active`
+- `GET /gestion`
+- `GET /{categoryUuid}/associations`
+- `POST /`
+- `PUT /{categoryUuid}`
+- `PATCH /{categoryUuid}/deactivate`
+- `DELETE /{categoryUuid}`
 
-- Depende de:
-  - `shared.error` (excepciones de negocio y respuesta uniforme)
-  - `jooq` generado (`com.panol_project.backendpanol.jooq`)
-- Expone:
-  - API REST bajo `/api/categorias`
-- Eventos:
-  - No expone eventos de dominio aun
-  - No escucha eventos aun
+## Fronteras del modulo
 
-## Estructura interna
+- Persistencia encapsulada en infraestructura (jOOQ).
+- Contratos cross-modulo expuestos por paquetes de contrato, no por API.
+- No usar rutas legacy en integraciones nuevas.
 
-Ubicacion:
+## Reglas funcionales relevantes
 
-- `src/main/java/com/panol_project/backendpanol/modules/catalog/category`
+- Nombre unico (case-insensitive).
+- Desactivacion con validacion de implementos activos asociados.
+- Eliminacion bloqueada si existen asociaciones.
+- Errores con `code` estable.
 
-Capas:
-
-- `api/CategoriaController.java`
-- `application/CategoriaService.java`
-- `domain/*` (request/response y contratos de entrada/salida actuales)
-- `infrastructure/CategoriaRepository.java`
-
-## Decisiones tecnicas relevantes
-
-1. Persistencia con jOOQ en `infrastructure`.
-2. Endpoint liviano para selector de producto:
-   - `GET /api/categorias/active` retorna solo `id` y `name`
-   - requiere JWT + rol `COORDINADOR`
-2. Validacion de nombre unico:
-   - verificacion previa case-insensitive
-   - fallback por manejo de unique violation SQLSTATE `23505`
-3. Desactivacion con guardas por implementos activos asociados (`force` opcional).
-4. Eliminacion bloqueada con implementos asociados.
-5. Respuesta de error uniforme via `GlobalExceptionHandler`.
-
-## Flujo principal (crear categoria)
-
-```text
-HTTP POST /api/categorias
-  -> CategoriaController.crear()
-    -> CategoriaService.crear(nombre)
-      -> normalize + validateNombreUnico()
-      -> CategoriaRepository.create()
-        -> INSERT category (jOOQ)
-      -> CategoriaResponse
-```
-
-## Riesgos/pendientes de arquitectura
-
-1. `domain/` contiene DTOs de API; a futuro conviene separar:
-   - dominio puro
-   - DTOs de transporte (`api/dto` o similar)
-2. Falta publicar eventos de dominio para desacoplar futuras integraciones con otros modulos.

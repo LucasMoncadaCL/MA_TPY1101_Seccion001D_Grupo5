@@ -1,4 +1,18 @@
-﻿# Modelo No Relacional (MongoDB) y Relación con SQL
+﻿## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
+- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# Modelo No Relacional (MongoDB) y Relación con SQL
 
 ## Objetivo del diseño
 Este esquema propone un **modelo híbrido**:
@@ -174,3 +188,5 @@ La arquitectura representada implementa una separación clara de responsabilidad
 - **MongoDB** para eventos, historial, auditoría y mensajería operacional.
 
 El resultado es un sistema más flexible para trazabilidad y consultas de contexto, sin perder la fuente de verdad relacional.
+
+

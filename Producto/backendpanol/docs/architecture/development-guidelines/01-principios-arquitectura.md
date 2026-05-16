@@ -1,4 +1,8 @@
-﻿# 01 - Principios de Arquitectura
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 01 - Principios de Arquitectura
 
 ## Objetivo
 
@@ -29,3 +33,4 @@ Asegurar que cada incremento preserve decisiones base:
 ## Regla de oro
 
 Si una decisión mezcla reglas de negocio con detalles técnicos (DB, HTTP, framework), separar antes de mergear.
+

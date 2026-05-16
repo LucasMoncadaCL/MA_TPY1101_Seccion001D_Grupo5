@@ -1,4 +1,18 @@
-﻿# 07 - Estrategia para Aligerar SQL en Préstamos
+﻿## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
+- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 07 - Estrategia para Aligerar SQL en Préstamos
 
 ## Objetivo
 
@@ -150,3 +164,5 @@ Campos de control mínimos:
 - Reducción de tamaño operativo en tablas activas.
 - Sin inconsistencias entre `loan` y detalles.
 - Historial disponible en archivo sin pérdida de integridad.
+
+

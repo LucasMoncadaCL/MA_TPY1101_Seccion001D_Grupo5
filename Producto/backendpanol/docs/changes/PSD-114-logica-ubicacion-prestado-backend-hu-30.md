@@ -1,17 +1,21 @@
-# PSD-114 — Lógica de ubicación automática “Prestado” (Backend) — HU-30
+﻿- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# PSD-114 â€” LÃ³gica de ubicaciÃ³n automÃ¡tica â€œPrestadoâ€ (Backend) â€” HU-30
 
 Fecha: 2026-04-29
 
 ## Objetivo
 
-Aplicar una lógica consistente (en backend) para exponer la ubicación “visible” del producto:
+Aplicar una lÃ³gica consistente (en backend) para exponer la ubicaciÃ³n â€œvisibleâ€ del producto:
 
 - Si `stock.loaned > 0`, el campo `display_location` debe ser `"Prestado"`.
-- Si `stock.loaned = 0`, `display_location` debe ser el nombre real de la ubicación.
+- Si `stock.loaned = 0`, `display_location` debe ser el nombre real de la ubicaciÃ³n.
 
-La lógica se implementa en el backend (Service / DB view) para asegurar consistencia para cualquier consumidor de la API.
+La lÃ³gica se implementa en el backend (Service / DB view) para asegurar consistencia para cualquier consumidor de la API.
 
-## Implementación
+## ImplementaciÃ³n
 
 ### API: `GET /api/implements/{id}`
 
@@ -19,8 +23,8 @@ Se agrega el campo `display_location` en la respuesta del endpoint.
 
 Regla:
 
-- `loaned > 0` ⇒ `"Prestado"`
-- en caso contrario ⇒ `location.name`
+- `loaned > 0` â‡’ `"Prestado"`
+- en caso contrario â‡’ `location.name`
 
 Archivos:
 
@@ -47,7 +51,7 @@ Ejemplo:
 }
 ```
 
-## Cómo probar
+## CÃ³mo probar
 
 1) Asegura que el implemento tenga `loaned > 0` en `stock`.
 2) Consulta:
@@ -58,6 +62,19 @@ Invoke-RestMethod -Method Get -Uri "http://localhost:18080/api/implements/1"
 
 Resultado esperado:
 
-- Con `loaned > 0` ⇒ `display_location = "Prestado"`.
-- Con `loaned = 0` ⇒ `display_location = location.name`.
+- Con `loaned > 0` â‡’ `display_location = "Prestado"`.
+- Con `loaned = 0` â‡’ `display_location = location.name`.
+
+
+
+## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
 

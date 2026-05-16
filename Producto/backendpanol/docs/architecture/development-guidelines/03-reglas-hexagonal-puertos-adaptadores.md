@@ -1,4 +1,8 @@
-﻿# 03 - Reglas Hexagonal (Puertos y Adaptadores)
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 03 - Reglas Hexagonal (Puertos y Adaptadores)
 
 ## Capas y responsabilidades
 
@@ -39,3 +43,4 @@ Un caso de uso se considera alineado cuando:
 - compila sin depender de infraestructura concreta,
 - tiene tests unitarios con dobles de puertos,
 - su adapter se prueba por integración separada.
+

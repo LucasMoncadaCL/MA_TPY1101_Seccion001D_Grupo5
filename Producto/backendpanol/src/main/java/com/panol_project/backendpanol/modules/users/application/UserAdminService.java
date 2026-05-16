@@ -55,8 +55,8 @@ public class UserAdminService {
                 true
         );
 
-        auditLogPort.log("user_created", getUserUuid(jwt), null, Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail, "role", role));
-        outboxService.enqueue("user", null, "UserCreated", getUserUuid(jwt), Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail, "role", role));
+        auditLogPort.log("user_created", getUserUuid(jwt), null, Map.of("rut", normalizedRut, "email", normalizedEmail, "role", role));
+        outboxService.enqueue("user", null, "UserCreated", getUserUuid(jwt), Map.of("rut", normalizedRut, "email", normalizedEmail, "role", role));
     }
 
     @Transactional
@@ -130,8 +130,8 @@ public class UserAdminService {
             throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
-        auditLogPort.log("user_updated", actorUuid, userUuid, Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail));
-        outboxService.enqueue("user", userUuid, "UserUpdated", actorUuid, Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail));
+        auditLogPort.log("user_updated", actorUuid, userUuid, Map.of("rut", normalizedRut, "email", normalizedEmail));
+        outboxService.enqueue("user", userUuid, "UserUpdated", actorUuid, Map.of("rut", normalizedRut, "email", normalizedEmail));
     }
 
     public void deleteUser(UUID userUuid, Jwt jwt) {
@@ -166,9 +166,10 @@ public class UserAdminService {
     }
 
     private String normalizeEmail(String emailRaw) {
-        if (emailRaw == null) return null;
-        String normalized = emailRaw.trim().toLowerCase();
-        return normalized.isBlank() ? null : normalized;
+        if (emailRaw == null || emailRaw.trim().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "USER_EMAIL_REQUIRED", "El correo es obligatorio");
+        }
+        return emailRaw.trim().toLowerCase();
     }
 
     private UUID getUserUuid(Jwt jwt) {

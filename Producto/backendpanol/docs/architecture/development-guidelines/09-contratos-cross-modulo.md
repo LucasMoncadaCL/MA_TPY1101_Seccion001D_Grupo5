@@ -1,3 +1,7 @@
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
 # 09 - Contratos Cross-Modulo
 
 ## Dueno de orquestacion
@@ -43,3 +47,4 @@ Justificacion: puerto de auditoria transversal mientras se formaliza estandar un
 2. `application -> domain`
 - Service depende de puertos/repositorios de dominio de su propio modulo.
 - Si requiere otro modulo, consume contrato en `application.contract` o puerto `domain.port`.
+

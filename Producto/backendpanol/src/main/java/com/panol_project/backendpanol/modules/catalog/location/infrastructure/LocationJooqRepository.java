@@ -89,7 +89,7 @@ public class LocationJooqRepository implements LocationRepository {
         UUID uuid = dsl.insertInto(LOCATION)
                 .set(LOCATION.NAME, name)
                 .set(LOCATION.DESCRIPTION, description)
-                .returning(LOCATION_UUID)
+                .returningResult(LOCATION_UUID)
                 .fetchOptional(record -> record.get(LOCATION_UUID))
                 .orElseThrow();
         return findByUuid(uuid).orElseThrow();

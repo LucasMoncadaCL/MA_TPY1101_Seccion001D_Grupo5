@@ -1,145 +1,55 @@
-# Backend Panol - HU-74 Categorias
+﻿# Backend Panol
 
-Implementa la historia **HU-74** usando Spring Boot + jOOQ + Flyway.
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: controllers V2, SecurityConfig, application.yaml, ArchitectureTest
 
-## Alcance funcional
+## Resumen
 
-- CRUD de categorias (listar, crear, editar, desactivar, eliminar).
-- Regla de negocio: solo `COORDINADOR` gestiona categorias (en esta etapa de integración UI los endpoints de categorias están temporalmente sin autenticación).
-- Nombre de categoria unico (case-insensitive) con validacion previa y fallback por constraint unico.
-- Una categoria desactivada mantiene su referencia historica en implementos.
-- Al desactivar: si existen implementos activos asociados, el backend responde advertencia (conflict) con conteo; se puede confirmar con `force=true`.
-- Eliminacion bloqueada cuando existen implementos asociados (activos o inactivos).
-- Se registra el momento de creacion (`created_at`).
-- Validacion reusable para impedir asignar categoria inactiva al crear/editar implementos.
+Backend del proyecto Panol Salud, implementado como monolito modular con arquitectura hexagonal por modulo y contratos/eventos para integracion interna.
 
-## Endpoints
+## API publica vigente
 
-Base path: `/api/categorias`
+Base publica: `/api/v2/**`
 
-- `GET /api/categorias/gestion` (todas: activas + inactivas)
-- `GET /api/categorias/selector` (solo activas)
-- `GET /api/categorias/{id}/asociaciones` (conteo de implementos y si se puede eliminar)
-- `GET /api/categorias/{id}/validar-asignacion-implemento` (204 si categoria activa)
-- `POST /api/categorias`
-- `PUT /api/categorias/{id}`
-- `PATCH /api/categorias/{id}/desactivar?force=false`
-- `DELETE /api/categorias/{id}`
+Modulos y rutas:
+- Auth: `/api/v2/auth`
+- Usuarios: `/api/v2/users`
+- Categorias: `/api/v2/categories`
+- Ubicaciones: `/api/v2/locations`
+- Implementos: `/api/v2/implements`
+- Stock y movimientos: `/api/v2/implements/{implementUuid}/stock`, `/api/v2/implements/movements`, `/api/v2/implements/{implementUuid}/labels/pdf`
 
-Compatibilidad:
-
-- `GET /api/categorias?incluirInactivas=true|false`
-
-Selector (HU-75):
-
-- `GET /api/categorias/active` (solo activas; requiere rol `COORDINADOR`)
-
-## Formato de errores backend
-
-Todos los errores 4xx/5xx devuelven payload uniforme:
-
-```json
-{
-  "code": "CATEGORY_NAME_DUPLICATE",
-  "message": "Ya existe una categoria con el nombre 'Reactivos'",
-  "timestamp": "2026-04-25T16:20:00.000-04:00"
-}
-```
+No existen controladores legacy publicos en runtime (`/api/categorias`, `/api/implements`, `/api/v1/**`).
 
 ## Seguridad
 
-- Resource Server JWT (`spring-boot-starter-oauth2-resource-server`).
-- Se acepta rol desde claims: `role`, `user_role`, `roles`, `app_metadata.role`, `app_metadata.roles`.
-- Temporalmente, `/api/categorias/**` quedó en `permitAll` para facilitar pruebas del frontend sin login.
+- Seguridad habilitada por defecto: `APP_SECURITY_ENABLED=true`.
+- `permitAll` solo para `POST /api/v2/auth/login` y endpoints de salud de actuator.
+- `/api/v1/**` y `/internal/**` estan denegados.
 
-## jOOQ
+## Entornos de base de datos
 
-- Modelos generados desde la base PostgreSQL real (Supabase).
-- Comando:
+Selector:
+- `APP_DB_ENV=docker` usa `DB_DOCKER_*`
+- `APP_DB_ENV=supabase` usa `DB_SUPABASE_*`
 
-```bash
-./mvnw generate-sources
-```
+## Docker Compose
 
-- En PowerShell (sin exponer credenciales en linea de comando), usar:
+- `Producto/docker-compose.yaml`: stack frontend + backend (sin postgres local).
+- `Producto/backendpanol/docker-compose.yaml`: backend only.
 
-```powershell
-.\scripts\generate-jooq.ps1
-```
+## Migraciones y jOOQ
 
-Variables requeridas para codegen:
+- Migraciones SQL en `src/main/resources/db/migration`.
+- Outbox base en `V20__outbox_events.sql`.
+- Codegen jOOQ con `scripts/generate-jooq.ps1` o `./mvnw generate-sources`.
 
-```bash
-JOOQ_DB_URL=jdbc:postgresql://aws-1-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
-JOOQ_DB_USER=postgres.ekqbucfoygimzgxupdhm
-JOOQ_DB_PASSWORD=tu_password_db
-```
+## Documentacion relacionada
 
-## Variables y secrets
-
-1. Copiar `.env.local.example` a `.env.local`.
-2. Definir `APP_DB_ENV=docker|supabase`.
-3. Completar variables del entorno elegido:
-   - `DB_DOCKER_*` si `APP_DB_ENV=docker`
-   - `DB_SUPABASE_*` si `APP_DB_ENV=supabase`
-4. Crear `secrets/db_password.txt` (para docker postgres local).
-5. Crear `secrets/application-secrets.properties` con secretos backend, por ejemplo:
-
-```properties
-DB_DOCKER_PASSWORD=replace_me
-DB_SUPABASE_PASSWORD=replace_me
-```
-
-## Ejecucion por entorno
-
-Postgres Docker local:
-
-```bash
-# en .env.local
-APP_DB_ENV=docker
-```
-
-Supabase real:
-
-```bash
-# en .env.local
-APP_DB_ENV=supabase
-```
-
-## Flyway y esquema existente
-
-- Este proyecto asume que el esquema principal ya existe en Supabase.
-- `V1__baseline.sql` es intencionalmente no-op (baseline marker).
-- `spring.flyway.baseline-on-migrate=true` permite iniciar historial Flyway en una BD no vacia sin recrear tablas existentes.
-- Cambios nuevos deben agregarse como migraciones forward-only: `V2__*.sql`, `V3__*.sql`, etc.
-
-## Requisitos
-
-- JDK 21
-- Maven Wrapper (`./mvnw`)
-
-## Run local
-
-```bash
-./mvnw spring-boot:run
-```
-
-## Run con Docker Compose
-
-```bash
-docker compose up --build
-```
-
-## Supabase entregado
-
-- `VITE_SUPABASE_URL=https://ekqbucfoygimzgxupdhm.supabase.co`
-- `VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_zz8M0TK5BSRjk00UMl9h6g_qgWycc02`
-
-## Documentación adicional
-
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md)
-- [`docs/architecture/00-overview.md`](./docs/architecture/00-overview.md)
-- [`docs/modules/catalog-category.md`](./docs/modules/catalog-category.md)
-- [`docs/BACKEND.md`](./docs/BACKEND.md)
-- [`docs/ENVIRONMENT.md`](./docs/ENVIRONMENT.md)
-- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)
+- `ARCHITECTURE.md`
+- `docs/BACKEND.md`
+- `docs/ENVIRONMENT.md`
+- `docs/DEPLOYMENT.md`
+- `docs/architecture/00-overview.md`
+- `docs/architecture/00-matriz-canonica-vigente.md`

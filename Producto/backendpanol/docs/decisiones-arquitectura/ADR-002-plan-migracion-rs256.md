@@ -1,4 +1,8 @@
-﻿# ADR-002: Plan de migración de HS256 a RS256
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# ADR-002: Plan de migración de HS256 a RS256
 
 - Estado: Propuesto
 - Fecha: 2026-05-07
@@ -90,3 +94,4 @@ Migración en fases con compatibilidad temporal dual.
 4. Esperar expiración HS256.
 5. Desactivar HS256.
 6. Validar métricas, logs y alertas.
+

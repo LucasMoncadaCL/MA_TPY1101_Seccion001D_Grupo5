@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.jooq.DSLContext;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
 import static org.jooq.impl.DSL.field;
@@ -23,9 +24,18 @@ public class UserAdminJooqRepository implements UserAdminRepository {
 
     @Override
     public UUID findRoleUuid(String normalizedRole) {
-        return dsl.select(field(name("uuid"), UUID.class))
+        var roleUuid = field(name("uuid"), UUID.class);
+        var roleName = field(name("name"), String.class);
+        String roleKey = roleKey(normalizedRole);
+        return dsl.select(roleUuid)
                 .from(table(name("role")))
-                .where(field(name("name")).likeIgnoreCase('%' + roleKey(normalizedRole) + '%'))
+                .where(roleName.equalIgnoreCase(normalizedRole)
+                        .or(roleName.likeIgnoreCase('%' + roleKey + '%')))
+                .orderBy(
+                        DSL.when(roleName.equalIgnoreCase(normalizedRole), DSL.inline(0)).otherwise(DSL.inline(1)),
+                        roleName.asc()
+                )
+                .limit(1)
                 .fetchOne(0, UUID.class);
     }
 

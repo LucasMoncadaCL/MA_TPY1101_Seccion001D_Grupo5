@@ -1,4 +1,8 @@
-﻿# 05 - Estándares de Código y Estructura
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 05 - Estándares de Código y Estructura
 
 ## Naming
 
@@ -35,3 +39,4 @@ Cada cambio relevante debe incluir:
 - impacto en arquitectura,
 - decisión tomada,
 - deuda técnica (si aplica).
+

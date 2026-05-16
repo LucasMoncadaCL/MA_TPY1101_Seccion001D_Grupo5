@@ -1,4 +1,8 @@
-﻿# 07 - Roadmap de Endurecimiento Arquitectónico
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 07 - Roadmap de Endurecimiento Arquitectónico
 
 ## Horizonte 0-30 días
 
@@ -34,3 +38,4 @@
 - % PRs con checklist completo.
 - p95 endpoints críticos.
 - tasa de fallas de publicación de eventos.
+

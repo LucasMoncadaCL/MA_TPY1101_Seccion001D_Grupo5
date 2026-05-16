@@ -1,68 +1,46 @@
-# Arquitectura Backend
+﻿# Arquitectura Backend
+
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: estructura de paquetes, `ArchitectureTest`, guias en `docs/architecture`
 
 ## Definicion
 
-Este backend sigue un enfoque de:
+El backend sigue:
 
 - Monolito modular
-- Hexagonal por modulo (ports & adapters)
-- Comunicacion entre modulos por contratos/eventos
+- Hexagonal por modulo (ports and adapters)
+- Integracion entre modulos por contratos y eventos
 
-Objetivo: mantener simplicidad operativa hoy (un deploy) y dejar preparado el codigo para extraccion progresiva a microservicios.
+## Estructura global
 
-## Capas globales del proyecto
+- `bootstrap`: configuracion transversal
+- `modules`: dominios funcionales
+- `shared`: componentes transversales estables
 
-- `bootstrap`: configuracion de arranque y wiring transversal.
-- `modules`: dominio funcional por contexto de negocio.
-- `shared`: cross-cutting estable (errores, seguridad, utilidades transversales).
-- `target/generated-sources/jooq`: codigo generado desde PostgreSQL para persistencia type-safe.
+## Modulos implementados
 
-## Estructura esperada por modulo
-
-Cada modulo debe mantener esta separacion:
-
-- `api`: adapters de entrada (REST).
-- `application`: casos de uso/orquestacion.
-- `domain`: modelo y contratos del dominio (sin acoplamiento a framework en el ideal objetivo).
-- `infrastructure`: adapters de salida (repositorios, clientes externos, jOOQ).
-
-## Reglas de dependencia (vigentes)
-
-1. `modules/*` no depende de `bootstrap/*` (validado con ArchUnit).
-2. `shared/*` no depende de `modules/*` (validado con ArchUnit).
-3. La persistencia de cada modulo se implementa en `infrastructure`.
-4. Se evita acoplamiento directo arbitrario entre modulos.
-
-Referencia de tests: `src/test/java/com/panol_project/backendpanol/ArchitectureTest.java`.
-
-## Estado actual del backend
-
-- Modulos implementados:
-  - `modules/auth`
-  - `modules/users`
-  - `modules/catalog/category`
-  - `modules/catalog/implement`
-  - `modules/catalog/location`
-  - `modules/catalog/stock`
-- Capas vigentes por modulo: `api`, `application`, `domain`, `infrastructure` (en `auth`, `domain` agregado para puertos).
-- Seguridad, errores y outbox transversal centralizados en `bootstrap` y `shared`.
-
-## Modulos objetivo (roadmap)
-
-- `identity_access`
+- `auth`
+- `users`
+- `catalog/category`
+- `catalog/location`
 - `catalog/implement`
-- `locations`
-- `inventory`
-- `loans`
-- `notifications`
-- `reporting`
-- `audit`
-- `ai_assistant` (adapter/proxy hacia servicio externo)
+- `catalog/stock`
 
-## Documentacion complementaria
+## Reglas vigentes de dependencia
 
+1. `modules` no depende de `bootstrap`.
+2. `shared` no depende de `modules`.
+3. `domain` no depende de `api/application/infrastructure`.
+4. Dependencias cross-modulo solo por `application.contract` o `domain.port`.
+5. `api` no depende de `api` de otro modulo.
+
+Validacion automatica:
+- `src/test/java/com/panol_project/backendpanol/ArchitectureTest.java`
+
+## Referencias
+
+- `docs/architecture/00-matriz-canonica-vigente.md`
 - `docs/architecture/00-overview.md`
-- `docs/modules/catalog-category.md`
-- `docs/BACKEND.md`
-- `docs/ENVIRONMENT.md`
-- `docs/DEPLOYMENT.md`
+- `docs/architecture/development-guidelines/README.md`
+- `docs/modules/README.md`

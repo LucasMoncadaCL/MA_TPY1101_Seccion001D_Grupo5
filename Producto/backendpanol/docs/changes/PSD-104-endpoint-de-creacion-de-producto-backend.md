@@ -1,4 +1,8 @@
-﻿# PSD-104 - Endpoint POST /api/implements para registrar nuevo producto (HU-13)
+﻿- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# PSD-104 - Endpoint POST /api/implements para registrar nuevo producto (HU-13)
 
 Fecha: 2026-04-27
 
@@ -122,3 +126,16 @@ Nota: en este entorno (Java 25) fue necesario `-Dnet.bytebuddy.experimental=true
 5. Enviar `item_type` invalido -> `400`.
 6. Enviar `min_stock` <= 0 -> `400`.
 7. Verificar en BD que `stock.min_stock` coincide con request y stock inicial permanece en 0.
+
+
+## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
+

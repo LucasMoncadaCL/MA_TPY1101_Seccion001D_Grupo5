@@ -13,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -111,6 +112,9 @@ public class AuthService {
             return;
         }
         String jti = jwt.getId();
+        if (jti == null || jti.isBlank()) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTH_JTI_MISSING", "Token invalido");
+        }
         String subject = jwt.getSubject();
         UUID userUuid = null;
         if (subject != null && !subject.isBlank()) {
@@ -120,8 +124,15 @@ public class AuthService {
                 throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTH_SUBJECT_INVALID", "Token invalido");
             }
         }
+        if (jwt.getExpiresAt() == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTH_EXPIRATION_MISSING", "Token invalido");
+        }
         OffsetDateTime expiresAt = OffsetDateTime.ofInstant(jwt.getExpiresAt(), ZoneOffset.UTC);
-        tokenRevocationRepository.revokeToken(jti, userUuid, expiresAt);
+        try {
+            tokenRevocationRepository.revokeToken(jti, userUuid, expiresAt);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTH_SUBJECT_INVALID", "Token invalido");
+        }
         auditLogPort.log("user_logged_out", null, null, Map.of("jti", jti));
         outboxService.enqueue("auth", userUuid, "UserLoggedOut", userUuid, Map.of("jti", jti));
     }

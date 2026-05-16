@@ -84,7 +84,7 @@ public class StockService {
         StockMovementType movementType = StockMovementType.fromLiteral(movementTypeRaw)
                 .orElseThrow(() -> new BadRequestException(
                         "STOCK_MOVEMENT_TYPE_INVALID",
-                        "movement_type invalido. Usa increase_available, decrease_available, reserve, release_reserve, loan, return, damage o repair"
+                        "movement_type invalido. Usa increase_available, decrease_available, reserve, release_reserve, loan, return, damage o repair (o legacy INGRESO, AJUSTE, EGRESO)"
                 ));
 
         repository.ensureStockRow(implementUuid);

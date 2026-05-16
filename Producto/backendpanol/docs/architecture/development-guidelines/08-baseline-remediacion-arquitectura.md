@@ -1,3 +1,7 @@
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
 # 08 - Baseline Remediacion Arquitectonica
 
 ## Rama de trabajo
@@ -35,3 +39,4 @@
 - [x] Outbox table + worker implementados.
 - [x] Documentacion arquitectonica actualizada.
 - [x] Pipeline debe fallar ante violacion ArchUnit.
+

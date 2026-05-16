@@ -1,4 +1,8 @@
-﻿# 02 - Responsabilidades por Capa
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 02 - Responsabilidades por Capa
 
 ## Backend (Spring Boot)
 
@@ -42,3 +46,4 @@ No debe:
 - ¿Requiere FK/ACID fuerte? -> PostgreSQL.
 - ¿Es timeline/evento/auditoría/notificación? -> MongoDB.
 - ¿Es cálculo cross-domain para UI? -> Backend (servicio agregador).
+

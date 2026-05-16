@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -132,6 +133,7 @@ class AuthServiceTest {
         UUID userUuid = UUID.randomUUID();
         Jwt jwt = Jwt.withTokenValue("jwt-token")
                 .header("alg", "HS256")
+                .claim("jti", "jti-123")
                 .subject(userUuid.toString())
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(3600))
@@ -152,11 +154,38 @@ class AuthServiceTest {
         service.logout(jwt);
 
         verify(tokenRevocationPort).revokeToken(
-                eq("jwt-token"),
+                eq("jti-123"),
                 eq(userUuid),
                 any(OffsetDateTime.class)
         );
-        verify(auditLogPort).log("user_logged_out", null, null, Map.of("jti", "jwt-token"));
-        verify(outboxService).enqueue("auth", userUuid, "UserLoggedOut", userUuid, Map.of("jti", "jwt-token"));
+        verify(auditLogPort).log("user_logged_out", null, null, Map.of("jti", "jti-123"));
+        verify(outboxService).enqueue("auth", userUuid, "UserLoggedOut", userUuid, Map.of("jti", "jti-123"));
+    }
+
+    @Test
+    void logoutSinJtiDebeRechazarToken() {
+        UUID userUuid = UUID.randomUUID();
+        Jwt jwt = Jwt.withTokenValue("jwt-token")
+                .header("alg", "HS256")
+                .subject(userUuid.toString())
+                .issuedAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+
+        AuthService service = new AuthService(
+                userAuthPort,
+                tokenRevocationPort,
+                jwtEncoder,
+                auditLogPort,
+                outboxService,
+                5,
+                15,
+                3600,
+                "panol-backend"
+        );
+
+        ApiException ex = assertThrows(ApiException.class, () -> service.logout(jwt));
+        assertEquals("AUTH_JTI_MISSING", ex.getCode());
+        verify(tokenRevocationPort, never()).revokeToken(any(), any(), any());
     }
 }

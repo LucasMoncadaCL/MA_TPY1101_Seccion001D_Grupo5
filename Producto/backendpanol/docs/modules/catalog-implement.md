@@ -1,28 +1,36 @@
-# Modulo: catalog/implement
+﻿# Modulo: catalog/implement
+
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: `ImplementV2Controller`, contratos `application.contract`, `ArchitectureTest`
 
 ## Responsabilidad
 
-Gestionar la creacion y edicion de implementos (productos) del catalogo, incluyendo la persistencia de `category_id` y las validaciones asociadas a categorias activas.
+Gestion del catalogo de implementos y su integracion con categoria, ubicacion y vistas de movimientos recientes por contratos cross-modulo.
 
-## Endpoints
+## API vigente
 
-Base path: `/api/implements`
+Base path: `/api/v2/implements`
 
-- `POST /api/implements` (crear implemento; `category_id` opcional)
-- `PUT /api/implements/{id}` (editar implemento; `category_id` opcional)
-- `GET /api/implements/{id}` (obtener implemento)
+- `GET /`
+- `GET /{implementUuid}`
+- `POST /`
+- `PUT /{implementUuid}`
+- `PATCH /{implementUuid}/active`
 
-### Respuesta de detalle
+Relacionadas:
+- `GET /api/v2/implements/movements`
+- `POST /api/v2/implements/{implementUuid}/movements`
 
-El endpoint `GET /api/implements/{id}` incluye:
+## Contratos y acoplamiento
 
-- `category`: `null` o `{ id, name, active }` (si la categoria fue desactivada posteriormente, `active=false` igualmente se devuelve para dar contexto).
-- `location`: `{ id, name, description }`
+- Dependencias cross-modulo via `application.contract`.
+- No dependencia a API de otros modulos.
+- DTO HTTP propio de modulo `implement`.
 
-## Validaciones relevantes (PSD)
+## Validaciones relevantes
 
-- Si `category_id` viene en el request, debe existir y estar activa.
-- Si `category_id` es `null` o ausente, se persiste como `NULL` (permitido).
-
-La validacion se reutiliza desde `CategoriaService.validarCategoriaActivaParaImplemento(...)`.
+- Categoria y ubicacion validadas por contrato.
+- Reglas de nombre y estado activo/inactivo.
+- Respuesta de error con `code` estable.
 

@@ -1,4 +1,8 @@
-﻿# Payloads Frontend / Backend
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# Payloads Frontend / Backend
 
 - Última actualización: 2026-05-10
 - Alcance: contratos JSON usados por frontend y backend
@@ -93,3 +97,4 @@ Nota frontend:
 
 - `src/services/apiClient.ts` espera en errores: `code`, `message`, `timestamp`.
 - Cualquier otro detalle técnico debe permanecer en logs internos del backend.
+

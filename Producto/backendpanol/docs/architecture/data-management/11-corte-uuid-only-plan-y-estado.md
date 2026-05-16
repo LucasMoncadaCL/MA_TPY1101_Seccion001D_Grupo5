@@ -1,28 +1,42 @@
-# 11 - Corte UUID-Only: Plan de Ejecución y Estado
+ï»¿## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
+- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 11 - Corte UUID-Only: Plan de EjecuciÃ³n y Estado
 
 Fecha: 2026-05-10
-Estado general: En ejecución por fases
+Estado general: En ejecuciÃ³n por fases
 
 ## Objetivo
-Completar el corte UUID-only end-to-end (backend, frontend, PostgreSQL y eventos), dejando `sub` como identidad canónica y retirando dependencias públicas de IDs numéricos.
+Completar el corte UUID-only end-to-end (backend, frontend, PostgreSQL y eventos), dejando `sub` como identidad canÃ³nica y retirando dependencias pÃºblicas de IDs numÃ©ricos.
 
 ## Resumen de estrategia
-- P0: Endurecer contratos y auth UUID-only sin romper operación.
-- P1: Migrar módulos restantes a consumo y persistencia UUID-first.
+- P0: Endurecer contratos y auth UUID-only sin romper operaciÃ³n.
+- P1: Migrar mÃ³dulos restantes a consumo y persistencia UUID-first.
 - P2: Ventana de corte destructivo en DB (retiro `*_id` legacy).
 
 ---
 
-## P0 - Aplicado en esta iteración
+## P0 - Aplicado en esta iteraciÃ³n
 
 ### 1) JWT/Auth UUID-only
 - `AuthService` deja de emitir claim `user_uuid`.
-- JWT queda con `sub` como identidad canónica.
-- `jwt-claims.md` actualizado a contrato UUID-only en autenticación.
+- JWT queda con `sub` como identidad canÃ³nica.
+- `jwt-claims.md` actualizado a contrato UUID-only en autenticaciÃ³n.
 
 ### 2) Backend sin fallback `user_id` en claims
 - `UserAdminService#getUserId(Jwt)` ya no lee `user_id` claim legacy.
-- Resolución de actor queda basada en `sub` UUID.
+- ResoluciÃ³n de actor queda basada en `sub` UUID.
 
 ### 3) Movimientos inventario sin hardcode de actor
 - `InventoryMovementController` elimina `performedBy=1` hardcodeado.
@@ -30,21 +44,21 @@ Completar el corte UUID-only end-to-end (backend, frontend, PostgreSQL y eventos
 
 ### 4) Frontend identity
 - `utils/auth.ts` deja de usar fallback `user_uuid`.
-- El frontend usa `sub` como fuente única de identidad de sesión.
+- El frontend usa `sub` como fuente Ãºnica de identidad de sesiÃ³n.
 
 ---
 
-## P1 - Próximos cambios requeridos
+## P1 - PrÃ³ximos cambios requeridos
 
 ### Backend
 1. Eliminar adaptadores `uuid -> id` donde ya exista repositorio UUID nativo.
-2. Migrar préstamos/reportes/historial a repositorios UUID-first.
+2. Migrar prÃ©stamos/reportes/historial a repositorios UUID-first.
 3. Marcar `/api/v1/**` como deprecated y bloquear nuevas integraciones.
 
 ### Frontend
 1. Eliminar cualquier fallback `id ?? uuid` residual.
 2. Confirmar rutas/hash y stores solo con `string` UUID.
-3. Alinear todas las páginas no inventario a API `v2`.
+3. Alinear todas las pÃ¡ginas no inventario a API `v2`.
 
 ### Eventos/Mongo
 1. Estandarizar `aggregateId`, `entityId`, `actorId` como UUID string.
@@ -56,11 +70,11 @@ Completar el corte UUID-only end-to-end (backend, frontend, PostgreSQL y eventos
 
 ### Precondiciones
 1. Backups PostgreSQL + export Mongo.
-2. Validación de integridad UUID (`migration_check_*`, sin huérfanos).
+2. ValidaciÃ³n de integridad UUID (`migration_check_*`, sin huÃ©rfanos).
 3. Smoke tests verdes en entorno staging con API `v2`.
 
-### Ejecución
-1. Cambiar PK/FK efectivas a UUID en orden topológico.
+### EjecuciÃ³n
+1. Cambiar PK/FK efectivas a UUID en orden topolÃ³gico.
 2. Retirar columnas `*_id` de negocio y secuencias legacy.
 3. Ajustar triggers, vistas, procedimientos y jobs a UUID-only.
 
@@ -71,9 +85,9 @@ Completar el corte UUID-only end-to-end (backend, frontend, PostgreSQL y eventos
 
 ---
 
-## Checklist de aceptación UUID-only final
-- [ ] Ningún endpoint público usa IDs numéricos de negocio.
-- [ ] JWT usa `sub` como única identidad canónica.
+## Checklist de aceptaciÃ³n UUID-only final
+- [ ] NingÃºn endpoint pÃºblico usa IDs numÃ©ricos de negocio.
+- [ ] JWT usa `sub` como Ãºnica identidad canÃ³nica.
 - [ ] Frontend no convierte IDs de negocio a `number`.
 - [ ] Eventos usan UUID-only.
 - [ ] DB sin columnas `*_id` de negocio legacy.
@@ -82,5 +96,7 @@ Completar el corte UUID-only end-to-end (backend, frontend, PostgreSQL y eventos
 ---
 
 ## Riesgos y notas
-- El retiro físico de `*_id` requiere ventana de mantenimiento y rollback probado.
-- No ejecutar corte destructivo directo en producción sin staging UUID-only validado.
+- El retiro fÃ­sico de `*_id` requiere ventana de mantenimiento y rollback probado.
+- No ejecutar corte destructivo directo en producciÃ³n sin staging UUID-only validado.
+
+

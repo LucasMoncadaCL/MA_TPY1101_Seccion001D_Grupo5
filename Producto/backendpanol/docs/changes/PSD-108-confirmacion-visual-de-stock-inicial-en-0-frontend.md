@@ -1,3 +1,7 @@
+﻿- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
 # PSD-108 - Confirmacion visual de stock inicial en 0 (Frontend)
 
 Fecha: 2026-04-28
@@ -19,7 +23,7 @@ La subtarea queda **100% cumplida** respecto a la descripcion solicitada.
 
 Texto implementado bajo el campo `Stock minimo`:
 
-`El stock inicial del producto será 0. Para agregar unidades usa el ingreso de lote.`
+`El stock inicial del producto serÃ¡ 0. Para agregar unidades usa el ingreso de lote.`
 
 Archivo:
 
@@ -80,3 +84,16 @@ npm run build
    - `Stock disponible: 0`
    - badge `Ingresa un lote`.
 7. Abrir ficha de otro producto no recien creado y confirmar que no aparece ese indicador.
+
+
+## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
+

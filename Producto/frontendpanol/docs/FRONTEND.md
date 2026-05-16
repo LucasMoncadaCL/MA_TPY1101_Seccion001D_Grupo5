@@ -1,34 +1,35 @@
-# Frontend Docs
+﻿# Frontend Docs
+
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: servicios frontend + controllers backend V2
 
 ## Objetivo
 
-Este frontend implementa la seccion de Inventario para gestionar categorias de implementos, manteniendo un diseno coherente con el panel de referencia.
+Frontend para gestion operativa de inventario consumiendo API v2 del backend.
 
 ## Arquitectura
 
-- `pages/InventoryCategoriesPage.tsx`: orquestacion de la pantalla.
-- `hooks/useCategories.ts`: estado de negocio y operaciones CRUD.
-- `services/categoryService.ts`: llamadas HTTP al backend.
-- `services/apiClient.ts`: cliente Axios + parseo de errores API.
-- `components/layout/*`: topbar, sidebar y shell.
-- `components/categories/*`: tabla, tarjetas, modal de formulario y confirmaciones.
-- `types/*`: contratos TypeScript.
-- `styles/theme.css`: diseno global.
+- `pages/InventoryCategoriesPage.tsx`
+- `hooks/useCategories.ts`
+- `services/categoryService.ts`
+- `services/apiClient.ts`
+- `components/layout/*`
+- `components/categories/*`
+- `types/*`
 
-## Flujo CRUD
+## Flujo CRUD de categorias
 
-1. Carga inicial: `GET /api/v2/categories/gestion`
-2. Asociacion por fila: `GET /api/v2/categories/{id}/associations`
-3. Crear: `POST /api/v2/categories`
-4. Editar: `PUT /api/v2/categories/{id}`
-5. Desactivar:
-   - Primer intento `PATCH .../deactivate?force=false`
-   - Si responde `CATEGORY_HAS_ACTIVE_IMPLEMENTS`, se abre confirmacion y luego `force=true`
-6. Eliminar: `DELETE /api/v2/categories/{id}`
+1. `GET /api/v2/categories/gestion`
+2. `GET /api/v2/categories/{categoryUuid}/associations`
+3. `POST /api/v2/categories`
+4. `PUT /api/v2/categories/{categoryUuid}`
+5. `PATCH /api/v2/categories/{categoryUuid}/deactivate?force=false|true`
+6. `DELETE /api/v2/categories/{categoryUuid}`
 
-## Manejo de errores
+## Errores
 
-Se interpreta payload backend:
+El frontend consume payload uniforme:
 
 ```json
 {
@@ -38,14 +39,16 @@ Se interpreta payload backend:
 }
 ```
 
-- `CATEGORY_NAME_DUPLICATE`: se muestra debajo del campo Nombre.
-- Otros errores: banner superior del panel.
-
 ## Variables de entorno
 
-- `VITE_API_BASE_URL`: URL publica del backend para el navegador.
+- `VITE_API_BASE_URL` (ejemplo: `http://localhost:18080`)
 
-## Despliegue
+## Despliegue local recomendado
 
-- Docker multi-stage (`node` build + `nginx` runtime).
-- Compose recomendado desde raiz `Producto/` para levantar frontend + backend + postgres juntos.
+Desde `Producto/`:
+```bash
+docker compose up --build
+```
+
+Este compose levanta frontend + backend.
+
