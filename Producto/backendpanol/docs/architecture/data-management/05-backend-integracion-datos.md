@@ -1,50 +1,35 @@
-﻿# 05 - Backend: Integración con Bases de Datos
+﻿# 05 - Backend: Integracion con Datos
 
-## 1. Patrón de servicio
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: servicios de aplicacion, `OutboxService`, `OutboxWorker`, `MongoOutboxPublisher`
 
-Cada caso de uso backend debe:
+## Patron vigente
 
-1. Validar input y permisos.
-2. Persistir estado canónico en PostgreSQL.
-3. Confirmar transacción.
-4. Publicar/registrar evento en MongoDB.
-5. Devolver respuesta API.
+1. Caso de uso valida input y permisos.
+2. Escribe estado de negocio en SQL.
+3. Encola evento outbox en la misma transaccion si corresponde.
+4. Confirma transaccion.
+5. Worker asincrono publica evento/proyeccion.
 
-## 2. Estrategia de escritura
+## Idempotencia
 
-### Síncrona (actual)
-- SQL primero, luego Mongo.
-- Si Mongo falla, registrar error y reintentar.
+- `event_id` estable por evento.
+- Publicacion con `upsert` por identificador logico en destino.
+- Reintentos sin duplicar efecto funcional.
 
-### Recomendada (evolución)
-- SQL + Outbox en misma transacción.
-- Worker asíncrono procesa outbox -> Mongo.
-- Garantiza entrega eventual con idempotencia.
+## Observabilidad minima
 
-## 3. Idempotencia
+- Conteo por estado de outbox.
+- Seguimiento de retries y `FAILED`.
+- Correlacion por evento y agregado.
 
-- Para eventos, usar `event_id` único.
-- En Mongo, `upsert` por clave natural (`loan_id` + timestamp/event_id) según colección.
-- Evitar duplicados en reprocesos.
+## Alcances
 
-## 4. Contratos API y agregación
+- Endpoints operativos principales consumen estado SQL.
+- Vistas de trazabilidad/eventos consumen proyecciones asincronas.
 
-- Endpoints operativos: basados en SQL.
-- Endpoints de timeline/auditoría/notificaciones: basados en Mongo.
-- Endpoints de dashboard: servicio agregador en backend que combina ambas fuentes.
+## Compatibilidad
 
-## 5. Errores y observabilidad
+Este documento reemplaza la estrategia antigua "SQL y luego Mongo sincronico" como descripcion del estado actual.
 
-- Trazas con `request_id`.
-- Métricas por operación:
-  - tiempo SQL,
-  - tiempo Mongo,
-  - fallas por capa.
-- Logs estructurados con contexto de entidad (`entity_type`, `entity_id`).
-
-## 6. Tests recomendados
-
-- Unit tests de casos de uso (reglas de negocio).
-- Integración SQL (transacciones, constraints).
-- Integración Mongo (insert/update de eventos).
-- Test de contrato para endpoints de dashboard.

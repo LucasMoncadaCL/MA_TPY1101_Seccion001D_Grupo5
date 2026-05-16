@@ -1,7 +1,6 @@
 package com.panol_project.backendpanol.bootstrap.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
-import com.panol_project.backendpanol.modules.auth.infrastructure.TokenRevocationRepository;
 import com.panol_project.backendpanol.modules.auth.infrastructure.TokenRevocationValidator;
 import com.panol_project.backendpanol.shared.error.security.RestAccessDeniedHandler;
 import com.panol_project.backendpanol.shared.error.security.RestAuthenticationEntryPoint;

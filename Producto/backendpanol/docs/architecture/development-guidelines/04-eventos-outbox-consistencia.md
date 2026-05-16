@@ -1,4 +1,8 @@
-﻿# 04 - Eventos, Outbox y Consistencia
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 04 - Eventos, Outbox y Consistencia
 
 ## Propósito
 
@@ -36,3 +40,4 @@ Tener eventos confiables sin comprometer consistencia transaccional.
 
 - métricas: eventos pendientes, retries, dead-letter.
 - trazas: `event_id`, `aggregate_id`, `occurred_at`.
+

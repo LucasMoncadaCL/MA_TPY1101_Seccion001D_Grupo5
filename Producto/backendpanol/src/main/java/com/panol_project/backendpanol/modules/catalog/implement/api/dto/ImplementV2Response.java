@@ -1,7 +1,6 @@
 package com.panol_project.backendpanol.modules.catalog.implement.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.panol_project.backendpanol.modules.catalog.stock.api.dto.InventoryMovementV2Response;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +30,6 @@ public record ImplementV2Response(
         OffsetDateTime updatedAt,
         ImplementDetailStockResponse stock,
         @JsonProperty("recent_movements")
-        List<InventoryMovementV2Response> recentMovements
+        List<ImplementRecentMovementV2Response> recentMovements
 ) {
 }

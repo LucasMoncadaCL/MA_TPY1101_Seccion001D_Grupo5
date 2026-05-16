@@ -1,192 +1,141 @@
 package com.panol_project.backendpanol.modules.users.application;
 
-import com.panol_project.backendpanol.modules.auth.application.AuditLogService;
-import com.panol_project.backendpanol.modules.users.api.dto.CreateUserRequest;
-import com.panol_project.backendpanol.modules.users.api.dto.UpdateUserRequest;
-import com.panol_project.backendpanol.modules.users.api.dto.UserAdminSummaryResponse;
+import com.panol_project.backendpanol.modules.auth.domain.AuditLogPort;
+import com.panol_project.backendpanol.modules.users.application.dto.CreateUserCommand;
+import com.panol_project.backendpanol.modules.users.application.dto.UpdateUserCommand;
+import com.panol_project.backendpanol.modules.users.domain.UserAdminRepository;
+import com.panol_project.backendpanol.modules.users.domain.UserAdminSummary;
 import com.panol_project.backendpanol.shared.error.ApiException;
-import java.time.OffsetDateTime;
+import com.panol_project.backendpanol.shared.outbox.application.OutboxService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.jooq.DSLContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-
-import static org.jooq.impl.DSL.field;
-import static org.jooq.impl.DSL.name;
-import static org.jooq.impl.DSL.table;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserAdminService {
 
     private static final Set<String> ALLOWED_ROLES = Set.of("DIRECTOR", "COORDINADOR", "DOCENTE");
 
-    private final DSLContext dsl;
-    private final AuditLogService auditLogService;
+    private final UserAdminRepository repository;
+    private final AuditLogPort auditLogPort;
+    private final OutboxService outboxService;
 
-    public UserAdminService(DSLContext dsl, AuditLogService auditLogService) {
-        this.dsl = dsl;
-        this.auditLogService = auditLogService;
+    public UserAdminService(UserAdminRepository repository, AuditLogPort auditLogPort, OutboxService outboxService) {
+        this.repository = repository;
+        this.auditLogPort = auditLogPort;
+        this.outboxService = outboxService;
     }
 
-    public void createUser(CreateUserRequest request, Jwt jwt) {
-        String role = normalizeRole(request.role());
-        String normalizedRut = normalizeRut(request.rut());
-        String normalizedEmail = normalizeEmail(request.email());
-        UUID roleUuid = findRoleUuid(role);
+    @Transactional
+    public void createUser(CreateUserCommand command, Jwt jwt) {
+        String role = normalizeRole(command.role());
+        String normalizedRut = normalizeRut(command.rut());
+        String normalizedEmail = normalizeEmail(command.email());
+        UUID roleUuid = repository.findRoleUuid(role);
         if (roleUuid == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ROLE_NOT_SUPPORTED", "Rol invalido");
         }
 
-        var normalizedRutField = field(
-                "replace(replace(replace({0}, '.', ''), '-', ''), ' ', '')",
-                String.class,
-                field(name("rut")));
-
-        var duplicateCondition = normalizedRutField.eq(normalizedRut);
-        if (normalizedEmail != null) {
-            duplicateCondition = duplicateCondition.or(field(name("email")).eq(normalizedEmail));
-        }
-
-        Integer duplicated = dsl.selectCount().from(table(name("user")))
-                .where(duplicateCondition)
-                .fetchOne(0, Integer.class);
-
-        if (duplicated != null && duplicated > 0) {
+        if (repository.countUsersByRutOrEmail(normalizedRut, normalizedEmail) > 0) {
             throw new ApiException(HttpStatus.CONFLICT, "USER_DUPLICATED", "No fue posible procesar la solicitud");
         }
 
-        dsl.insertInto(table(name("user")))
-                .columns(field(name("name")), field(name("rut")), field(name("email")), field(name("password_hash")), field(name("role_uuid")), field(name("active")))
-                .values(
-                        request.name().trim(),
-                        normalizedRut,
-                        normalizedEmail,
-                        BCrypt.hashpw(request.password(), BCrypt.gensalt()),
-                        roleUuid,
-                        true)
-                .execute();
+        repository.createUser(
+                command.name().trim(),
+                normalizedRut,
+                normalizedEmail,
+                BCrypt.hashpw(command.password(), BCrypt.gensalt()),
+                roleUuid,
+                true
+        );
 
-        auditLogService.log("user_created", getUserUuid(jwt), null, Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail, "role", role));
+        auditLogPort.log("user_created", getUserUuid(jwt), null, Map.of("rut", normalizedRut, "email", normalizedEmail, "role", role));
+        outboxService.enqueue("user", null, "UserCreated", getUserUuid(jwt), Map.of("rut", normalizedRut, "email", normalizedEmail, "role", role));
     }
 
+    @Transactional
     public void changeRole(UUID userUuid, String roleInput, Jwt jwt) {
         String role = normalizeRole(roleInput);
-        UUID roleUuid = findRoleUuid(role);
+        UUID roleUuid = repository.findRoleUuid(role);
         if (roleUuid == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ROLE_NOT_SUPPORTED", "Rol invalido");
         }
-        int updated = dsl.update(table(name("user")))
-                .set(field(name("role_uuid"), UUID.class), roleUuid)
-                .where(field(name("uuid"), UUID.class).eq(userUuid))
-                .execute();
+        int updated = repository.updateUserRole(userUuid, roleUuid);
 
         if (updated == 0) {
             throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
-        auditLogService.log("user_role_changed", getUserUuid(jwt), userUuid, Map.of("new_role", role));
+        auditLogPort.log("user_role_changed", getUserUuid(jwt), userUuid, Map.of("new_role", role));
+        outboxService.enqueue("user", userUuid, "UserRoleChanged", getUserUuid(jwt), Map.of("new_role", role));
     }
 
-    public List<UserAdminSummaryResponse> listUsers() {
-        return dsl.select(
-                        field(name("user", "uuid"), UUID.class),
-                        field(name("user", "name"), String.class),
-                        field(name("user", "rut"), String.class),
-                        field(name("user", "email"), String.class),
-                        field(name("role", "name"), String.class),
-                        field(name("user", "active"), Boolean.class),
-                        field(name("user", "created_at"), OffsetDateTime.class))
-                .from(table(name("user")))
-                .join(table(name("role"))).on(field(name("role", "uuid")).eq(field(name("user", "role_uuid"))))
-                .orderBy(field(name("user", "created_at")).desc())
-                .fetch(record -> new UserAdminSummaryResponse(
-                        record.value1() == null ? null : record.value1().toString(),
-                        record.value2(),
-                        record.value3(),
-                        record.value4(),
-                        normalizeRoleForResponse(record.value5()),
-                        Boolean.TRUE.equals(record.value6()),
-                        record.value7()));
+    @Transactional(readOnly = true)
+    public List<UserAdminSummary> listUsers() {
+        return repository.listUsers().stream()
+                .map(row -> new UserAdminSummary(
+                        row.uuid(),
+                        row.name(),
+                        row.rut(),
+                        row.email(),
+                        normalizeRoleForResponse(row.role()),
+                        row.active(),
+                        row.createdAt()))
+                .toList();
     }
 
+    @Transactional
     public void setActive(UUID userUuid, boolean active, Jwt jwt) {
         UUID actorUuid = getUserUuid(jwt);
         if (actorUuid != null && actorUuid.equals(userUuid) && !active) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "USER_SELF_DEACTIVATION_NOT_ALLOWED", "No puedes desactivar tu propio usuario");
         }
 
-        int updated = dsl.update(table(name("user")))
-                .set(field(name("active")), active)
-                .where(field(name("uuid"), UUID.class).eq(userUuid))
-                .execute();
+        int updated = repository.updateUserActive(userUuid, active);
 
         if (updated == 0) {
             throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
-        auditLogService.log(
+        auditLogPort.log(
                 active ? "user_activated" : "user_deactivated",
                 actorUuid,
                 userUuid,
                 Map.of("active", active));
+        outboxService.enqueue("user", userUuid, active ? "UserActivated" : "UserDeactivated", actorUuid, Map.of("active", active));
     }
 
-    public void updateUser(UUID userUuid, UpdateUserRequest request, Jwt jwt) {
+    @Transactional
+    public void updateUser(UUID userUuid, UpdateUserCommand command, Jwt jwt) {
         if (!existsUserByUuid(userUuid)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
         }
         UUID actorUuid = getUserUuid(jwt);
-        String normalizedRut = normalizeRut(request.rut());
-        String normalizedEmail = normalizeEmail(request.email());
+        String normalizedRut = normalizeRut(command.rut());
+        String normalizedEmail = normalizeEmail(command.email());
 
-        var normalizedRutField = field(
-                "replace(replace(replace({0}, '.', ''), '-', ''), ' ', '')",
-                String.class,
-                field(name("rut")));
-
-        var duplicateCondition = normalizedRutField.eq(normalizedRut);
-        if (normalizedEmail != null) {
-            duplicateCondition = duplicateCondition.or(field(name("email")).eq(normalizedEmail));
-        }
-
-        Integer duplicated = dsl.selectCount()
-                .from(table(name("user")))
-                .where(duplicateCondition)
-                .and(field(name("uuid"), UUID.class).ne(userUuid))
-                .fetchOne(0, Integer.class);
-
-        if (duplicated != null && duplicated > 0) {
+        if (repository.countUsersByRutOrEmailExcludingUser(normalizedRut, normalizedEmail, userUuid) > 0) {
             throw new ApiException(HttpStatus.CONFLICT, "USER_DUPLICATED", "No fue posible procesar la solicitud");
         }
 
-        int updated = dsl.update(table(name("user")))
-                .set(field(name("name")), request.name().trim())
-                .set(field(name("rut")), normalizedRut)
-                .set(field(name("email")), normalizedEmail)
-                .where(field(name("uuid"), UUID.class).eq(userUuid))
-                .execute();
+        int updated = repository.updateUser(userUuid, command.name().trim(), normalizedRut, normalizedEmail);
 
         if (updated == 0) {
             throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
         }
 
-        auditLogService.log("user_updated", actorUuid, userUuid, Map.of("rut", normalizedRut, "email", normalizedEmail == null ? "" : normalizedEmail));
+        auditLogPort.log("user_updated", actorUuid, userUuid, Map.of("rut", normalizedRut, "email", normalizedEmail));
+        outboxService.enqueue("user", userUuid, "UserUpdated", actorUuid, Map.of("rut", normalizedRut, "email", normalizedEmail));
     }
 
     public void deleteUser(UUID userUuid, Jwt jwt) {
         setActive(userUuid, false, jwt);
-    }
-
-    private UUID findRoleUuid(String normalizedRole) {
-        return dsl.select(field(name("uuid"), UUID.class))
-                .from(table(name("role")))
-                .where(field(name("name")).likeIgnoreCase('%' + roleKey(normalizedRole) + '%'))
-                .fetchOne(0, UUID.class);
     }
 
     private String normalizeRole(String roleRaw) {
@@ -211,22 +160,16 @@ public class UserAdminService {
         return role;
     }
 
-    private String roleKey(String normalizedRole) {
-        return switch (normalizedRole) {
-            case "COORDINADOR" -> "COORD";
-            default -> normalizedRole;
-        };
-    }
-
     private String normalizeRut(String rutRaw) {
         if (rutRaw == null) return "";
         return rutRaw.replaceAll("\\D", "").trim();
     }
 
     private String normalizeEmail(String emailRaw) {
-        if (emailRaw == null) return null;
-        String normalized = emailRaw.trim().toLowerCase();
-        return normalized.isBlank() ? null : normalized;
+        if (emailRaw == null || emailRaw.trim().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "USER_EMAIL_REQUIRED", "El correo es obligatorio");
+        }
+        return emailRaw.trim().toLowerCase();
     }
 
     private UUID getUserUuid(Jwt jwt) {
@@ -242,11 +185,7 @@ public class UserAdminService {
     }
 
     private boolean existsUserByUuid(UUID uuid) {
-        Integer count = dsl.selectCount()
-                .from(table(name("user")))
-                .where(field(name("uuid")).eq(uuid))
-                .fetchOne(0, Integer.class);
-        return count != null && count > 0;
+        return repository.existsUserByUuid(uuid);
     }
 
     private UUID tryParseUuid(String value) {

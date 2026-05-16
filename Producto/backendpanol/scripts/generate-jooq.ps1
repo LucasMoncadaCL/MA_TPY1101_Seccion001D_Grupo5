@@ -39,7 +39,10 @@ function Import-KeyValueFile {
             $value = $value.Substring(1, $value.Length - 2)
         }
 
-        [System.Environment]::SetEnvironmentVariable($key, $value, "Process")
+        $current = [System.Environment]::GetEnvironmentVariable($key, "Process")
+        if ([string]::IsNullOrWhiteSpace($current)) {
+            [System.Environment]::SetEnvironmentVariable($key, $value, "Process")
+        }
     }
 }
 
@@ -65,4 +68,28 @@ if ($missing.Count -gt 0) {
 
 $args = @("generate-sources") + $MavenArgs
 & ".\mvnw.cmd" @args
-exit $LASTEXITCODE
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+$generatedRoot = Join-Path $root "target/generated-sources/jooq/com/panol_project/backendpanol/jooq/tables"
+$requiredTables = @("Category.java", "Implement.java", "Location.java")
+$legacyPatterns = @{
+    "Category.java" = "public.category.id"
+    "Implement.java" = "public.implement.id"
+    "Location.java" = "public.location.id"
+}
+
+foreach ($table in $requiredTables) {
+    $path = Join-Path $generatedRoot $table
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "No se encontro $table en jOOQ generado: $path"
+    }
+    $content = Get-Content -LiteralPath $path -Raw
+    $pattern = $legacyPatterns[$table]
+    if ($content -match [regex]::Escape($pattern)) {
+        throw "jOOQ generado aun contiene columna legacy '$pattern'. Verifica que JOOQ_DB_* apunte al esquema uuid-only."
+    }
+}
+
+Write-Host "jOOQ generado y validado contra esquema uuid-only."

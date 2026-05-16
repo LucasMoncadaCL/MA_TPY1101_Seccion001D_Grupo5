@@ -7,9 +7,9 @@ import static com.panol_project.backendpanol.jooq.tables.Stock.STOCK;
 import com.panol_project.backendpanol.jooq.enums.IndividualConditionEnum;
 import com.panol_project.backendpanol.jooq.enums.IndividualStatusEnum;
 import com.panol_project.backendpanol.jooq.enums.ItemTypeEnum;
-import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.IndividualItem;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockCounters;
+import com.panol_project.backendpanol.modules.catalog.stock.domain.StockItemType;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -46,7 +46,7 @@ public class StockJooqRepository implements StockRepository {
                 .fetchOptional(record -> new ImplementStockContext(
                         record.get(IMPLEMENT_UUID),
                         record.get(IMPLEMENT_LOCATION_UUID),
-                        toDomainItemType(record.get(IMPLEMENT.ITEM_TYPE)),
+                        toStockItemType(record.get(IMPLEMENT.ITEM_TYPE)),
                         record.get(IMPLEMENT.ACTIVE)
                 ));
     }
@@ -77,17 +77,26 @@ public class StockJooqRepository implements StockRepository {
 
     @Override
     public List<IndividualItem> findActiveIndividualsByImplementUuid(UUID implementUuid) {
-        return dsl.selectFrom(INDIVIDUAL)
+        return dsl.select(
+                        INDIVIDUAL_UUID,
+                        INDIVIDUAL_IMPLEMENT_UUID,
+                        INDIVIDUAL.ASSET_CODE,
+                        INDIVIDUAL.STATUS,
+                        INDIVIDUAL.CONDITION,
+                        INDIVIDUAL_CURRENT_LOCATION_UUID,
+                        INDIVIDUAL.ACTIVE
+                )
+                .from(INDIVIDUAL)
                 .where(INDIVIDUAL_IMPLEMENT_UUID.eq(implementUuid).and(INDIVIDUAL.ACTIVE.isTrue()))
                 .orderBy(INDIVIDUAL_UUID.asc())
                 .fetch(record -> new IndividualItem(
                         record.get(INDIVIDUAL_UUID),
                         record.get(INDIVIDUAL_IMPLEMENT_UUID),
-                        record.getAssetCode(),
-                        record.getStatus() == null ? null : record.getStatus().getLiteral(),
-                        record.getCondition() == null ? null : record.getCondition().getLiteral(),
+                        record.get(INDIVIDUAL.ASSET_CODE),
+                        record.get(INDIVIDUAL.STATUS) == null ? null : record.get(INDIVIDUAL.STATUS).getLiteral(),
+                        record.get(INDIVIDUAL.CONDITION) == null ? null : record.get(INDIVIDUAL.CONDITION).getLiteral(),
                         record.get(INDIVIDUAL_CURRENT_LOCATION_UUID),
-                        record.getActive()
+                        record.get(INDIVIDUAL.ACTIVE)
                 ));
     }
 
@@ -97,7 +106,16 @@ public class StockJooqRepository implements StockRepository {
             return List.of();
         }
 
-        return dsl.selectFrom(INDIVIDUAL)
+        return dsl.select(
+                        INDIVIDUAL_UUID,
+                        INDIVIDUAL_IMPLEMENT_UUID,
+                        INDIVIDUAL.ASSET_CODE,
+                        INDIVIDUAL.STATUS,
+                        INDIVIDUAL.CONDITION,
+                        INDIVIDUAL_CURRENT_LOCATION_UUID,
+                        INDIVIDUAL.ACTIVE
+                )
+                .from(INDIVIDUAL)
                 .where(INDIVIDUAL_IMPLEMENT_UUID.eq(implementUuid)
                         .and(INDIVIDUAL.ACTIVE.isTrue())
                         .and(INDIVIDUAL_UUID.in(individualUuids)))
@@ -105,11 +123,11 @@ public class StockJooqRepository implements StockRepository {
                 .fetch(record -> new IndividualItem(
                         record.get(INDIVIDUAL_UUID),
                         record.get(INDIVIDUAL_IMPLEMENT_UUID),
-                        record.getAssetCode(),
-                        record.getStatus() == null ? null : record.getStatus().getLiteral(),
-                        record.getCondition() == null ? null : record.getCondition().getLiteral(),
+                        record.get(INDIVIDUAL.ASSET_CODE),
+                        record.get(INDIVIDUAL.STATUS) == null ? null : record.get(INDIVIDUAL.STATUS).getLiteral(),
+                        record.get(INDIVIDUAL.CONDITION) == null ? null : record.get(INDIVIDUAL.CONDITION).getLiteral(),
                         record.get(INDIVIDUAL_CURRENT_LOCATION_UUID),
-                        record.getActive()
+                        record.get(INDIVIDUAL.ACTIVE)
                 ));
     }
 
@@ -199,9 +217,9 @@ public class StockJooqRepository implements StockRepository {
         update.where(INDIVIDUAL_UUID.in(individualUuids)).execute();
     }
 
-    private ImplementItemType toDomainItemType(ItemTypeEnum itemType) {
+    private StockItemType toStockItemType(ItemTypeEnum itemType) {
         return itemType == null
                 ? null
-                : ImplementItemType.fromLiteral(itemType.getLiteral()).orElse(null);
+                : StockItemType.fromLiteral(itemType.getLiteral()).orElse(null);
     }
 }

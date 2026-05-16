@@ -1,3 +1,7 @@
+﻿- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
 # PSD-96 - Visualizacion de categoria en la ficha del producto (HU-19)
 
 Fecha: 2026-04-28
@@ -114,4 +118,17 @@ En la seccion de atributos de la ficha:
 ## Notas
 
 - No se introdujeron cambios de seguridad/permisos en esta subtarea; se mantiene el comportamiento actual del proyecto.
+
+
+
+## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
 

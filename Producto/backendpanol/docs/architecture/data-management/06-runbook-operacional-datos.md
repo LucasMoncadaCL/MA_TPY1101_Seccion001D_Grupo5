@@ -1,4 +1,8 @@
-﻿# 06 - Runbook Operacional de Datos
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 06 - Runbook Operacional de Datos
 
 ## 1. Antes de desplegar
 
@@ -58,3 +62,4 @@
 - Cambios de esquema solo por migración versionada.
 - Cambios de estructura Mongo documentados con `schema_version`.
 - Mantener trazabilidad de decisiones técnicas (ADR).
+

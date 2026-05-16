@@ -1,47 +1,61 @@
-# Diseño de Esquemas MongoDB para Sistema de Pañol
+﻿## Advertencia historica
 
-## Versión ajustada sin `audit_logs` en MongoDB
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
+- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# DiseÃ±o de Esquemas MongoDB para Sistema de PaÃ±ol
+
+## VersiÃ³n ajustada sin `audit_logs` en MongoDB
 
 ---
 
-## 1. Propósito del documento
+## 1. PropÃ³sito del documento
 
-Este documento define el diseño recomendado para las colecciones de **MongoDB** dentro del sistema de pañol, considerando que la base de datos principal y transaccional del proyecto es **PostgreSQL**.
+Este documento define el diseÃ±o recomendado para las colecciones de **MongoDB** dentro del sistema de paÃ±ol, considerando que la base de datos principal y transaccional del proyecto es **PostgreSQL**.
 
-La decisión principal de esta versión es que **MongoDB no manejará auditoría formal de acciones de usuario**, porque esa responsabilidad ya está cubierta por la tabla relacional `audit_log` en PostgreSQL.
+La decisiÃ³n principal de esta versiÃ³n es que **MongoDB no manejarÃ¡ auditorÃ­a formal de acciones de usuario**, porque esa responsabilidad ya estÃ¡ cubierta por la tabla relacional `audit_log` en PostgreSQL.
 
-Por lo tanto, MongoDB se utilizará únicamente para:
+Por lo tanto, MongoDB se utilizarÃ¡ Ãºnicamente para:
 
 ```txt
 MongoDB
-├── inventory_movements
-│   └── Historial de movimientos de inventario
-│
-├── loan_events
-│   └── Timeline de cambios de estado de préstamos
-│
-├── notifications
-│   └── Notificaciones internas para usuarios
-│
-├── stock_alerts
-│   └── Alertas de stock bajo, crítico o inconsistente
-│
-└── system_events
-    └── Eventos técnicos internos del sistema
+â”œâ”€â”€ inventory_movements
+â”‚   â””â”€â”€ Historial de movimientos de inventario
+â”‚
+â”œâ”€â”€ loan_events
+â”‚   â””â”€â”€ Timeline de cambios de estado de prÃ©stamos
+â”‚
+â”œâ”€â”€ notifications
+â”‚   â””â”€â”€ Notificaciones internas para usuarios
+â”‚
+â”œâ”€â”€ stock_alerts
+â”‚   â””â”€â”€ Alertas de stock bajo, crÃ­tico o inconsistente
+â”‚
+â””â”€â”€ system_events
+    â””â”€â”€ Eventos tÃ©cnicos internos del sistema
 ```
 
-La idea es mantener una separación clara de responsabilidades:
+La idea es mantener una separaciÃ³n clara de responsabilidades:
 
 ```txt
-PostgreSQL = datos principales, relaciones, reglas, transacciones y auditoría formal.
-MongoDB    = historial operativo, eventos, notificaciones, alertas y observabilidad técnica.
+PostgreSQL = datos principales, relaciones, reglas, transacciones y auditorÃ­a formal.
+MongoDB    = historial operativo, eventos, notificaciones, alertas y observabilidad tÃ©cnica.
 ```
 
 ---
 
 ## 2. Contexto general de la arquitectura
 
-El sistema de pañol trabaja con entidades principales como usuarios, roles, implementos, unidades individuales, stock, préstamos, detalles de préstamo, salas, categorías, ubicaciones y auditoría.
+El sistema de paÃ±ol trabaja con entidades principales como usuarios, roles, implementos, unidades individuales, stock, prÃ©stamos, detalles de prÃ©stamo, salas, categorÃ­as, ubicaciones y auditorÃ­a.
 
 Estas entidades viven en PostgreSQL porque requieren:
 
@@ -52,11 +66,11 @@ Estas entidades viven en PostgreSQL porque requieren:
 - Transacciones.
 - Consistencia del estado actual.
 
-MongoDB se utilizará como una base complementaria para registrar información que crece históricamente, que puede variar en estructura o que se consulta comúnmente por fechas, entidades relacionadas o eventos.
+MongoDB se utilizarÃ¡ como una base complementaria para registrar informaciÃ³n que crece histÃ³ricamente, que puede variar en estructura o que se consulta comÃºnmente por fechas, entidades relacionadas o eventos.
 
 ---
 
-## 3. Separación de responsabilidades
+## 3. SeparaciÃ³n de responsabilidades
 
 ### 3.1. PostgreSQL
 
@@ -66,19 +80,19 @@ Ejemplos:
 
 ```txt
 PostgreSQL
-├── user
-├── role
-├── implement
-├── individual
-├── stock
-├── loan
-├── loan_detail
-├── loan_detail_individual
-├── category
-├── location
-├── room
-├── token_revocation
-└── audit_log
+â”œâ”€â”€ user
+â”œâ”€â”€ role
+â”œâ”€â”€ implement
+â”œâ”€â”€ individual
+â”œâ”€â”€ stock
+â”œâ”€â”€ loan
+â”œâ”€â”€ loan_detail
+â”œâ”€â”€ loan_detail_individual
+â”œâ”€â”€ category
+â”œâ”€â”€ location
+â”œâ”€â”€ room
+â”œâ”€â”€ token_revocation
+â””â”€â”€ audit_log
 ```
 
 En PostgreSQL deben quedar:
@@ -87,60 +101,60 @@ En PostgreSQL deben quedar:
 - Implementos e inventario actual.
 - Unidades individuales.
 - Stock actual.
-- Préstamos y sus estados actuales.
-- Detalles de préstamo.
-- Salas, categorías y ubicaciones.
-- Revocación de tokens.
-- Auditoría formal mediante `audit_log`.
+- PrÃ©stamos y sus estados actuales.
+- Detalles de prÃ©stamo.
+- Salas, categorÃ­as y ubicaciones.
+- RevocaciÃ³n de tokens.
+- AuditorÃ­a formal mediante `audit_log`.
 
 ---
 
 ### 3.2. MongoDB
 
-MongoDB debe guardar información complementaria, histórica u operativa.
+MongoDB debe guardar informaciÃ³n complementaria, histÃ³rica u operativa.
 
 ```txt
 MongoDB
-├── inventory_movements
-├── loan_events
-├── notifications
-├── stock_alerts
-└── system_events
+â”œâ”€â”€ inventory_movements
+â”œâ”€â”€ loan_events
+â”œâ”€â”€ notifications
+â”œâ”€â”€ stock_alerts
+â””â”€â”€ system_events
 ```
 
 En MongoDB deben quedar:
 
-- Movimientos históricos de inventario.
-- Timeline de cambios de estado de préstamos.
+- Movimientos histÃ³ricos de inventario.
+- Timeline de cambios de estado de prÃ©stamos.
 - Notificaciones internas por usuario.
 - Alertas operativas de stock.
-- Eventos técnicos internos del sistema.
+- Eventos tÃ©cnicos internos del sistema.
 
 MongoDB no debe reemplazar el estado principal de PostgreSQL.
 
 ---
 
-## 4. Decisión importante: no usar `audit_logs` en MongoDB
+## 4. DecisiÃ³n importante: no usar `audit_logs` en MongoDB
 
-En versiones anteriores del diseño podía considerarse una colección `audit_logs` en MongoDB. Sin embargo, para este proyecto no se recomienda incluirla, porque ya existe una tabla `audit_log` en PostgreSQL.
+En versiones anteriores del diseÃ±o podÃ­a considerarse una colecciÃ³n `audit_logs` en MongoDB. Sin embargo, para este proyecto no se recomienda incluirla, porque ya existe una tabla `audit_log` en PostgreSQL.
 
 Esto evita duplicar responsabilidades.
 
-La auditoría formal debe quedarse en PostgreSQL.
+La auditorÃ­a formal debe quedarse en PostgreSQL.
 
 ```txt
 PostgreSQL
-└── audit_log
-    └── Auditoría formal de acciones funcionales del sistema
+â””â”€â”€ audit_log
+    â””â”€â”€ AuditorÃ­a formal de acciones funcionales del sistema
 ```
 
-MongoDB, en cambio, debe enfocarse en eventos operativos y técnicos que no necesariamente representan auditoría formal.
+MongoDB, en cambio, debe enfocarse en eventos operativos y tÃ©cnicos que no necesariamente representan auditorÃ­a formal.
 
 ---
 
 ## 5. Diferencia entre `audit_log` y `system_events`
 
-Es importante no confundir la tabla `audit_log` de PostgreSQL con la colección `system_events` de MongoDB.
+Es importante no confundir la tabla `audit_log` de PostgreSQL con la colecciÃ³n `system_events` de MongoDB.
 
 ### 5.1. `audit_log` en PostgreSQL
 
@@ -149,54 +163,54 @@ Representa acciones funcionales o de negocio.
 Responde preguntas como:
 
 ```txt
-¿Quién hizo qué?
-¿Sobre qué entidad lo hizo?
-¿Cuándo ocurrió?
-¿Qué usuario fue afectado?
+Â¿QuiÃ©n hizo quÃ©?
+Â¿Sobre quÃ© entidad lo hizo?
+Â¿CuÃ¡ndo ocurriÃ³?
+Â¿QuÃ© usuario fue afectado?
 ```
 
 Ejemplos:
 
 ```txt
-- Un administrador creó un usuario.
-- Un coordinador aprobó un préstamo.
-- Un pañolero actualizó un implemento.
+- Un administrador creÃ³ un usuario.
+- Un coordinador aprobÃ³ un prÃ©stamo.
+- Un paÃ±olero actualizÃ³ un implemento.
 - Un usuario fue desactivado.
-- Un préstamo fue rechazado.
+- Un prÃ©stamo fue rechazado.
 ```
 
 ### 5.2. `system_events` en MongoDB
 
-Representa eventos técnicos internos del sistema.
+Representa eventos tÃ©cnicos internos del sistema.
 
 Responde preguntas como:
 
 ```txt
-¿Qué ocurrió técnicamente dentro del sistema?
-¿Qué proceso falló?
-¿Qué módulo generó un error?
-Qué evento automático se ejecutó?
+Â¿QuÃ© ocurriÃ³ tÃ©cnicamente dentro del sistema?
+Â¿QuÃ© proceso fallÃ³?
+Â¿QuÃ© mÃ³dulo generÃ³ un error?
+QuÃ© evento automÃ¡tico se ejecutÃ³?
 ```
 
 Ejemplos:
 
 ```txt
-- Falló el envío de una notificación.
+- FallÃ³ el envÃ­o de una notificaciÃ³n.
 - No se pudo registrar un movimiento en MongoDB.
-- Se ejecutó un proceso automático de revisión de stock.
-- Se generó una alerta automáticamente.
-- Ocurrió un error de sincronización entre PostgreSQL y MongoDB.
-- Falló un proceso batch.
+- Se ejecutÃ³ un proceso automÃ¡tico de revisiÃ³n de stock.
+- Se generÃ³ una alerta automÃ¡ticamente.
+- OcurriÃ³ un error de sincronizaciÃ³n entre PostgreSQL y MongoDB.
+- FallÃ³ un proceso batch.
 ```
 
-### 5.3. Comparación rápida
+### 5.3. ComparaciÃ³n rÃ¡pida
 
-| Elemento | Ubicación | Propósito |
+| Elemento | UbicaciÃ³n | PropÃ³sito |
 |---|---|---|
-| `audit_log` | PostgreSQL | Auditoría formal de acciones funcionales |
-| `system_events` | MongoDB | Observabilidad técnica interna |
+| `audit_log` | PostgreSQL | AuditorÃ­a formal de acciones funcionales |
+| `system_events` | MongoDB | Observabilidad tÃ©cnica interna |
 | `inventory_movements` | MongoDB | Historial operativo de inventario |
-| `loan_events` | MongoDB | Timeline de préstamos |
+| `loan_events` | MongoDB | Timeline de prÃ©stamos |
 | `notifications` | MongoDB | Notificaciones internas |
 | `stock_alerts` | MongoDB | Alertas operativas de stock |
 
@@ -204,7 +218,7 @@ Ejemplos:
 
 ## 6. Estrategia UUID-only
 
-Como PostgreSQL usa UUID como identificador principal en sus tablas, MongoDB también debe referenciar esas entidades mediante UUID.
+Como PostgreSQL usa UUID como identificador principal en sus tablas, MongoDB tambiÃ©n debe referenciar esas entidades mediante UUID.
 
 No se recomienda usar identificadores enteros como:
 
@@ -222,9 +236,9 @@ implement_uuid: "550e8400-e29b-41d4-a716-446655440001"
 loan_uuid: "550e8400-e29b-41d4-a716-446655440002"
 ```
 
-### 6.1. Convención de nombres
+### 6.1. ConvenciÃ³n de nombres
 
-Se recomienda usar la convención:
+Se recomienda usar la convenciÃ³n:
 
 ```txt
 <entidad>_uuid
@@ -249,35 +263,35 @@ Esto permite que el modelo MongoDB sea coherente con el modelo relacional.
 
 ---
 
-# 7. Colección `inventory_movements`
+# 7. ColecciÃ³n `inventory_movements`
 
-## 7.1. Propósito
+## 7.1. PropÃ³sito
 
-La colección `inventory_movements` almacena el historial de movimientos de inventario.
+La colecciÃ³n `inventory_movements` almacena el historial de movimientos de inventario.
 
-Esta colección permite saber qué ocurrió con los implementos, cuándo ocurrió, qué cantidad fue afectada, quién realizó la acción y si el movimiento estuvo asociado a un préstamo.
+Esta colecciÃ³n permite saber quÃ© ocurriÃ³ con los implementos, cuÃ¡ndo ocurriÃ³, quÃ© cantidad fue afectada, quiÃ©n realizÃ³ la acciÃ³n y si el movimiento estuvo asociado a un prÃ©stamo.
 
-Debe funcionar como una colección **append-only**, es decir, los documentos normalmente no se editan ni se eliminan. Cada movimiento queda registrado como evidencia histórica.
+Debe funcionar como una colecciÃ³n **append-only**, es decir, los documentos normalmente no se editan ni se eliminan. Cada movimiento queda registrado como evidencia histÃ³rica.
 
 ---
 
 ## 7.2. Casos de uso
 
-Esta colección puede registrar:
+Esta colecciÃ³n puede registrar:
 
 ```txt
 - Entrada manual de stock.
 - Salida manual de stock.
 - Ajuste de inventario.
 - Reserva de implementos.
-- Entrega de préstamo.
-- Devolución de préstamo.
+- Entrega de prÃ©stamo.
+- DevoluciÃ³n de prÃ©stamo.
 - Cambio de estado de una unidad individual.
-- Cambio de condición de una unidad individual.
-- Registro de daño.
-- Registro de pérdida.
-- Corrección administrativa.
-- Movimiento asociado a cambio de ubicación.
+- Cambio de condiciÃ³n de una unidad individual.
+- Registro de daÃ±o.
+- Registro de pÃ©rdida.
+- CorrecciÃ³n administrativa.
+- Movimiento asociado a cambio de ubicaciÃ³n.
 ```
 
 ---
@@ -334,33 +348,33 @@ Identificador propio de MongoDB.
 
 ### `implement_uuid`
 
-Referencia lógica a `public.implement.uuid` en PostgreSQL.
+Referencia lÃ³gica a `public.implement.uuid` en PostgreSQL.
 
 Este campo debe ser obligatorio, porque todo movimiento de inventario debe estar asociado a un implemento.
 
 ### `individual_uuid`
 
-Referencia lógica a `public.individual.uuid`.
+Referencia lÃ³gica a `public.individual.uuid`.
 
-Se usa cuando el movimiento afecta a una unidad física específica. Por ejemplo, un implemento reutilizable con código de activo propio.
+Se usa cuando el movimiento afecta a una unidad fÃ­sica especÃ­fica. Por ejemplo, un implemento reutilizable con cÃ³digo de activo propio.
 
 Debe ser `null` cuando el movimiento afecta stock general o fungible.
 
 ### `loan_uuid`
 
-Referencia lógica a `public.loan.uuid`.
+Referencia lÃ³gica a `public.loan.uuid`.
 
-Se usa cuando el movimiento está asociado a un préstamo.
+Se usa cuando el movimiento estÃ¡ asociado a un prÃ©stamo.
 
 ### `loan_detail_uuid`
 
-Referencia lógica a `public.loan_detail.uuid`.
+Referencia lÃ³gica a `public.loan_detail.uuid`.
 
-Permite identificar qué detalle específico del préstamo generó el movimiento.
+Permite identificar quÃ© detalle especÃ­fico del prÃ©stamo generÃ³ el movimiento.
 
 ### `action`
 
-Acción realizada.
+AcciÃ³n realizada.
 
 Valores sugeridos:
 
@@ -388,20 +402,20 @@ Valores sugeridos:
 ```txt
 in       = entra stock o vuelve al inventario
 out      = sale stock o queda prestado
-neutral  = no cambia cantidad, pero cambia estado, condición o ubicación
+neutral  = no cambia cantidad, pero cambia estado, condiciÃ³n o ubicaciÃ³n
 ```
 
 ### `quantity`
 
 Cantidad afectada.
 
-Para unidades individuales suele ser `1`. Para stock fungible puede ser cualquier número mayor a cero.
+Para unidades individuales suele ser `1`. Para stock fungible puede ser cualquier nÃºmero mayor a cero.
 
 ### `previous_stock` y `new_stock`
 
-Permiten guardar el stock antes y después del movimiento.
+Permiten guardar el stock antes y despuÃ©s del movimiento.
 
-Son útiles para reconstruir el historial de cambios.
+Son Ãºtiles para reconstruir el historial de cambios.
 
 ### `previous_status` y `new_status`
 
@@ -416,7 +430,7 @@ new_status: "loaned"
 
 ### `previous_condition` y `new_condition`
 
-Se usan cuando se modifica la condición física de una unidad.
+Se usan cuando se modifica la condiciÃ³n fÃ­sica de una unidad.
 
 Ejemplo:
 
@@ -427,9 +441,9 @@ new_condition: "damaged"
 
 ### `performed_by_uuid`
 
-Referencia lógica al usuario que ejecutó la acción.
+Referencia lÃ³gica al usuario que ejecutÃ³ la acciÃ³n.
 
-Puede ser `null` si fue generada automáticamente por el sistema.
+Puede ser `null` si fue generada automÃ¡ticamente por el sistema.
 
 ### `source`
 
@@ -452,7 +466,7 @@ Comentario opcional.
 
 ### `metadata`
 
-Información técnica o contextual adicional.
+InformaciÃ³n tÃ©cnica o contextual adicional.
 
 ### `created_at`
 
@@ -460,9 +474,9 @@ Fecha y hora del movimiento.
 
 ### `schema_version`
 
-Versión del esquema.
+VersiÃ³n del esquema.
 
-Permite evolucionar la colección a futuro.
+Permite evolucionar la colecciÃ³n a futuro.
 
 ---
 
@@ -494,7 +508,7 @@ Permite evolucionar la colección a futuro.
   performed_by_uuid: "1ae82916-1280-4c9a-b52a-6f43fdc6b111",
   source: "loan_flow",
 
-  notes: "Entrega asociada a préstamo aprobado.",
+  notes: "Entrega asociada a prÃ©stamo aprobado.",
 
   metadata: {
     reason: "loan_delivery",
@@ -510,7 +524,7 @@ Permite evolucionar la colección a futuro.
 
 ---
 
-## 7.6. Índices recomendados
+## 7.6. Ãndices recomendados
 
 ```js
 db.inventory_movements.createIndex({ implement_uuid: 1, created_at: -1 })
@@ -522,37 +536,37 @@ db.inventory_movements.createIndex({ created_at: -1 })
 
 ---
 
-# 8. Colección `loan_events`
+# 8. ColecciÃ³n `loan_events`
 
-## 8.1. Propósito
+## 8.1. PropÃ³sito
 
-La colección `loan_events` almacena el timeline de cambios de estado de los préstamos.
+La colecciÃ³n `loan_events` almacena el timeline de cambios de estado de los prÃ©stamos.
 
-PostgreSQL mantiene el estado actual del préstamo en la tabla `loan`. MongoDB guarda la historia completa de cómo ese préstamo llegó a su estado actual.
+PostgreSQL mantiene el estado actual del prÃ©stamo en la tabla `loan`. MongoDB guarda la historia completa de cÃ³mo ese prÃ©stamo llegÃ³ a su estado actual.
 
 Por ejemplo:
 
 ```txt
 PostgreSQL dice:
-El préstamo está entregado.
+El prÃ©stamo estÃ¡ entregado.
 
 MongoDB permite ver:
-El préstamo fue creado, luego aprobado, luego entregado.
+El prÃ©stamo fue creado, luego aprobado, luego entregado.
 ```
 
 ---
 
 ## 8.2. Estructura recomendada
 
-Se recomienda usar un documento por préstamo, con un arreglo embebido `status_history`.
+Se recomienda usar un documento por prÃ©stamo, con un arreglo embebido `status_history`.
 
 ```txt
 loan_events
-└── documento por préstamo
-    └── status_history[]
+â””â”€â”€ documento por prÃ©stamo
+    â””â”€â”€ status_history[]
 ```
 
-Esto es coherente porque el historial de estado pertenece directamente al préstamo.
+Esto es coherente porque el historial de estado pertenece directamente al prÃ©stamo.
 
 ---
 
@@ -601,25 +615,25 @@ Esto es coherente porque el historial de estado pertenece directamente al prést
 
 ### `loan_uuid`
 
-Referencia lógica a `public.loan.uuid`.
+Referencia lÃ³gica a `public.loan.uuid`.
 
-Debe ser único en esta colección.
+Debe ser Ãºnico en esta colecciÃ³n.
 
 ### `requester_uuid`
 
-Usuario que solicitó el préstamo.
+Usuario que solicitÃ³ el prÃ©stamo.
 
-Referencia lógica a `public.user.uuid`.
+Referencia lÃ³gica a `public.user.uuid`.
 
 ### `room_uuid`
 
-Sala asociada al préstamo.
+Sala asociada al prÃ©stamo.
 
-Referencia lógica a `public.room.uuid`.
+Referencia lÃ³gica a `public.room.uuid`.
 
 ### `current_status`
 
-Estado actual del préstamo.
+Estado actual del prÃ©stamo.
 
 Debe reflejar el estado actual registrado en PostgreSQL, pero la fuente oficial sigue siendo la tabla `loan`.
 
@@ -642,11 +656,11 @@ Arreglo de eventos de cambio de estado.
 
 Estado anterior.
 
-Puede ser `null` cuando se registra la creación del préstamo.
+Puede ser `null` cuando se registra la creaciÃ³n del prÃ©stamo.
 
 ### `to_status`
 
-Nuevo estado del préstamo.
+Nuevo estado del prÃ©stamo.
 
 ### `changed_at`
 
@@ -654,9 +668,9 @@ Fecha y hora del cambio.
 
 ### `changed_by_uuid`
 
-Usuario que ejecutó el cambio.
+Usuario que ejecutÃ³ el cambio.
 
-Puede ser `null` si fue una acción automática del sistema.
+Puede ser `null` si fue una acciÃ³n automÃ¡tica del sistema.
 
 ### `comment`
 
@@ -664,7 +678,7 @@ Comentario funcional del evento.
 
 ### `reason`
 
-Razón controlada del cambio.
+RazÃ³n controlada del cambio.
 
 Ejemplos:
 
@@ -711,7 +725,7 @@ completed_after_return
       to_status: "approved",
       changed_at: ISODate("2026-05-11T13:00:00Z"),
       changed_by_uuid: "1ae82916-1280-4c9a-b52a-6f43fdc6b111",
-      comment: "Préstamo aprobado por coordinación.",
+      comment: "PrÃ©stamo aprobado por coordinaciÃ³n.",
       reason: "approved_by_coordinator",
       metadata: {
         source: "admin_panel",
@@ -730,7 +744,7 @@ completed_after_return
 
 ---
 
-## 8.6. Índices recomendados
+## 8.6. Ãndices recomendados
 
 ```js
 db.loan_events.createIndex({ loan_uuid: 1 }, { unique: true })
@@ -741,11 +755,11 @@ db.loan_events.createIndex({ "status_history.changed_at": -1 })
 
 ---
 
-# 9. Colección `notifications`
+# 9. ColecciÃ³n `notifications`
 
-## 9.1. Propósito
+## 9.1. PropÃ³sito
 
-La colección `notifications` almacena notificaciones internas para usuarios del sistema.
+La colecciÃ³n `notifications` almacena notificaciones internas para usuarios del sistema.
 
 Permite implementar una bandeja de avisos, alertas o mensajes funcionales dentro del sistema.
 
@@ -756,13 +770,13 @@ Permite implementar una bandeja de avisos, alertas o mensajes funcionales dentro
 Ejemplos:
 
 ```txt
-- Tu préstamo fue aprobado.
-- Tu préstamo fue rechazado.
-- Tu préstamo está listo para retiro.
-- Hay una solicitud pendiente de aprobación.
+- Tu prÃ©stamo fue aprobado.
+- Tu prÃ©stamo fue rechazado.
+- Tu prÃ©stamo estÃ¡ listo para retiro.
+- Hay una solicitud pendiente de aprobaciÃ³n.
 - Hay stock bajo de un implemento.
-- Se completó un préstamo.
-- Se registró una devolución pendiente.
+- Se completÃ³ un prÃ©stamo.
+- Se registrÃ³ una devoluciÃ³n pendiente.
 ```
 
 ---
@@ -812,13 +826,13 @@ Ejemplos:
 
 ### `user_uuid`
 
-Usuario destinatario de la notificación.
+Usuario destinatario de la notificaciÃ³n.
 
-Referencia lógica a `public.user.uuid`.
+Referencia lÃ³gica a `public.user.uuid`.
 
 ### `type`
 
-Tipo de notificación.
+Tipo de notificaciÃ³n.
 
 Valores sugeridos:
 
@@ -837,7 +851,7 @@ pending_review
 
 ### `title`
 
-Título corto de la notificación.
+TÃ­tulo corto de la notificaciÃ³n.
 
 ### `message`
 
@@ -845,13 +859,13 @@ Mensaje visible para el usuario.
 
 ### `read`
 
-Indica si la notificación fue leída.
+Indica si la notificaciÃ³n fue leÃ­da.
 
 ### `read_at`
 
 Fecha de lectura.
 
-Debe ser `null` si todavía no fue leída.
+Debe ser `null` si todavÃ­a no fue leÃ­da.
 
 ### `priority`
 
@@ -868,7 +882,7 @@ critical
 
 ### `related_entity`
 
-Referencia genérica a una entidad relacionada.
+Referencia genÃ©rica a una entidad relacionada.
 
 Ejemplo:
 
@@ -881,7 +895,7 @@ related_entity: {
 
 ### `related_loan_uuid`
 
-Referencia directa opcional a un préstamo.
+Referencia directa opcional a un prÃ©stamo.
 
 ### `related_implement_uuid`
 
@@ -893,17 +907,17 @@ Referencia directa opcional a una unidad individual.
 
 ### `action_url`
 
-Ruta interna del frontend a la que puede llevar la notificación.
+Ruta interna del frontend a la que puede llevar la notificaciÃ³n.
 
 ### `metadata`
 
-Información adicional.
+InformaciÃ³n adicional.
 
 ### `expires_at`
 
-Fecha opcional de expiración.
+Fecha opcional de expiraciÃ³n.
 
-Puede usarse con un índice TTL.
+Puede usarse con un Ã­ndice TTL.
 
 ---
 
@@ -916,8 +930,8 @@ Puede usarse con un índice TTL.
   user_uuid: "9128d2de-b9d6-4d54-8f2c-42f5f71eaaaa",
 
   type: "loan_approved",
-  title: "Préstamo aprobado",
-  message: "Tu préstamo fue aprobado y está listo para ser retirado en el pañol.",
+  title: "PrÃ©stamo aprobado",
+  message: "Tu prÃ©stamo fue aprobado y estÃ¡ listo para ser retirado en el paÃ±ol.",
 
   read: false,
   read_at: null,
@@ -951,7 +965,7 @@ Puede usarse con un índice TTL.
 
 ---
 
-## 9.6. Índices recomendados
+## 9.6. Ãndices recomendados
 
 ```js
 db.notifications.createIndex({ user_uuid: 1, read: 1, created_at: -1 })
@@ -963,11 +977,11 @@ db.notifications.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 })
 
 ---
 
-# 10. Colección `stock_alerts`
+# 10. ColecciÃ³n `stock_alerts`
 
-## 10.1. Propósito
+## 10.1. PropÃ³sito
 
-La colección `stock_alerts` almacena alertas de stock bajo, crítico o inconsistente.
+La colecciÃ³n `stock_alerts` almacena alertas de stock bajo, crÃ­tico o inconsistente.
 
 PostgreSQL mantiene el estado actual del stock. MongoDB puede guardar el historial y estado operativo de las alertas generadas a partir de ese stock.
 
@@ -977,11 +991,11 @@ PostgreSQL mantiene el estado actual del stock. MongoDB puede guardar el histori
 
 ```txt
 - Alertas de bajo stock.
-- Alertas de stock crítico.
-- Alertas por exceso de unidades dañadas.
+- Alertas de stock crÃ­tico.
+- Alertas por exceso de unidades daÃ±adas.
 - Alertas por inconsistencias entre stock total, disponible, reservado y prestado.
 - Historial de alertas resueltas.
-- Dashboard para pañolero, coordinador o director.
+- Dashboard para paÃ±olero, coordinador o director.
 ```
 
 ---
@@ -1025,11 +1039,11 @@ PostgreSQL mantiene el estado actual del stock. MongoDB puede guardar el histori
 
 ### `implement_uuid`
 
-Referencia lógica a `public.implement.uuid`.
+Referencia lÃ³gica a `public.implement.uuid`.
 
 ### `stock_uuid`
 
-Referencia lógica a `public.stock.uuid`.
+Referencia lÃ³gica a `public.stock.uuid`.
 
 Puede ser opcional si la alerta se quiere asociar principalmente al implemento.
 
@@ -1066,13 +1080,13 @@ Stock disponible o relevante al momento de generar la alerta.
 
 ### `min_stock`
 
-Stock mínimo configurado.
+Stock mÃ­nimo configurado.
 
 ### `available`, `reserved`, `loaned`, `damaged`
 
 Snapshot del estado del stock al momento de generar la alerta.
 
-Esto permite conservar contexto histórico aunque el stock cambie después.
+Esto permite conservar contexto histÃ³rico aunque el stock cambie despuÃ©s.
 
 ### `message`
 
@@ -1084,15 +1098,15 @@ Indica si la alerta fue resuelta.
 
 ### `resolved_at`
 
-Fecha de resolución.
+Fecha de resoluciÃ³n.
 
 ### `resolved_by_uuid`
 
-Usuario que resolvió la alerta.
+Usuario que resolviÃ³ la alerta.
 
 ### `resolution_notes`
 
-Comentario de resolución.
+Comentario de resoluciÃ³n.
 
 ---
 
@@ -1116,7 +1130,7 @@ Comentario de resolución.
   loaned: 8,
   damaged: 1,
 
-  message: "El implemento está por debajo del stock mínimo configurado.",
+  message: "El implemento estÃ¡ por debajo del stock mÃ­nimo configurado.",
 
   resolved: false,
   resolved_at: null,
@@ -1131,7 +1145,7 @@ Comentario de resolución.
 
 ---
 
-## 10.6. Índices recomendados
+## 10.6. Ãndices recomendados
 
 ```js
 db.stock_alerts.createIndex({ implement_uuid: 1, resolved: 1, created_at: -1 })
@@ -1141,30 +1155,30 @@ db.stock_alerts.createIndex({ alert_type: 1, created_at: -1 })
 
 ---
 
-# 11. Colección `system_events`
+# 11. ColecciÃ³n `system_events`
 
-## 11.1. Propósito
+## 11.1. PropÃ³sito
 
-La colección `system_events` almacena eventos técnicos internos del sistema.
+La colecciÃ³n `system_events` almacena eventos tÃ©cnicos internos del sistema.
 
-No es auditoría funcional. No reemplaza a `audit_log`.
+No es auditorÃ­a funcional. No reemplaza a `audit_log`.
 
-Sirve para observabilidad, diagnóstico, seguimiento de errores técnicos y registro de procesos automáticos.
+Sirve para observabilidad, diagnÃ³stico, seguimiento de errores tÃ©cnicos y registro de procesos automÃ¡ticos.
 
 ---
 
 ## 11.2. Casos de uso
 
 ```txt
-- Falló el envío de una notificación.
-- Falló el registro de un movimiento en MongoDB.
-- Ocurrió timeout al escribir en MongoDB.
-- Se ejecutó un proceso automático de revisión de stock.
-- Se generó una alerta automáticamente.
-- Falló una sincronización entre PostgreSQL y MongoDB.
-- Un proceso batch terminó correctamente.
-- Un proceso batch terminó con error.
-- Se detectó una inconsistencia técnica.
+- FallÃ³ el envÃ­o de una notificaciÃ³n.
+- FallÃ³ el registro de un movimiento en MongoDB.
+- OcurriÃ³ timeout al escribir en MongoDB.
+- Se ejecutÃ³ un proceso automÃ¡tico de revisiÃ³n de stock.
+- Se generÃ³ una alerta automÃ¡ticamente.
+- FallÃ³ una sincronizaciÃ³n entre PostgreSQL y MongoDB.
+- Un proceso batch terminÃ³ correctamente.
+- Un proceso batch terminÃ³ con error.
+- Se detectÃ³ una inconsistencia tÃ©cnica.
 ```
 
 ---
@@ -1206,7 +1220,7 @@ Sirve para observabilidad, diagnóstico, seguimiento de errores técnicos y regi
 
 ### `event_type`
 
-Tipo de evento técnico.
+Tipo de evento tÃ©cnico.
 
 Valores sugeridos:
 
@@ -1237,7 +1251,7 @@ critical
 
 ### `module`
 
-Módulo que generó el evento.
+MÃ³dulo que generÃ³ el evento.
 
 Valores sugeridos:
 
@@ -1253,7 +1267,7 @@ system
 
 ### `message`
 
-Descripción legible del evento técnico.
+DescripciÃ³n legible del evento tÃ©cnico.
 
 ### `related_entity`
 
@@ -1270,11 +1284,11 @@ related_entity: {
 
 ### `error`
 
-Información del error cuando el evento representa un fallo.
+InformaciÃ³n del error cuando el evento representa un fallo.
 
 ### `metadata`
 
-Información adicional flexible.
+InformaciÃ³n adicional flexible.
 
 Ejemplos:
 
@@ -1289,11 +1303,11 @@ Ejemplos:
 
 ### `created_at`
 
-Fecha del evento técnico.
+Fecha del evento tÃ©cnico.
 
 ### `schema_version`
 
-Versión del esquema.
+VersiÃ³n del esquema.
 
 ---
 
@@ -1308,7 +1322,7 @@ Versión del esquema.
 
   module: "inventory",
 
-  message: "No se pudo registrar el movimiento de inventario en MongoDB después de confirmar la transacción en PostgreSQL.",
+  message: "No se pudo registrar el movimiento de inventario en MongoDB despuÃ©s de confirmar la transacciÃ³n en PostgreSQL.",
 
   related_entity: {
     entity_type: "implement",
@@ -1335,7 +1349,7 @@ Versión del esquema.
 
 ---
 
-## 11.6. Índices recomendados
+## 11.6. Ãndices recomendados
 
 ```js
 db.system_events.createIndex({ level: 1, created_at: -1 })
@@ -1353,35 +1367,35 @@ db.system_events.createIndex({ created_at: -1 })
 La regla recomendada es:
 
 ```txt
-Primero se confirma la operación principal en PostgreSQL.
-Después se registra el evento correspondiente en MongoDB.
+Primero se confirma la operaciÃ³n principal en PostgreSQL.
+DespuÃ©s se registra el evento correspondiente en MongoDB.
 ```
 
-Esto evita registrar eventos históricos de operaciones que finalmente fallaron en la base transaccional.
+Esto evita registrar eventos histÃ³ricos de operaciones que finalmente fallaron en la base transaccional.
 
 ---
 
-## 12.2. Ejemplo: entrega de préstamo
+## 12.2. Ejemplo: entrega de prÃ©stamo
 
-Cuando se entrega un préstamo, el flujo recomendado sería:
+Cuando se entrega un prÃ©stamo, el flujo recomendado serÃ­a:
 
 ```txt
-1. Validar préstamo en PostgreSQL.
+1. Validar prÃ©stamo en PostgreSQL.
 2. Validar stock disponible.
 3. Validar unidades individuales si corresponde.
-4. Actualizar estado del préstamo en PostgreSQL.
+4. Actualizar estado del prÃ©stamo en PostgreSQL.
 5. Actualizar stock en PostgreSQL.
 6. Actualizar estado de unidades individuales en PostgreSQL.
-7. Confirmar transacción SQL.
+7. Confirmar transacciÃ³n SQL.
 8. Registrar movimiento en inventory_movements.
 9. Registrar evento en loan_events.
-10. Crear notificación en notifications si corresponde.
-11. Registrar system_event si ocurre algún problema técnico secundario.
+10. Crear notificaciÃ³n en notifications si corresponde.
+11. Registrar system_event si ocurre algÃºn problema tÃ©cnico secundario.
 ```
 
 ---
 
-## 12.3. Ejemplo de distribución de responsabilidades
+## 12.3. Ejemplo de distribuciÃ³n de responsabilidades
 
 ```txt
 PostgreSQL:
@@ -1395,44 +1409,44 @@ MongoDB:
 - inventory_movements registra la salida
 - loan_events agrega evento de cambio de estado
 - notifications avisa al usuario
-- system_events registra errores técnicos si ocurren
+- system_events registra errores tÃ©cnicos si ocurren
 ```
 
 ---
 
-## 12.4. Qué pasa si MongoDB falla
+## 12.4. QuÃ© pasa si MongoDB falla
 
-Puede ocurrir que PostgreSQL confirme correctamente una operación, pero MongoDB falle al registrar el evento.
+Puede ocurrir que PostgreSQL confirme correctamente una operaciÃ³n, pero MongoDB falle al registrar el evento.
 
 Ejemplo:
 
 ```txt
-El préstamo se entregó correctamente en PostgreSQL,
-pero falló la escritura en inventory_movements.
+El prÃ©stamo se entregÃ³ correctamente en PostgreSQL,
+pero fallÃ³ la escritura en inventory_movements.
 ```
 
 En ese caso:
 
-- No necesariamente se debe revertir la operación principal.
-- Se debe registrar el error técnico.
+- No necesariamente se debe revertir la operaciÃ³n principal.
+- Se debe registrar el error tÃ©cnico.
 - Se puede reintentar la escritura.
 - Se puede enviar el evento a una cola.
-- Se puede usar un patrón Outbox a futuro.
+- Se puede usar un patrÃ³n Outbox a futuro.
 
 ---
 
-## 12.5. Patrón Outbox recomendado a futuro
+## 12.5. PatrÃ³n Outbox recomendado a futuro
 
-Si el sistema crece, se recomienda usar el patrón **Transactional Outbox**.
+Si el sistema crece, se recomienda usar el patrÃ³n **Transactional Outbox**.
 
 La idea es:
 
 ```txt
-1. Durante la transacción SQL, se guarda un evento pendiente en una tabla outbox.
+1. Durante la transacciÃ³n SQL, se guarda un evento pendiente en una tabla outbox.
 2. Un proceso en segundo plano lee la outbox.
 3. Ese proceso escribe el evento en MongoDB.
 4. Si la escritura es exitosa, marca el evento como procesado.
-5. Si falla, reintenta sin perder la operación original.
+5. Si falla, reintenta sin perder la operaciÃ³n original.
 ```
 
 Esto mejora la confiabilidad entre PostgreSQL y MongoDB.
@@ -1512,7 +1526,7 @@ Esto permite cambiar la estructura de los documentos en el futuro sin romper com
 
 # 14. JSON Schema sugerido para `inventory_movements`
 
-Ejemplo base de validación para MongoDB:
+Ejemplo base de validaciÃ³n para MongoDB:
 
 ```js
 db.createCollection("inventory_movements", {
@@ -1609,7 +1623,7 @@ db.createCollection("inventory_movements", {
 
 ---
 
-# 15. Comandos de creación de índices
+# 15. Comandos de creaciÃ³n de Ã­ndices
 
 ```js
 // inventory_movements
@@ -1646,13 +1660,13 @@ db.system_events.createIndex({ created_at: -1 })
 
 ---
 
-# 16. Priorización de implementación
+# 16. PriorizaciÃ³n de implementaciÃ³n
 
 No se recomienda implementar todas las colecciones al mismo tiempo.
 
-La priorización sugerida es:
+La priorizaciÃ³n sugerida es:
 
-## 16.1. Fase 1 — Trazabilidad de inventario
+## 16.1. Fase 1 â€” Trazabilidad de inventario
 
 ```txt
 inventory_movements
@@ -1663,13 +1677,13 @@ Prioridad: alta.
 Motivo:
 
 ```txt
-Es la colección más directamente relacionada con la operación central del pañol.
-Permite saber qué pasó con el inventario, cuándo pasó y quién realizó la acción.
+Es la colecciÃ³n mÃ¡s directamente relacionada con la operaciÃ³n central del paÃ±ol.
+Permite saber quÃ© pasÃ³ con el inventario, cuÃ¡ndo pasÃ³ y quiÃ©n realizÃ³ la acciÃ³n.
 ```
 
 ---
 
-## 16.2. Fase 2 — Seguimiento de préstamos y comunicación
+## 16.2. Fase 2 â€” Seguimiento de prÃ©stamos y comunicaciÃ³n
 
 ```txt
 loan_events
@@ -1681,12 +1695,12 @@ Prioridad: media-alta.
 Motivo:
 
 ```txt
-Permiten mostrar historial de préstamos y avisar a usuarios sobre cambios relevantes.
+Permiten mostrar historial de prÃ©stamos y avisar a usuarios sobre cambios relevantes.
 ```
 
 ---
 
-## 16.3. Fase 3 — Control operativo
+## 16.3. Fase 3 â€” Control operativo
 
 ```txt
 stock_alerts
@@ -1697,13 +1711,13 @@ Prioridad: media.
 Motivo:
 
 ```txt
-Permite detectar stock bajo, stock crítico o inconsistencias.
-Sirve para dashboards del pañolero, coordinador o director.
+Permite detectar stock bajo, stock crÃ­tico o inconsistencias.
+Sirve para dashboards del paÃ±olero, coordinador o director.
 ```
 
 ---
 
-## 16.4. Fase 4 — Observabilidad técnica
+## 16.4. Fase 4 â€” Observabilidad tÃ©cnica
 
 ```txt
 system_events
@@ -1714,7 +1728,7 @@ Prioridad: media.
 Motivo:
 
 ```txt
-Ayuda a diagnosticar errores técnicos, fallos de integración y problemas internos del sistema.
+Ayuda a diagnosticar errores tÃ©cnicos, fallos de integraciÃ³n y problemas internos del sistema.
 ```
 
 ---
@@ -1723,57 +1737,57 @@ Ayuda a diagnosticar errores técnicos, fallos de integración y problemas inter
 
 ```txt
                          PostgreSQL
-       ┌────────────────────────────────────────────┐
-       │ user                                       │
-       │ role                                       │
-       │ implement                                  │
-       │ individual                                 │
-       │ stock                                      │
-       │ loan                                       │
-       │ loan_detail                                │
-       │ loan_detail_individual                     │
-       │ category                                   │
-       │ location                                   │
-       │ room                                       │
-       │ audit_log                                  │
-       └────────────────────────────────────────────┘
-                         │
-                         │ referencias UUID
-                         ▼
+       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+       â”‚ user                                       â”‚
+       â”‚ role                                       â”‚
+       â”‚ implement                                  â”‚
+       â”‚ individual                                 â”‚
+       â”‚ stock                                      â”‚
+       â”‚ loan                                       â”‚
+       â”‚ loan_detail                                â”‚
+       â”‚ loan_detail_individual                     â”‚
+       â”‚ category                                   â”‚
+       â”‚ location                                   â”‚
+       â”‚ room                                       â”‚
+       â”‚ audit_log                                  â”‚
+       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                         â”‚
+                         â”‚ referencias UUID
+                         â–¼
                          MongoDB
-       ┌────────────────────────────────────────────┐
-       │ inventory_movements                        │
-       │ - implement_uuid                           │
-       │ - individual_uuid                          │
-       │ - loan_uuid                                │
-       │ - loan_detail_uuid                         │
-       │ - performed_by_uuid                        │
-       ├────────────────────────────────────────────┤
-       │ loan_events                                │
-       │ - loan_uuid                                │
-       │ - requester_uuid                           │
-       │ - room_uuid                                │
-       │ - status_history[]                         │
-       ├────────────────────────────────────────────┤
-       │ notifications                              │
-       │ - user_uuid                                │
-       │ - related_loan_uuid                        │
-       │ - related_implement_uuid                   │
-       │ - related_individual_uuid                  │
-       ├────────────────────────────────────────────┤
-       │ stock_alerts                               │
-       │ - implement_uuid                           │
-       │ - stock_uuid                               │
-       │ - resolved_by_uuid                         │
-       ├────────────────────────────────────────────┤
-       │ system_events                              │
-       │ - related_entity.entity_uuid               │
-       └────────────────────────────────────────────┘
+       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+       â”‚ inventory_movements                        â”‚
+       â”‚ - implement_uuid                           â”‚
+       â”‚ - individual_uuid                          â”‚
+       â”‚ - loan_uuid                                â”‚
+       â”‚ - loan_detail_uuid                         â”‚
+       â”‚ - performed_by_uuid                        â”‚
+       â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+       â”‚ loan_events                                â”‚
+       â”‚ - loan_uuid                                â”‚
+       â”‚ - requester_uuid                           â”‚
+       â”‚ - room_uuid                                â”‚
+       â”‚ - status_history[]                         â”‚
+       â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+       â”‚ notifications                              â”‚
+       â”‚ - user_uuid                                â”‚
+       â”‚ - related_loan_uuid                        â”‚
+       â”‚ - related_implement_uuid                   â”‚
+       â”‚ - related_individual_uuid                  â”‚
+       â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+       â”‚ stock_alerts                               â”‚
+       â”‚ - implement_uuid                           â”‚
+       â”‚ - stock_uuid                               â”‚
+       â”‚ - resolved_by_uuid                         â”‚
+       â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+       â”‚ system_events                              â”‚
+       â”‚ - related_entity.entity_uuid               â”‚
+       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
 
-# 18. Mermaid recomendado para documentación
+# 18. Mermaid recomendado para documentaciÃ³n
 
 ```mermaid
 erDiagram
@@ -1921,20 +1935,20 @@ erDiagram
 
 # 19. Resumen final
 
-El diseño recomendado para MongoDB queda limitado a cinco colecciones:
+El diseÃ±o recomendado para MongoDB queda limitado a cinco colecciones:
 
 ```txt
 MongoDB
-├── inventory_movements
-├── loan_events
-├── notifications
-├── stock_alerts
-└── system_events
+â”œâ”€â”€ inventory_movements
+â”œâ”€â”€ loan_events
+â”œâ”€â”€ notifications
+â”œâ”€â”€ stock_alerts
+â””â”€â”€ system_events
 ```
 
-La colección `audit_logs` no se incluye en MongoDB porque la auditoría formal ya existe en PostgreSQL mediante `audit_log`.
+La colecciÃ³n `audit_logs` no se incluye en MongoDB porque la auditorÃ­a formal ya existe en PostgreSQL mediante `audit_log`.
 
-La separación final queda así:
+La separaciÃ³n final queda asÃ­:
 
 ```txt
 PostgreSQL:
@@ -1943,15 +1957,17 @@ PostgreSQL:
 - Relaciones.
 - Reglas de negocio.
 - Transacciones.
-- Auditoría formal.
+- AuditorÃ­a formal.
 
 MongoDB:
 - Historial de movimientos.
-- Timeline de préstamos.
+- Timeline de prÃ©stamos.
 - Notificaciones.
 - Alertas de stock.
-- Eventos técnicos internos.
+- Eventos tÃ©cnicos internos.
 ```
 
-Esta separación es más limpia, evita duplicar responsabilidades y mantiene MongoDB enfocado en lo que realmente aporta al sistema: flexibilidad, trazabilidad operativa, eventos históricos y observabilidad técnica.
+Esta separaciÃ³n es mÃ¡s limpia, evita duplicar responsabilidades y mantiene MongoDB enfocado en lo que realmente aporta al sistema: flexibilidad, trazabilidad operativa, eventos histÃ³ricos y observabilidad tÃ©cnica.
+
+
 

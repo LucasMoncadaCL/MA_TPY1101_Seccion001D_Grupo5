@@ -89,6 +89,10 @@ Related #___
 - [ ] No hay secretos ni `.env` en el repo
 - [ ] Código revisado por mí (self-review)
 - [ ] Documentación actualizada (si aplica)
+- [ ] Architecture checklist aplicado (`backendpanol/docs/architecture/development-guidelines/06-checklist-pr-architecture.md`)
+- [ ] Sin dependencia `api -> application` de módulo externo
+- [ ] Sin `DSLContext/JOOQ` fuera de `infrastructure`
+- [ ] Cambios cross-módulo documentados en `09-contratos-cross-modulo.md`
 
 ---
 

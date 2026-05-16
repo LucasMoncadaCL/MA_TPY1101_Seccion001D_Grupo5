@@ -78,6 +78,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
   function validateCreateForm(): string | null {
     if (!form.name.trim()) return "El nombre es obligatorio.";
     if (!isValidRutDigits(form.rut)) return "El RUT debe contener exactamente 9 digitos.";
+    if (!form.email.trim()) return "El correo es obligatorio.";
     if (!form.password.trim()) return "La contraseña es obligatoria.";
     if (form.password.trim().length < 6) return "La contraseña debe tener al menos 6 caracteres.";
     return null;
@@ -99,7 +100,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
       await createUser({
         name: form.name.trim(),
         rut: digitsOnly(form.rut),
-        email: form.email.trim() ? form.email.trim().toLowerCase() : null,
+        email: form.email.trim().toLowerCase(),
         password: form.password.trim(),
         role: form.role,
       });
@@ -111,6 +112,8 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
       const payload = getApiErrorPayload(requestError);
       if (payload?.code === "USER_DUPLICATED") {
         setError("Ya existe un usuario con ese RUT o correo.");
+      } else if (payload?.code === "USER_EMAIL_REQUIRED") {
+        setError("El correo es obligatorio.");
       } else if (payload?.code === "ROLE_NOT_SUPPORTED") {
         setError("El rol ingresado no es valido.");
       } else if (payload?.code === "ACCESS_DENIED") {
@@ -172,6 +175,10 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
       setError("El RUT debe contener exactamente 9 digitos.");
       return;
     }
+    if (!(editingUser.email ?? "").trim()) {
+      setError("El correo es obligatorio.");
+      return;
+    }
 
     setError(null);
     setSuccess(null);
@@ -181,7 +188,7 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
       await updateUser(userRef, {
         name: editingUser.name.trim(),
         rut: digitsOnly(editingUser.rut),
-        email: editingUser.email?.trim() ? editingUser.email.trim().toLowerCase() : null,
+        email: (editingUser.email ?? "").trim().toLowerCase(),
       });
       setSuccess(`Usuario ${editingUser.name} actualizado.`);
       setEditingUser(null);
@@ -302,12 +309,13 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
               disabled={submitting}
             />
 
-            <label>Correo (opcional)</label>
+            <label>Correo</label>
             <input
               type="email"
               value={form.email}
               onChange={(event) => onChange("email", event.target.value)}
               placeholder="correo@duocuc.cl"
+              required
               disabled={submitting}
             />
 
@@ -347,12 +355,13 @@ export function DirectorCreateUserPage({ embedded = false }: { embedded?: boolea
               placeholder="12.345.678-9"
             />
 
-            <label>Correo (opcional)</label>
+            <label>Correo</label>
             <input
               type="email"
               value={editingUser.email ?? ""}
               onChange={(event) => setEditingUser((prev) => prev ? ({ ...prev, email: event.target.value }) : prev)}
               placeholder="correo@duocuc.cl"
+              required
             />
 
             <div className="modal-actions">

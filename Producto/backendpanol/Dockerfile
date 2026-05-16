@@ -14,6 +14,10 @@ COPY .mvn .mvn
 COPY src src
 COPY target/generated-sources/jooq target/generated-sources/jooq
 
+RUN test -f target/generated-sources/jooq/com/panol_project/backendpanol/jooq/tables/Category.java \
+ && test -f target/generated-sources/jooq/com/panol_project/backendpanol/jooq/tables/Implement.java \
+ && test -f target/generated-sources/jooq/com/panol_project/backendpanol/jooq/tables/Location.java
+
 RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
 RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests "-Djooq.codegen.skip=true" package
 

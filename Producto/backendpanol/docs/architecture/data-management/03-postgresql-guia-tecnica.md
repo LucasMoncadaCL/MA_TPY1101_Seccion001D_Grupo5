@@ -1,78 +1,33 @@
-﻿# 03 - PostgreSQL: Guía Técnica
+﻿# 03 - PostgreSQL: Guia Tecnica Vigente
 
-## 1. Objetivo
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: migraciones Flyway y repositorios jOOQ de infraestructura
 
-PostgreSQL mantiene el estado maestro del sistema: usuarios, roles, inventario, stock, préstamos y relaciones.
+## Rol de PostgreSQL
 
-## 2. Diseño recomendado
+PostgreSQL mantiene el estado canonico del sistema: usuarios, roles, catalogo, stock y auditoria funcional.
 
-- Esquema `public` (actual) o partición por dominios a futuro (`auth`, `inventory`, `loan`).
-- Migraciones con Flyway (`Vn__*.sql`, solo forward-only).
-- Constraints como primera línea de defensa de consistencia.
+## Principios vigentes
 
-## 3. Índices mínimos por dominio
+1. Migraciones Flyway forward-only (`Vn__*.sql`).
+2. jOOQ como acceso type-safe en infraestructura.
+3. Integridad por constraints e indices.
+4. Outbox transaccional en tabla `outbox_events`.
 
-### Auth / Usuarios
-- `user(rut)` UNIQUE
-- `user(email)` UNIQUE
-- `user(active)` INDEX
-- `user(role_id)` INDEX
+## Outbox en PostgreSQL
 
-### Inventario
-- `implement(active)` INDEX
-- `implement(category_id)` INDEX
-- `stock(implement_id)` UNIQUE
-- Índice compuesto sugerido: `stock(available, min_stock)` para alertas de bajo stock.
+- Base en `V20__outbox_events.sql`.
+- Estados: `PENDING`, `PROCESSED`, `FAILED`.
+- Campos operativos: `retry_count`, `processed_at`, payload de evento.
 
-### Préstamos
-- `loan(status)` INDEX
-- `loan(due_date)` INDEX parcial `WHERE due_date IS NOT NULL`
-- `loan(requester_id)` INDEX
-- `loan_detail(loan_id)` INDEX
-- `loan_detail(implement_id)` INDEX
+## Buenas practicas
 
-## 4. Triggers sugeridos
+- Mantener consultas SQL encapsuladas en repositorios del modulo.
+- No mezclar logica de negocio en infraestructura.
+- Versionar cambios de esquema con migraciones idempotentes cuando aplique.
 
-### 4.1 Trigger de timestamp
-- `BEFORE UPDATE` en tablas maestras para actualizar `updated_at`.
+## Nota
 
-### 4.2 Trigger de sincronía de stock
-- Trigger para validar invariantes si cambian `available/reserved/loaned/damaged`.
+Disenos antiguos basados en triggers genericos como unico mecanismo de emision de eventos se consideran contexto historico; el mecanismo vigente es caso de uso + outbox en misma transaccion.
 
-### 4.3 Trigger de outbox (recomendado)
-- `AFTER INSERT/UPDATE` en `loan`, `stock`, `implement` para insertar evento en tabla `outbox_events`.
-
-## 5. Procedures / Functions sugeridas
-
-Nota: en PostgreSQL se usan **functions/procedures**, no "packages" como Oracle.
-
-### 5.1 `fn_apply_stock_movement(...)`
-- Aplica ingreso/egreso/ajuste.
-- Valida no negativos.
-- Retorna estado actualizado.
-
-### 5.2 `fn_change_loan_status(...)`
-- Controla transición de estado permitida.
-- Registra metadata de cambio.
-
-### 5.3 `fn_upsert_user_role(...)`
-- Normaliza cambios de rol con validaciones centralizadas.
-
-## 6. Vistas recomendadas
-
-- `v_stock_summary` (ya existe) para panel operativo.
-- `v_active_loans` (ya existe) para seguimiento.
-- Vista sugerida `v_dashboard_inventory_snapshot` con métricas ejecutivas agregadas.
-
-## 7. Mantenimiento y performance
-
-- `VACUUM (ANALYZE)` programado.
-- Monitor de consultas lentas (`pg_stat_statements`).
-- Revisión trimestral de índices no usados.
-- Tests de regresión SQL en CI para migraciones.
-
-## 8. Seguridad
-
-- Menor privilegio por usuario de aplicación.
-- Evitar uso de superuser en runtime.
-- Secrets por `application-secrets.properties` / entorno.

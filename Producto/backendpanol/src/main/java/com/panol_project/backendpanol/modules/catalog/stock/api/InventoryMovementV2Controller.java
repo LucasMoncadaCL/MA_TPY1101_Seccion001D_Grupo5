@@ -5,34 +5,30 @@ import com.panol_project.backendpanol.modules.catalog.stock.api.dto.RegisterMove
 import com.panol_project.backendpanol.modules.catalog.stock.application.InventoryMovementService;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.InventoryMovement;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.MovementAction;
-import com.panol_project.backendpanol.modules.users.application.UserService;
+import com.panol_project.backendpanol.modules.users.application.contract.UserDirectoryContract;
 import com.panol_project.backendpanol.shared.error.ApiException;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.jooq.DSLContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-
-import static org.jooq.impl.DSL.field;
-import static org.jooq.impl.DSL.name;
-import static org.jooq.impl.DSL.table;
 
 @RestController
 @RequestMapping("/api/v2/implements")
 public class InventoryMovementV2Controller {
 
     private final InventoryMovementService service;
-    private final UserService userService;
-    private final DSLContext dsl;
+    private final UserDirectoryContract userDirectoryContract;
 
-    public InventoryMovementV2Controller(InventoryMovementService service, UserService userService, DSLContext dsl) {
+    public InventoryMovementV2Controller(
+            InventoryMovementService service,
+            UserDirectoryContract userDirectoryContract
+    ) {
         this.service = service;
-        this.userService = userService;
-        this.dsl = dsl;
+        this.userDirectoryContract = userDirectoryContract;
     }
 
     @GetMapping("/movements")
@@ -43,7 +39,7 @@ public class InventoryMovementV2Controller {
                 .filter(uuid -> uuid != null)
                 .distinct()
                 .toList();
-        Map<UUID, String> userNames = userService.getNombresUsuariosByUuid(userUuids);
+        Map<UUID, String> userNames = userDirectoryContract.getNombresUsuariosByUuid(userUuids);
         return movements.stream().map(m -> new InventoryMovementV2Response(
                 m.getId(),
                 m.getImplementUuid(),
@@ -61,7 +57,7 @@ public class InventoryMovementV2Controller {
         UUID performedBy = extractUserUuid(authentication);
         MovementAction domainAction = MovementAction.valueOf(request.action().name());
         InventoryMovement movement = service.registrarMovimiento(
-                requireImplementUuid(implementUuid),
+                implementUuid,
                 domainAction,
                 request.quantity(),
                 performedBy,
@@ -76,17 +72,6 @@ public class InventoryMovementV2Controller {
                 movement.getTimestamp(),
                 movement.getNotes()
         );
-    }
-
-    private UUID requireImplementUuid(UUID implementUuid) {
-        UUID dbUuid = dsl.select(field(name("uuid"), UUID.class))
-                .from(table(name("implement")))
-                .where(field(name("uuid"), UUID.class).eq(implementUuid))
-                .fetchOne(0, UUID.class);
-        if (dbUuid == null) {
-            throw new ApiException(HttpStatus.NOT_FOUND, "IMPLEMENT_NOT_FOUND", "Implemento no encontrado");
-        }
-        return dbUuid;
     }
 
     private UUID extractUserUuid(Authentication authentication) {

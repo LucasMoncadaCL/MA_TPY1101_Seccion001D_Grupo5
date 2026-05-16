@@ -1,14 +1,15 @@
 package com.panol_project.backendpanol.modules.catalog.stock.application;
 
-import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.IndividualItem;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockCounters;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockDetail;
+import com.panol_project.backendpanol.modules.catalog.stock.domain.StockItemType;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockMovementType;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockRepository;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.ConflictException;
 import com.panol_project.backendpanol.shared.error.NotFoundException;
+import com.panol_project.backendpanol.shared.outbox.application.OutboxService;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -30,9 +31,11 @@ public class StockService {
     );
 
     private final StockRepository repository;
+    private final OutboxService outboxService;
 
-    public StockService(StockRepository repository) {
+    public StockService(StockRepository repository, OutboxService outboxService) {
         this.repository = repository;
+        this.outboxService = outboxService;
     }
 
     @Transactional(readOnly = true)
@@ -42,11 +45,11 @@ public class StockService {
         StockCounters counters = repository.findStockByImplementUuid(implementUuid)
                 .orElse(new StockCounters(0, 0, 0, 0, 0, 0));
 
-        List<IndividualItem> individuals = context.itemType() == ImplementItemType.INDIVIDUAL
+        List<IndividualItem> individuals = context.itemType() == StockItemType.INDIVIDUAL
                 ? repository.findActiveIndividualsByImplementUuid(implementUuid)
                 : List.of();
 
-        if (context.itemType() == ImplementItemType.INDIVIDUAL) {
+        if (context.itemType() == StockItemType.INDIVIDUAL) {
             counters = deriveCountersForIndividuals(counters, individuals);
         }
 
@@ -60,7 +63,7 @@ public class StockService {
 
         repository.ensureStockRow(implementUuid);
 
-        if (context.itemType() == ImplementItemType.INDIVIDUAL) {
+        if (context.itemType() == StockItemType.INDIVIDUAL) {
             List<String> normalizedCodes = normalizeAssetCodes(assetCodes, qty);
             try {
                 repository.createIndividuals(implementUuid, context.locationUuid(), normalizedCodes);
@@ -70,6 +73,7 @@ public class StockService {
         }
 
         repository.updateStock(implementUuid, qty, qty, 0, 0, 0);
+        outboxService.enqueue("implement", implementUuid, "StockEntryAdded", null, java.util.Map.of("quantity", qty));
 
         return getStockDetail(implementUuid);
     }
@@ -80,17 +84,18 @@ public class StockService {
         StockMovementType movementType = StockMovementType.fromLiteral(movementTypeRaw)
                 .orElseThrow(() -> new BadRequestException(
                         "STOCK_MOVEMENT_TYPE_INVALID",
-                        "movement_type invalido. Usa increase_available, decrease_available, reserve, release_reserve, loan, return, damage o repair"
+                        "movement_type invalido. Usa increase_available, decrease_available, reserve, release_reserve, loan, return, damage o repair (o legacy INGRESO, AJUSTE, EGRESO)"
                 ));
 
         repository.ensureStockRow(implementUuid);
 
-        if (context.itemType() == ImplementItemType.INDIVIDUAL) {
+        if (context.itemType() == StockItemType.INDIVIDUAL) {
             applyMovementForIndividualImplement(context, movementType, individualUuids, conditionRaw);
         } else {
             int qty = requirePositiveQuantity(quantity);
             applyMovementDelta(context.implementUuid(), movementType, qty);
         }
+        outboxService.enqueue("implement", implementUuid, "StockMovementApplied", null, java.util.Map.of("movement_type", movementType.literal()));
 
         return getStockDetail(implementUuid);
     }
@@ -98,7 +103,7 @@ public class StockService {
     @Transactional
     public StockDetail updateIndividual(UUID implementUuid, UUID individualUuid, String statusRaw, String conditionRaw, UUID locationUuid, Boolean active) {
         var context = requireContext(implementUuid);
-        if (context.itemType() != ImplementItemType.INDIVIDUAL) {
+        if (context.itemType() != StockItemType.INDIVIDUAL) {
             throw new BadRequestException("INDIVIDUAL_NOT_ALLOWED", "Solo los implementos de tipo individual tienen registros individuales");
         }
 
@@ -112,6 +117,7 @@ public class StockService {
 
         repository.updateIndividualsState(List.of(individualUuid), status, condition, locationUuid, active);
         syncStockRowForIndividuals(implementUuid);
+        outboxService.enqueue("implement", implementUuid, "StockIndividualUpdated", null, java.util.Map.of("individual_uuid", individualUuid.toString()));
         return getStockDetail(implementUuid);
     }
 

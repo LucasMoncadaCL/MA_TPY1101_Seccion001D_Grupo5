@@ -1,19 +1,23 @@
-# PSD-95 — Implementos: `location_id` obligatorio + listado real (sin hardcode)
+﻿- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# PSD-95 â€” Implementos: `location_id` obligatorio + listado real (sin hardcode)
 
 Fecha: 2026-04-27
 
 ## Resumen
 
-Se eliminó el listado hardcodeado de implementos en el frontend y se habilitó la carga desde backend/BD.
-Además, se incorporó `location_id` como campo **obligatorio** al crear/editar un implemento y se agregó un endpoint para poblar el selector de ubicaciones.
+Se eliminÃ³ el listado hardcodeado de implementos en el frontend y se habilitÃ³ la carga desde backend/BD.
+AdemÃ¡s, se incorporÃ³ `location_id` como campo **obligatorio** al crear/editar un implemento y se agregÃ³ un endpoint para poblar el selector de ubicaciones.
 
 ## Backend (Spring Boot)
 
 ### Cambios funcionales
 
 - `POST /api/implements` y `PUT /api/implements/{id}` ahora requieren `location_id`:
-  - Si `location_id` viene ausente o `null` → `400 Bad Request` (validación).
-  - Si `location_id` no existe en BD → `400 Bad Request`.
+  - Si `location_id` viene ausente o `null` â†’ `400 Bad Request` (validaciÃ³n).
+  - Si `location_id` no existe en BD â†’ `400 Bad Request`.
 - Endpoint nuevo `GET /api/locations`:
   - Retorna `[{ id, name, description }]` ordenado por `name`.
 - Endpoint nuevo `GET /api/implements`:
@@ -49,7 +53,7 @@ Además, se incorporó `location_id` como campo **obligatorio** al crear/editar 
   - Crea `location` (si no existe) con:
     - `name VARCHAR(20) NOT NULL`
     - `description VARCHAR(200)`
-  - Inserta una ubicación por defecto (`Por definir`) si no hay ninguna.
+  - Inserta una ubicaciÃ³n por defecto (`Por definir`) si no hay ninguna.
   - Agrega `implement.location_id` (si no existe), hace backfill y lo deja `NOT NULL`.
   - Agrega FK `implement_location_fk` (`ON DELETE RESTRICT`).
 
@@ -59,11 +63,11 @@ Además, se incorporó `location_id` como campo **obligatorio** al crear/editar 
 
 - Pantalla `#/inventory/implementos` ahora:
   - Carga implementos reales via `GET /api/implements`.
-  - Muestra estado de carga y refresca el listado después de crear/editar.
-- Modal de alta/edición de implemento:
-  - Agrega selector de **Ubicación** (obligatorio), consumiendo `GET /api/locations`.
-  - Mantiene selector de **Categoría** (opcional) consumiendo `GET /api/categories/active`.
-  - Envía `location_id` en `POST /api/implements` y `PUT /api/implements/{id}`.
+  - Muestra estado de carga y refresca el listado despuÃ©s de crear/editar.
+- Modal de alta/ediciÃ³n de implemento:
+  - Agrega selector de **UbicaciÃ³n** (obligatorio), consumiendo `GET /api/locations`.
+  - Mantiene selector de **CategorÃ­a** (opcional) consumiendo `GET /api/categories/active`.
+  - EnvÃ­a `location_id` en `POST /api/implements` y `PUT /api/implements/{id}`.
 
 ### Archivos relevantes
 
@@ -80,7 +84,7 @@ Además, se incorporó `location_id` como campo **obligatorio** al crear/editar 
   - `Producto/frontendpanol/src/types/implement.ts`
   - `Producto/frontendpanol/src/types/location.ts`
 
-## Cómo probar
+## CÃ³mo probar
 
 1) Verificar endpoints (backend):
 - `GET http://localhost:18080/api/locations`
@@ -89,7 +93,20 @@ Además, se incorporó `location_id` como campo **obligatorio** al crear/editar 
 2) UI (frontend):
 - Abrir `http://localhost:18081/#/inventory/implementos`
 - Crear implemento:
-  - seleccionar ubicación obligatoria
-  - categoría opcional
+  - seleccionar ubicaciÃ³n obligatoria
+  - categorÃ­a opcional
   - guardar y validar que aparezca en la tabla
+
+
+
+## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
 

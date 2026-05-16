@@ -1,12 +1,13 @@
 package com.panol_project.backendpanol.modules.catalog.implement.application;
 
-import com.panol_project.backendpanol.modules.catalog.category.application.CategoriaService;
+import com.panol_project.backendpanol.modules.catalog.category.application.contract.CategoryValidationContract;
+import com.panol_project.backendpanol.modules.catalog.implement.application.contract.ImplementLookupContract;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementRepository;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementSummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
-import com.panol_project.backendpanol.modules.catalog.location.application.LocationService;
+import com.panol_project.backendpanol.modules.catalog.location.application.contract.LocationValidationContract;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.NotFoundException;
 import java.util.List;
@@ -17,20 +18,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class ImplementService {
+public class ImplementService implements ImplementLookupContract {
 
     private final ImplementRepository repository;
-    private final CategoriaService categoriaService;
-    private final LocationService locationService;
+    private final CategoryValidationContract categoryValidationContract;
+    private final LocationValidationContract locationValidationContract;
 
     public ImplementService(
             ImplementRepository repository,
-            CategoriaService categoriaService,
-            LocationService locationService
+            CategoryValidationContract categoryValidationContract,
+            LocationValidationContract locationValidationContract
     ) {
         this.repository = repository;
-        this.categoriaService = categoriaService;
-        this.locationService = locationService;
+        this.categoryValidationContract = categoryValidationContract;
+        this.locationValidationContract = locationValidationContract;
     }
 
     @Transactional
@@ -45,14 +46,14 @@ public class ImplementService {
             String imgUrl,
             String observations
     ) {
-        categoriaService.validarCategoriaActivaParaImplemento(categoriaUuid);
+        categoryValidationContract.validarCategoriaActivaParaImplemento(categoriaUuid);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
         String normalizedBarcode = normalizeBarcode(barcode);
         String normalizedImgUrl = normalizeOptional(imgUrl);
         String normalizedObservations = normalizeObservations(observations);
         ImplementItemType normalizedItemType = parseItemType(itemType);
-        locationService.validarLocationExistente(locationUuid);
+        locationValidationContract.validarLocationExistente(locationUuid);
         validateUniqueActiveNameForCreate(normalizedName);
 
         try {
@@ -93,8 +94,8 @@ public class ImplementService {
         if (!Boolean.TRUE.equals(existing.activo())) {
             throw new BadRequestException("IMPLEMENT_INACTIVE", "No se puede editar un producto inactivo");
         }
-        categoriaService.validarCategoriaActivaParaImplemento(categoriaUuid);
-        locationService.validarLocationExistente(locationUuid);
+        categoryValidationContract.validarCategoriaActivaParaImplemento(categoriaUuid);
+        locationValidationContract.validarLocationExistente(locationUuid);
         String normalizedName = normalizeNombre(nombre);
         String normalizedDescription = normalizeDescripcion(descripcion);
         String normalizedBarcode = normalizeBarcode(barcode);
@@ -128,6 +129,18 @@ public class ImplementService {
     @Transactional(readOnly = true)
     public Implemento obtener(UUID uuid) {
         return requireImplement(uuid);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ImplementLookupSummary obtenerImplementoParaStock(UUID implementUuid) {
+        Implemento implemento = requireImplement(implementUuid);
+        return new ImplementLookupSummary(
+                implemento.uuid(),
+                implemento.nombre(),
+                implemento.barcode(),
+                implemento.itemType() == null ? null : implemento.itemType().literal()
+        );
     }
 
     @Transactional

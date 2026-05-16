@@ -1,74 +1,45 @@
-# Entorno y Secrets del Backend
+﻿# Entorno y Secrets del Backend
 
-Este documento explica como configurar variables y secretos del backend, incluyendo la separacion de entornos de base de datos con `APP_DB_ENV`.
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: application.yaml, .env.local.example, docker compose vigentes
 
 ## Selector de entorno de BD
 
-La variable principal es:
+- `APP_DB_ENV=docker` -> usa `DB_DOCKER_*`
+- `APP_DB_ENV=supabase` -> usa `DB_SUPABASE_*`
 
-- `APP_DB_ENV=docker` -> el backend usa `DB_DOCKER_*`
-- `APP_DB_ENV=supabase` -> el backend usa `DB_SUPABASE_*`
+Si no se define, Spring usa perfil `docker` por defecto.
 
-Si no se define, el valor por defecto es `docker`.
+## Seguridad
 
-Importante:
+- `APP_SECURITY_ENABLED=true` es el default vigente.
+- Si `APP_SECURITY_ENABLED=false`, se activa configuracion sin autenticacion (solo para casos de debug controlado).
 
-- `APP_DB_ENV` solo decide a que base se conecta la aplicacion.
-- No decide si Docker Compose crea o no el contenedor `postgres`.
+## Archivos de entorno
 
-## Archivos que debes crear al clonar
+En `Producto/backendpanol`:
+- `.env.local` (local no versionado)
+- `.env.local.example` (plantilla versionada)
+- `secrets/application-secrets.properties` (secretos runtime)
+- `secrets/db_password.txt` (solo si usas postgres local fuera del compose de Producto)
 
-1. Copiar `.env.local.example` a `.env.local`.
-2. Crear `secrets/application-secrets.properties`.
-3. Crear `secrets/db_password.txt` (solo si usaras docker compose con postgres local).
+En `Producto`:
+- `.env` (variables para `Producto/docker-compose.yaml`)
 
-## Que contiene cada archivo
+## Variables clave
 
-### `.env.example`
+Comunes:
+- `APP_PORT`
+- `APP_DB_ENV`
+- `APP_SECURITY_ENABLED`
+- `APP_AUTH_MAX_FAILED_ATTEMPTS`
+- `APP_AUTH_LOCK_MINUTES`
+- `APP_AUTH_JWT_ISSUER`
+- `APP_AUTH_JWT_EXPIRATION_SECONDS`
+- `APP_AUTH_JWT_SECRET`
 
-- Plantilla versionada del backend.
-- Muestra todas las variables soportadas.
-- No debe contener secretos reales.
-
-### `.env.local.example`
-
-- Plantilla para crear `.env.local`.
-- Incluye variables para ambos entornos (`docker` y `supabase`).
-
-### `.env.local`
-
-- Archivo local no versionado.
-- Define `APP_DB_ENV` y valores concretos para `DB_DOCKER_*` o `DB_SUPABASE_*`.
-- Tambien contiene `JOOQ_DB_*` para codegen.
-
-### `secrets/application-secrets.properties`
-
-- Secretos de runtime de Spring (`spring.config.import`).
-- Ejemplo:
-
-```properties
-DB_DOCKER_PASSWORD=replace_me
-DB_SUPABASE_PASSWORD=replace_me
-```
-
-Puedes guardar solo la que corresponda al entorno activo.
-
-### `secrets/db_password.txt`
-
-- Password del contenedor `postgres` en `backendpanol/docker-compose.yaml`.
-- Se consume como Docker secret (`POSTGRES_PASSWORD_FILE`).
-
-## Variables de runtime del backend
-
-### Comunes
-
-- `APP_PORT`: puerto HTTP del backend.
-- `JWT_ISSUER_URI`: issuer JWT.
-- `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`: valores de integracion.
-- `APP_SECURITY_ENABLED=true|false`: habilita/deshabilita Spring Security (por defecto `false`). Para habilitar seguridad (JWT + roles), usa `true`.
-
-### Entorno Docker local (`APP_DB_ENV=docker`)
-
+Docker DB:
 - `DB_DOCKER_HOST`
 - `DB_DOCKER_PORT`
 - `DB_DOCKER_NAME`
@@ -76,8 +47,7 @@ Puedes guardar solo la que corresponda al entorno activo.
 - `DB_DOCKER_PASSWORD`
 - `DB_DOCKER_SSL_MODE`
 
-### Entorno Supabase (`APP_DB_ENV=supabase`)
-
+Supabase:
 - `DB_SUPABASE_HOST`
 - `DB_SUPABASE_PORT`
 - `DB_SUPABASE_NAME`
@@ -85,72 +55,15 @@ Puedes guardar solo la que corresponda al entorno activo.
 - `DB_SUPABASE_PASSWORD`
 - `DB_SUPABASE_SSL_MODE`
 
-## jOOQ codegen (build-time)
-
-Independiente de `APP_DB_ENV`, jOOQ usa:
-
+jOOQ (build-time):
 - `JOOQ_DB_URL`
 - `JOOQ_DB_USER`
 - `JOOQ_DB_PASSWORD`
 
-Comando recomendado en PowerShell:
+## Compose y entorno
 
-```powershell
-.\scripts\generate-jooq.ps1
-```
+- `Producto/docker-compose.yaml` levanta `frontend + backend` (sin postgres local).
+- `Producto/backendpanol/docker-compose.yaml` levanta backend only.
 
-Ese script carga automaticamente `.env.local` y `secrets/application-secrets.properties` antes de ejecutar `mvnw.cmd generate-sources`.
+`APP_DB_ENV` define a que base conecta la app, no que servicios crea Docker Compose.
 
-## Estado actual de migraciones y baseline
-
-En este proyecto:
-
-- `V1__baseline.sql` es un baseline marker (no-op), no crea tablas.
-- El esquema fuente historico existe en Supabase.
-- jOOQ no crea schema; solo genera clases Java desde una BD existente.
-
-Consecuencia:
-
-- Si usas `APP_DB_ENV=supabase`, la app funciona con esquema existente.
-- Si usas `APP_DB_ENV=docker` con una BD vacia, no se crean tablas mientras no existan migraciones SQL reales (`V2__*.sql`, `V3__*.sql`, etc.) o un bootstrap inicial.
-
-Recomendacion:
-
-1. Definir un bootstrap inicial para local (dump/schema inicial o primera migracion estructural).
-2. Desde ahi, versionar solo cambios incrementales con Flyway.
-
-## Diferencia entre `.env` y `.env.local`
-
-- `backendpanol/.env.local`: entorno local del backend.
-- `Producto/.env`: entorno del `docker-compose` de nivel `Producto` (backend + frontend).
-
-En `Producto/.env` tambien puedes setear `APP_DB_ENV` y variables `DB_*` para el contenedor backend del stack completo.
-
-## Flujo recomendado segun entorno
-
-### Usar Postgres Docker local
-
-1. `APP_DB_ENV=docker` en `.env.local`.
-2. Completar `DB_DOCKER_*`.
-3. Definir `DB_DOCKER_PASSWORD` en `secrets/application-secrets.properties`.
-4. Crear `secrets/db_password.txt` con la password de postgres local.
-
-### Usar Supabase real
-
-1. `APP_DB_ENV=supabase` en `.env.local` o `Producto/.env`.
-2. Completar `DB_SUPABASE_*`.
-3. Definir `DB_SUPABASE_PASSWORD` en `secrets/application-secrets.properties`.
-
-## Que se versiona y que no
-
-Se versiona:
-
-- `.env.example`
-- `.env.local.example`
-- `secrets/README.md`
-
-No se versiona:
-
-- `.env.local`
-- `secrets/application-secrets.properties`
-- `secrets/*.txt`

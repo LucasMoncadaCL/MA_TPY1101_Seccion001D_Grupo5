@@ -1,4 +1,8 @@
-﻿# 06 - Checklist de PR (Arquitectura)
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 06 - Checklist de PR (Arquitectura)
 
 Usar este checklist antes de aprobar PR.
 
@@ -30,3 +34,4 @@ Usar este checklist antes de aprobar PR.
 - [ ] Tests unitarios e integración suficientes.
 - [ ] Documentación actualizada (si cambia arquitectura).
 - [ ] Deudas técnicas explícitas con ticket.
+

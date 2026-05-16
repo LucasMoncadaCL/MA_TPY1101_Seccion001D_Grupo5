@@ -1,5 +1,6 @@
 package com.panol_project.backendpanol.modules.catalog.location.application;
 
+import com.panol_project.backendpanol.modules.catalog.location.application.contract.LocationValidationContract;
 import com.panol_project.backendpanol.modules.catalog.location.domain.LocationOption;
 import com.panol_project.backendpanol.modules.catalog.location.domain.LocationRepository;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class LocationService {
+public class LocationService implements LocationValidationContract {
 
     private final LocationRepository repository;
 
@@ -59,6 +60,7 @@ public class LocationService {
         return requireLocation(uuid);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public void validarLocationExistente(UUID locationUuid) {
         if (locationUuid == null) {

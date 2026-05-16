@@ -15,7 +15,7 @@ export interface UserAdminSummary {
 export interface CreateUserPayload {
   name: string;
   rut: string;
-  email?: string | null;
+  email: string;
   role: "COORDINADOR" | "DOCENTE";
   password: string;
 }
@@ -23,7 +23,7 @@ export interface CreateUserPayload {
 export interface UpdateUserPayload {
   name: string;
   rut: string;
-  email?: string | null;
+  email: string;
 }
 
 export async function listUsers(): Promise<UserAdminSummary[]> {

@@ -1,6 +1,6 @@
 package com.panol_project.backendpanol.modules.auth.infrastructure;
 
-import java.util.List;
+import com.panol_project.backendpanol.modules.auth.domain.TokenRevocationPort;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
@@ -10,9 +10,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class TokenRevocationValidator implements OAuth2TokenValidator<Jwt> {
 
-    private final TokenRevocationRepository tokenRevocationRepository;
+    private final TokenRevocationPort tokenRevocationRepository;
 
-    public TokenRevocationValidator(TokenRevocationRepository tokenRevocationRepository) {
+    public TokenRevocationValidator(TokenRevocationPort tokenRevocationRepository) {
         this.tokenRevocationRepository = tokenRevocationRepository;
     }
 

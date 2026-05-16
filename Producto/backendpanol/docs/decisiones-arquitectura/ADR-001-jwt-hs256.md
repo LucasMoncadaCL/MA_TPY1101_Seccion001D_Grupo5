@@ -1,4 +1,8 @@
-﻿# ADR-001: Decisión de JWT con HS256
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# ADR-001: Decisión de JWT con HS256
 
 - Estado: Aceptado
 - Fecha: 2026-05-07
@@ -54,3 +58,4 @@ Esta decisión debe revisarse cuando ocurra al menos una de estas condiciones:
 ## Relación con decisiones futuras
 
 Si el sistema escala, ejecutar el plan definido en `ADR-002-plan-migracion-rs256.md`.
+

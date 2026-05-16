@@ -1,4 +1,8 @@
-﻿# 02 - Reglas de Modularidad y Dominios
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# 02 - Reglas de Modularidad y Dominios
 
 ## Módulos
 
@@ -36,3 +40,4 @@ Cuando un caso de uso afecta más de un dominio:
 1. Definir dueño del caso de uso.
 2. Exponer contrato explícito de colaboración.
 3. Evitar acceso lateral no mediado.
+

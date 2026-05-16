@@ -6,7 +6,6 @@ import static com.panol_project.backendpanol.jooq.tables.Location.LOCATION;
 import static com.panol_project.backendpanol.jooq.tables.Stock.STOCK;
 
 import com.panol_project.backendpanol.jooq.enums.ItemTypeEnum;
-import com.panol_project.backendpanol.jooq.tables.records.ImplementRecord;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementCategorySummary;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementLocationSummary;
@@ -24,6 +23,7 @@ import java.util.UUID;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
+import org.jooq.Record;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
@@ -31,9 +31,21 @@ import org.springframework.stereotype.Repository;
 public class ImplementJooqRepository implements ImplementRepository {
 
     private final DSLContext dsl;
-    private static final Field<String> IMPLEMENT_OBSERVATIONS = DSL.field(DSL.name("observations"), String.class);
-    private static final Field<String> IMPLEMENT_BARCODE = DSL.field(DSL.name("barcode"), String.class);
-    private static final Field<String> IMPLEMENT_IMG_URL = DSL.field(DSL.name("img_url"), String.class);
+
+    private static final Field<String> IMPLEMENT_NAME = DSL.field(DSL.name("implement", "name"), String.class);
+    private static final Field<String> IMPLEMENT_DESCRIPTION = DSL.field(DSL.name("implement", "description"), String.class);
+    private static final Field<String> IMPLEMENT_OBSERVATIONS = DSL.field(DSL.name("implement", "observations"), String.class);
+    private static final Field<String> IMPLEMENT_BARCODE = DSL.field(DSL.name("implement", "barcode"), String.class);
+    private static final Field<String> IMPLEMENT_IMG_URL = DSL.field(DSL.name("implement", "img_url"), String.class);
+    private static final Field<Boolean> IMPLEMENT_ACTIVE = DSL.field(DSL.name("implement", "active"), Boolean.class);
+    private static final Field<OffsetDateTime> IMPLEMENT_CREATED_AT = DSL.field(
+            DSL.name("implement", "created_at"),
+            OffsetDateTime.class
+    );
+    private static final Field<OffsetDateTime> IMPLEMENT_UPDATED_AT = DSL.field(
+            DSL.name("implement", "updated_at"),
+            OffsetDateTime.class
+    );
 
     private static final Field<UUID> IMPLEMENT_UUID = DSL.field(DSL.name("implement", "uuid"), UUID.class);
     private static final Field<UUID> IMPLEMENT_CATEGORY_UUID = DSL.field(DSL.name("implement", "category_uuid"), UUID.class);
@@ -50,7 +62,21 @@ public class ImplementJooqRepository implements ImplementRepository {
 
     @Override
     public Optional<Implemento> findByUuid(UUID uuid) {
-        return dsl.selectFrom(IMPLEMENT)
+        return dsl.select(
+                        IMPLEMENT_UUID,
+                        IMPLEMENT_NAME,
+                        IMPLEMENT_DESCRIPTION,
+                        IMPLEMENT_CATEGORY_UUID,
+                        IMPLEMENT_LOCATION_UUID,
+                        IMPLEMENT.ITEM_TYPE,
+                        IMPLEMENT_BARCODE,
+                        IMPLEMENT_IMG_URL,
+                        IMPLEMENT_OBSERVATIONS,
+                        IMPLEMENT_ACTIVE,
+                        IMPLEMENT_CREATED_AT,
+                        IMPLEMENT_UPDATED_AT
+                )
+                .from(IMPLEMENT)
                 .where(IMPLEMENT_UUID.eq(uuid))
                 .fetchOptional()
                 .map(this::toDomain);
@@ -60,11 +86,11 @@ public class ImplementJooqRepository implements ImplementRepository {
     public Optional<ImplementSummary> findSummaryByUuid(UUID uuid) {
         return dsl.select(
                         IMPLEMENT_UUID,
-                        IMPLEMENT.NAME,
-                        IMPLEMENT.DESCRIPTION,
+                        IMPLEMENT_NAME,
+                        IMPLEMENT_DESCRIPTION,
                         IMPLEMENT_BARCODE,
                         IMPLEMENT_IMG_URL,
-                        IMPLEMENT.ACTIVE,
+                        IMPLEMENT_ACTIVE,
                         CATEGORY_UUID,
                         CATEGORY.NAME,
                         CATEGORY.ACTIVE,
@@ -95,11 +121,11 @@ public class ImplementJooqRepository implements ImplementRepository {
 
                     return new ImplementSummary(
                             record.get(IMPLEMENT_UUID),
-                            record.get(IMPLEMENT.NAME),
-                            record.get(IMPLEMENT.DESCRIPTION),
+                            record.get(IMPLEMENT_NAME),
+                            record.get(IMPLEMENT_DESCRIPTION),
                             record.get(IMPLEMENT_BARCODE),
                             record.get(IMPLEMENT_IMG_URL),
-                            record.get(IMPLEMENT.ACTIVE),
+                            record.get(IMPLEMENT_ACTIVE),
                             category,
                             new ImplementLocationSummary(
                                     record.get(LOCATION_UUID),
@@ -120,10 +146,10 @@ public class ImplementJooqRepository implements ImplementRepository {
 
     @Override
     public List<ImplementSummary> findAllSummaries(String name, UUID categoryUuid, StockStatusFilter stockStatusFilter) {
-        Condition condition = IMPLEMENT.ACTIVE.isTrue();
+        Condition condition = IMPLEMENT_ACTIVE.isTrue();
 
         if (name != null) {
-            condition = condition.and(DSL.lower(IMPLEMENT.NAME).like("%" + name.toLowerCase(Locale.ROOT) + "%"));
+            condition = condition.and(DSL.lower(IMPLEMENT_NAME).like("%" + name.toLowerCase(Locale.ROOT) + "%"));
         }
 
         if (categoryUuid != null) {
@@ -137,11 +163,11 @@ public class ImplementJooqRepository implements ImplementRepository {
 
         return dsl.select(
                         IMPLEMENT_UUID,
-                        IMPLEMENT.NAME,
-                        IMPLEMENT.DESCRIPTION,
+                        IMPLEMENT_NAME,
+                        IMPLEMENT_DESCRIPTION,
                         IMPLEMENT_BARCODE,
                         IMPLEMENT_IMG_URL,
-                        IMPLEMENT.ACTIVE,
+                        IMPLEMENT_ACTIVE,
                         CATEGORY_UUID,
                         CATEGORY.NAME,
                         CATEGORY.ACTIVE,
@@ -160,7 +186,7 @@ public class ImplementJooqRepository implements ImplementRepository {
                 .join(LOCATION).on(LOCATION_UUID.eq(IMPLEMENT_LOCATION_UUID))
                 .leftJoin(STOCK).on(STOCK_IMPLEMENT_UUID.eq(IMPLEMENT_UUID))
                 .where(condition)
-                .orderBy(IMPLEMENT.NAME.asc())
+                .orderBy(IMPLEMENT_NAME.asc())
                 .fetch(record -> {
                     UUID summaryCategoryUuid = record.get(CATEGORY_UUID);
                     ImplementCategorySummary category = summaryCategoryUuid == null
@@ -173,11 +199,11 @@ public class ImplementJooqRepository implements ImplementRepository {
 
                     return new ImplementSummary(
                             record.get(IMPLEMENT_UUID),
-                            record.get(IMPLEMENT.NAME),
-                            record.get(IMPLEMENT.DESCRIPTION),
+                            record.get(IMPLEMENT_NAME),
+                            record.get(IMPLEMENT_DESCRIPTION),
                             record.get(IMPLEMENT_BARCODE),
                             record.get(IMPLEMENT_IMG_URL),
-                            record.get(IMPLEMENT.ACTIVE),
+                            record.get(IMPLEMENT_ACTIVE),
                             category,
                             new ImplementLocationSummary(
                                     record.get(LOCATION_UUID),
@@ -201,8 +227,8 @@ public class ImplementJooqRepository implements ImplementRepository {
         return dsl.fetchExists(
                 dsl.selectOne()
                         .from(IMPLEMENT)
-                        .where(IMPLEMENT.ACTIVE.isTrue()
-                                .and(IMPLEMENT.NAME.likeIgnoreCase(nombre)))
+                        .where(IMPLEMENT_ACTIVE.isTrue()
+                                .and(IMPLEMENT_NAME.likeIgnoreCase(nombre)))
         );
     }
 
@@ -211,9 +237,9 @@ public class ImplementJooqRepository implements ImplementRepository {
         return dsl.fetchExists(
                 dsl.selectOne()
                         .from(IMPLEMENT)
-                        .where(IMPLEMENT.ACTIVE.isTrue()
+                        .where(IMPLEMENT_ACTIVE.isTrue()
                                 .and(IMPLEMENT_UUID.ne(excludedUuid))
-                                .and(IMPLEMENT.NAME.likeIgnoreCase(nombre)))
+                                .and(IMPLEMENT_NAME.likeIgnoreCase(nombre)))
         );
     }
 
@@ -229,15 +255,28 @@ public class ImplementJooqRepository implements ImplementRepository {
             String observations
     ) {
         return dsl.insertInto(IMPLEMENT)
-                .set(IMPLEMENT.NAME, nombre)
-                .set(IMPLEMENT.DESCRIPTION, descripcion)
+                .set(IMPLEMENT_NAME, nombre)
+                .set(IMPLEMENT_DESCRIPTION, descripcion)
                 .set(IMPLEMENT_CATEGORY_UUID, categoriaUuid)
                 .set(IMPLEMENT_LOCATION_UUID, locationUuid)
                 .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
                 .set(IMPLEMENT_BARCODE, barcode)
                 .set(IMPLEMENT_IMG_URL, imgUrl)
                 .set(IMPLEMENT_OBSERVATIONS, observations)
-                .returning()
+                .returningResult(
+                        IMPLEMENT_UUID,
+                        IMPLEMENT_NAME,
+                        IMPLEMENT_DESCRIPTION,
+                        IMPLEMENT_CATEGORY_UUID,
+                        IMPLEMENT_LOCATION_UUID,
+                        IMPLEMENT.ITEM_TYPE,
+                        IMPLEMENT_BARCODE,
+                        IMPLEMENT_IMG_URL,
+                        IMPLEMENT_OBSERVATIONS,
+                        IMPLEMENT_ACTIVE,
+                        IMPLEMENT_CREATED_AT,
+                        IMPLEMENT_UPDATED_AT
+                )
                 .fetchOptional()
                 .map(this::toDomain)
                 .orElseThrow();
@@ -256,17 +295,30 @@ public class ImplementJooqRepository implements ImplementRepository {
             String observations
     ) {
         return dsl.update(IMPLEMENT)
-                .set(IMPLEMENT.NAME, nombre)
-                .set(IMPLEMENT.DESCRIPTION, descripcion)
+                .set(IMPLEMENT_NAME, nombre)
+                .set(IMPLEMENT_DESCRIPTION, descripcion)
                 .set(IMPLEMENT_CATEGORY_UUID, categoriaUuid)
                 .set(IMPLEMENT_LOCATION_UUID, locationUuid)
                 .set(IMPLEMENT.ITEM_TYPE, toJooqItemType(itemType))
                 .set(IMPLEMENT_BARCODE, barcode)
                 .set(IMPLEMENT_IMG_URL, imgUrl)
                 .set(IMPLEMENT_OBSERVATIONS, observations)
-                .set(IMPLEMENT.UPDATED_AT, OffsetDateTime.now())
+                .set(IMPLEMENT_UPDATED_AT, OffsetDateTime.now())
                 .where(IMPLEMENT_UUID.eq(uuid))
-                .returning()
+                .returningResult(
+                        IMPLEMENT_UUID,
+                        IMPLEMENT_NAME,
+                        IMPLEMENT_DESCRIPTION,
+                        IMPLEMENT_CATEGORY_UUID,
+                        IMPLEMENT_LOCATION_UUID,
+                        IMPLEMENT.ITEM_TYPE,
+                        IMPLEMENT_BARCODE,
+                        IMPLEMENT_IMG_URL,
+                        IMPLEMENT_OBSERVATIONS,
+                        IMPLEMENT_ACTIVE,
+                        IMPLEMENT_CREATED_AT,
+                        IMPLEMENT_UPDATED_AT
+                )
                 .fetchOptional()
                 .map(this::toDomain)
                 .orElseThrow();
@@ -294,8 +346,8 @@ public class ImplementJooqRepository implements ImplementRepository {
     @Override
     public int updateActive(UUID uuid, boolean active) {
         return dsl.update(IMPLEMENT)
-                .set(IMPLEMENT.ACTIVE, active)
-                .set(IMPLEMENT.UPDATED_AT, OffsetDateTime.now())
+                .set(IMPLEMENT_ACTIVE, active)
+                .set(IMPLEMENT_UPDATED_AT, OffsetDateTime.now())
                 .where(IMPLEMENT_UUID.eq(uuid))
                 .execute();
     }
@@ -310,30 +362,20 @@ public class ImplementJooqRepository implements ImplementRepository {
         };
     }
 
-    private Implemento toDomain(ImplementRecord record) {
-        String observations = null;
-        String barcode = null;
-        String imgUrl = null;
-        try {
-            observations = record.get(IMPLEMENT_OBSERVATIONS);
-            barcode = record.get(IMPLEMENT_BARCODE);
-            imgUrl = record.get(IMPLEMENT_IMG_URL);
-        } catch (IllegalArgumentException ignored) {
-        }
-
+    private Implemento toDomain(Record record) {
         return new Implemento(
                 record.get(IMPLEMENT_UUID),
-                record.getName(),
-                record.getDescription(),
+                record.get(IMPLEMENT_NAME),
+                record.get(IMPLEMENT_DESCRIPTION),
                 record.get(IMPLEMENT_CATEGORY_UUID),
                 record.get(IMPLEMENT_LOCATION_UUID),
-                toDomainItemType(record.getItemType()),
-                barcode,
-                imgUrl,
-                observations,
-                record.getActive(),
-                record.getCreatedAt(),
-                record.getUpdatedAt()
+                toDomainItemType(record.get(IMPLEMENT.ITEM_TYPE)),
+                record.get(IMPLEMENT_BARCODE),
+                record.get(IMPLEMENT_IMG_URL),
+                record.get(IMPLEMENT_OBSERVATIONS),
+                record.get(IMPLEMENT_ACTIVE),
+                record.get(IMPLEMENT_CREATED_AT),
+                record.get(IMPLEMENT_UPDATED_AT)
         );
     }
 

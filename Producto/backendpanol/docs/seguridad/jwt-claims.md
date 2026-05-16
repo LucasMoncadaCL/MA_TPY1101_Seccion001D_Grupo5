@@ -1,4 +1,8 @@
-﻿# JWT Claims - Pañol Salud
+﻿- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# JWT Claims - Pañol Salud
 
 - Última actualización: 2026-05-10
 - Fuente: `AuthService` + configuración de seguridad backend
@@ -38,3 +42,4 @@
 - El claim `sub` es la única fuente de identidad de usuario en el token.
 - Para estrategia de migración a `RS256`, revisar:
   - `docs/decisiones-arquitectura/ADR-002-plan-migracion-rs256.md`
+

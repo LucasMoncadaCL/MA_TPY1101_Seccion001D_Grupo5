@@ -1,10 +1,24 @@
-# Ejecución Completa: Corte Final UUID-Only
+﻿## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
+- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# EjecuciÃ³n Completa: Corte Final UUID-Only
 
 ## 1) Objetivo
-Completar el paso final para operar sin IDs numéricos públicos, dejando solo UUID en contratos externos (`/api/v2/**`), backend operativo y base de datos.
+Completar el paso final para operar sin IDs numÃ©ricos pÃºblicos, dejando solo UUID en contratos externos (`/api/v2/**`), backend operativo y base de datos.
 
 ## 2) Pre-requisitos
-1. Backend y frontend en versión que consume solo `v2`.
+1. Backend y frontend en versiÃ³n que consume solo `v2`.
 2. Backup PostgreSQL y export Mongo listos.
 3. Ventana de mantenimiento aprobada.
 4. Equipo con plan de rollback validado.
@@ -21,7 +35,7 @@ Completar el paso final para operar sin IDs numéricos públicos, dejando solo U
    - `docs/architecture/sql/uuid-postcheck.sql`
 7. Ejecutar smoke test final.
 
-## 4) Smoke test mínimo (post deploy)
+## 4) Smoke test mÃ­nimo (post deploy)
 1. `POST /api/v2/auth/login` (Director/Coordinador).
 2. `GET /api/v2/users` (Director).
 3. `GET /api/v2/categories/gestion` (Coordinador).
@@ -35,19 +49,21 @@ Completar el paso final para operar sin IDs numéricos públicos, dejando solo U
    - `/api/implements`
 
 ## 5) Checklist backend
-1. No exponer controladores legacy en rutas públicas.
-2. `JWT sub` como UUID canónico.
-3. Sin fallback a `user_id` numérico en auth context.
-4. DTOs `v2` sin `id` numérico de negocio.
+1. No exponer controladores legacy en rutas pÃºblicas.
+2. `JWT sub` como UUID canÃ³nico.
+3. Sin fallback a `user_id` numÃ©rico en auth context.
+4. DTOs `v2` sin `id` numÃ©rico de negocio.
 
 ## 6) Checklist frontend
 1. Servicios solo a `/api/v2/**`.
 2. Tipos de IDs de negocio en `string` UUID.
-3. Sin `id ?? uuid` fallback en rutas críticas.
+3. Sin `id ?? uuid` fallback en rutas crÃ­ticas.
 4. Manejo defensivo para payloads incompletos (`null`) en vistas.
 
 ## 7) Rollback (resumen)
 1. Restaurar snapshot/dump PostgreSQL.
 2. Revertir backend/frontend a tag pre-corte.
 3. Revalidar login y flujos core.
+
+
 

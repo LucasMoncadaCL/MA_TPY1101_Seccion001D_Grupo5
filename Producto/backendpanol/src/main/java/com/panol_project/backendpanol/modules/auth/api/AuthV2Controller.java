@@ -3,6 +3,7 @@ package com.panol_project.backendpanol.modules.auth.api;
 import com.panol_project.backendpanol.modules.auth.api.dto.LoginRequest;
 import com.panol_project.backendpanol.modules.auth.api.dto.LoginResponse;
 import com.panol_project.backendpanol.modules.auth.application.AuthService;
+import com.panol_project.backendpanol.modules.auth.application.dto.LoginCommand;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,7 +25,8 @@ public class AuthV2Controller {
 
     @PostMapping("/login")
     LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+        var result = authService.login(new LoginCommand(request.rut(), request.password()));
+        return new LoginResponse(result.accessToken(), result.role(), result.expiresInSeconds());
     }
 
     @PostMapping("/logout")

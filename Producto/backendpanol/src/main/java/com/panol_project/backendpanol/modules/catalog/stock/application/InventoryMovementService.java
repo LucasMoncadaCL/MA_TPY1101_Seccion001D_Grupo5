@@ -1,23 +1,37 @@
 package com.panol_project.backendpanol.modules.catalog.stock.application;
 
+import com.panol_project.backendpanol.modules.catalog.stock.application.contract.InventoryMovementQueryContract;
+import com.panol_project.backendpanol.modules.catalog.stock.application.contract.InventoryMovementQueryContract.InventoryMovementView;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.InventoryMovement;
+import com.panol_project.backendpanol.modules.catalog.stock.domain.InventoryMovementRepository;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.MovementAction;
-import com.panol_project.backendpanol.modules.catalog.stock.infrastructure.mongo.InventoryMovementRepository;
+import com.panol_project.backendpanol.modules.catalog.stock.domain.StockRepository;
+import com.panol_project.backendpanol.shared.error.NotFoundException;
+import com.panol_project.backendpanol.shared.outbox.application.OutboxService;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
-public class InventoryMovementService {
+public class InventoryMovementService implements InventoryMovementQueryContract {
 
     private final InventoryMovementRepository repository;
+    private final StockRepository stockRepository;
+    private final OutboxService outboxService;
 
-    public InventoryMovementService(InventoryMovementRepository repository) {
+    public InventoryMovementService(InventoryMovementRepository repository, StockRepository stockRepository, OutboxService outboxService) {
         this.repository = repository;
+        this.stockRepository = stockRepository;
+        this.outboxService = outboxService;
     }
 
+    @Transactional
     public InventoryMovement registrarMovimiento(UUID implementUuid, MovementAction action, Integer quantity, UUID performedByUuid, String notes) {
+        stockRepository.findImplementContext(implementUuid)
+                .orElseThrow(() -> new NotFoundException("IMPLEMENT_NOT_FOUND", "Implemento no encontrado"));
         InventoryMovement movement = new InventoryMovement(
                 implementUuid,
                 action, 
@@ -26,7 +40,13 @@ public class InventoryMovementService {
                 Instant.now(), 
                 notes
         );
-        return repository.save(movement);
+        InventoryMovement saved = repository.save(movement);
+        outboxService.enqueue("implement", implementUuid, "InventoryMovementRegistered", performedByUuid, Map.of(
+                "action", action.name(),
+                "quantity", quantity,
+                "notes", notes == null ? "" : notes
+        ));
+        return saved;
     }
 
     public List<InventoryMovement> obtenerUltimosMovimientos(UUID implementUuid) {
@@ -35,5 +55,25 @@ public class InventoryMovementService {
 
     public List<InventoryMovement> obtenerTodosMovimientos() {
         return repository.findAllByOrderByTimestampDesc();
+    }
+
+    @Override
+    public List<InventoryMovementView> obtenerUltimosMovimientosPorImplemento(UUID implementUuid) {
+        return repository.findTop10ByImplementUuidOrderByTimestampDesc(implementUuid)
+                .stream()
+                .map(this::toMovementView)
+                .toList();
+    }
+
+    private InventoryMovementView toMovementView(InventoryMovement movement) {
+        return new InventoryMovementView(
+                movement.getId(),
+                movement.getImplementUuid(),
+                movement.getAction() == null ? null : movement.getAction().name(),
+                movement.getQuantity(),
+                movement.getPerformedByUuid(),
+                movement.getTimestamp(),
+                movement.getNotes()
+        );
     }
 }

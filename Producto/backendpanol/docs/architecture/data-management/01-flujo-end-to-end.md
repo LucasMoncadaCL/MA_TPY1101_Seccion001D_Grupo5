@@ -1,59 +1,33 @@
 ﻿# 01 - Flujo End-to-End de Datos
 
-## 1. Flujo general
+- Estado del documento: vigente
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: servicios de aplicacion + `shared/outbox` + migracion `V20__outbox_events.sql`
 
-1. Cliente (frontend) envía request al backend.
-2. Backend valida autenticación/autorización y reglas de negocio.
-3. Backend inicia transacción SQL (si aplica).
-4. Backend persiste estado maestro en PostgreSQL.
-5. Backend confirma transacción SQL.
-6. Backend registra eventos complementarios en MongoDB.
-7. Backend responde al cliente.
-8. Lecturas ejecutivas/operativas combinan datos SQL + Mongo según caso.
+## Flujo vigente
 
-## 2. Regla de oro
+1. Cliente llama endpoint `/api/v2/**`.
+2. Backend valida auth, autorizacion y reglas de negocio.
+3. Caso de uso abre transaccion SQL.
+4. Se persiste estado canonico en PostgreSQL.
+5. Si el caso requiere integracion asincrona, se encola evento en `outbox_events` dentro de la misma transaccion.
+6. Se confirma transaccion.
+7. Worker de outbox procesa `PENDING` y publica a Mongo (u otro destino).
+8. Estado outbox se actualiza a `PROCESSED` o reintenta/falla controladamente.
 
-- **Primero SQL, después Mongo**.
-- SQL consolida el estado canónico del sistema.
-- Mongo guarda trazabilidad, timeline y mensajería operacional.
+## Regla de oro
 
-## 3. Casos clave
+- Estado transaccional: PostgreSQL.
+- Entrega de eventos: Outbox.
+- Proyecciones y trazabilidad operativa: Mongo.
 
-### 3.1 Crear/editar entidad maestra (ej. implemento)
+## Manejo de fallas
 
-- Escritura principal: PostgreSQL (`implement`, `stock`).
-- Evento secundario: `audit_logs` en Mongo (`action=create|update`, `entity_type=implement`).
+- Si falla SQL: no hay commit de negocio ni outbox.
+- Si SQL confirma y falla publicacion: queda `PENDING`/retry sin perder evento.
+- Si supera max reintentos: `FAILED` para tratamiento operativo.
 
-### 3.2 Movimiento de inventario
+## Nota de compatibilidad
 
-- Ajuste de stock: PostgreSQL (`stock`, posible relación con `loan_detail`).
-- Registro de movimiento: Mongo `inventory_movements` (append-only).
-- Alerta opcional: Mongo `stock_alerts` si cae bajo mínimo.
+No usar rutas legacy (`/api/categorias`, `/api/implements`, `/api/v1/**`) como contrato operativo actual.
 
-### 3.3 Flujo de préstamo
-
-- Estado transaccional: PostgreSQL (`loan`, `loan_detail`, `loan_detail_individual`).
-- Historial de estado: Mongo `loan_events.status_history[]`.
-- Notificaciones: Mongo `notifications`.
-
-## 4. Lecturas por tipo
-
-- **Operativas exactas** (stock actual, disponibilidad): PostgreSQL.
-- **Historial y trazabilidad** (timeline, logs, notificaciones): MongoDB.
-- **Dashboard ejecutivo**: backend agrega y combina ambos según métrica.
-
-## 5. Manejo de fallas
-
-### SQL falla
-- No escribir en Mongo.
-- Responder error y registrar trazas técnicas.
-
-### SQL OK, Mongo falla
-- Responder éxito de operación maestra (si corresponde a negocio).
-- Marcar evento pendiente de reproceso (outbox/retry recomendado).
-- Reintentar asíncronamente con política exponencial.
-
-## 6. Evolución recomendada
-
-- Implementar patrón **Outbox** en PostgreSQL para garantizar entrega de eventos a Mongo.
-- Introducir workers dedicados para reintento y conciliación.

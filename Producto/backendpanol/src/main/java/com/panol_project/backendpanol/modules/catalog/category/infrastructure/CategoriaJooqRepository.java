@@ -5,7 +5,6 @@ import static com.panol_project.backendpanol.jooq.tables.Implement.IMPLEMENT;
 import static org.jooq.impl.DSL.lower;
 import static org.jooq.impl.DSL.noCondition;
 
-import com.panol_project.backendpanol.jooq.tables.records.CategoryRecord;
 import com.panol_project.backendpanol.modules.catalog.category.domain.Categoria;
 import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaRepository;
 import java.time.OffsetDateTime;
@@ -16,6 +15,7 @@ import java.util.UUID;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
+import org.jooq.Record;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
 
@@ -23,8 +23,15 @@ import org.springframework.stereotype.Repository;
 public class CategoriaJooqRepository implements CategoriaRepository {
 
     private final DSLContext dsl;
-    private static final Field<UUID> CATEGORY_UUID = DSL.field(DSL.name("uuid"), UUID.class);
-    private static final Field<UUID> IMPLEMENT_CATEGORY_UUID = DSL.field(DSL.name("category_uuid"), UUID.class);
+    private static final Field<UUID> CATEGORY_UUID = DSL.field(DSL.name("category", "uuid"), UUID.class);
+    private static final Field<String> CATEGORY_NAME = DSL.field(DSL.name("category", "name"), String.class);
+    private static final Field<String> CATEGORY_DESCRIPTION = DSL.field(DSL.name("category", "description"), String.class);
+    private static final Field<Boolean> CATEGORY_ACTIVE = DSL.field(DSL.name("category", "active"), Boolean.class);
+    private static final Field<OffsetDateTime> CATEGORY_CREATED_AT = DSL.field(
+            DSL.name("category", "created_at"),
+            OffsetDateTime.class
+    );
+    private static final Field<UUID> IMPLEMENT_CATEGORY_UUID = DSL.field(DSL.name("implement", "category_uuid"), UUID.class);
 
     public CategoriaJooqRepository(DSLContext dsl) {
         this.dsl = dsl;
@@ -32,17 +39,19 @@ public class CategoriaJooqRepository implements CategoriaRepository {
 
     @Override
     public List<Categoria> findAll(boolean includeInactive) {
-        Condition condition = includeInactive ? noCondition() : CATEGORY.ACTIVE.isTrue();
+        Condition condition = includeInactive ? noCondition() : CATEGORY_ACTIVE.isTrue();
 
-        return dsl.selectFrom(CATEGORY)
+        return dsl.select(CATEGORY_UUID, CATEGORY_NAME, CATEGORY_DESCRIPTION, CATEGORY_ACTIVE, CATEGORY_CREATED_AT)
+                .from(CATEGORY)
                 .where(condition)
-                .orderBy(CATEGORY.NAME.asc())
+                .orderBy(CATEGORY_NAME.asc())
                 .fetch(this::toDomain);
     }
 
     @Override
     public Optional<Categoria> findByUuid(UUID uuid) {
-        return dsl.selectFrom(CATEGORY)
+        return dsl.select(CATEGORY_UUID, CATEGORY_NAME, CATEGORY_DESCRIPTION, CATEGORY_ACTIVE, CATEGORY_CREATED_AT)
+                .from(CATEGORY)
                 .where(CATEGORY_UUID.eq(uuid))
                 .fetchOptional()
                 .map(this::toDomain);
@@ -50,7 +59,7 @@ public class CategoriaJooqRepository implements CategoriaRepository {
 
     @Override
     public boolean existsByNombre(String nombre, UUID excludingUuid) {
-        Condition condition = lower(CATEGORY.NAME).eq(nombre.toLowerCase(Locale.ROOT));
+        Condition condition = lower(CATEGORY_NAME).eq(nombre.toLowerCase(Locale.ROOT));
         if (excludingUuid != null) {
             condition = condition.and(CATEGORY_UUID.ne(excludingUuid));
         }
@@ -60,8 +69,9 @@ public class CategoriaJooqRepository implements CategoriaRepository {
 
     @Override
     public Optional<Categoria> findActiveByUuid(UUID uuid) {
-        return dsl.selectFrom(CATEGORY)
-                .where(CATEGORY_UUID.eq(uuid).and(CATEGORY.ACTIVE.isTrue()))
+        return dsl.select(CATEGORY_UUID, CATEGORY_NAME, CATEGORY_DESCRIPTION, CATEGORY_ACTIVE, CATEGORY_CREATED_AT)
+                .from(CATEGORY)
+                .where(CATEGORY_UUID.eq(uuid).and(CATEGORY_ACTIVE.isTrue()))
                 .fetchOptional()
                 .map(this::toDomain);
     }
@@ -69,11 +79,11 @@ public class CategoriaJooqRepository implements CategoriaRepository {
     @Override
     public Categoria create(String nombre, String descripcion) {
         return dsl.insertInto(CATEGORY)
-                .set(CATEGORY.NAME, nombre)
-                .set(CATEGORY.DESCRIPTION, descripcion)
-                .set(CATEGORY.ACTIVE, true)
-                .set(CATEGORY.CREATED_AT, OffsetDateTime.now())
-                .returning()
+                .set(CATEGORY_NAME, nombre)
+                .set(CATEGORY_DESCRIPTION, descripcion)
+                .set(CATEGORY_ACTIVE, true)
+                .set(CATEGORY_CREATED_AT, OffsetDateTime.now())
+                .returningResult(CATEGORY_UUID, CATEGORY_NAME, CATEGORY_DESCRIPTION, CATEGORY_ACTIVE, CATEGORY_CREATED_AT)
                 .fetchOptional()
                 .map(this::toDomain)
                 .orElseThrow();
@@ -82,10 +92,10 @@ public class CategoriaJooqRepository implements CategoriaRepository {
     @Override
     public Categoria updateNombre(UUID uuid, String nombre, String descripcion) {
         return dsl.update(CATEGORY)
-                .set(CATEGORY.NAME, nombre)
-                .set(CATEGORY.DESCRIPTION, descripcion)
+                .set(CATEGORY_NAME, nombre)
+                .set(CATEGORY_DESCRIPTION, descripcion)
                 .where(CATEGORY_UUID.eq(uuid))
-                .returning()
+                .returningResult(CATEGORY_UUID, CATEGORY_NAME, CATEGORY_DESCRIPTION, CATEGORY_ACTIVE, CATEGORY_CREATED_AT)
                 .fetchOptional()
                 .map(this::toDomain)
                 .orElseThrow();
@@ -94,7 +104,7 @@ public class CategoriaJooqRepository implements CategoriaRepository {
     @Override
     public void deactivate(UUID uuid) {
         dsl.update(CATEGORY)
-                .set(CATEGORY.ACTIVE, false)
+                .set(CATEGORY_ACTIVE, false)
                 .where(CATEGORY_UUID.eq(uuid))
                 .execute();
     }
@@ -125,13 +135,13 @@ public class CategoriaJooqRepository implements CategoriaRepository {
         );
     }
 
-    private Categoria toDomain(CategoryRecord record) {
+    private Categoria toDomain(Record record) {
         return new Categoria(
                 record.get(CATEGORY_UUID),
-                record.getName(),
-                record.getDescription(),
-                record.getActive(),
-                record.getCreatedAt()
+                record.get(CATEGORY_NAME),
+                record.get(CATEGORY_DESCRIPTION),
+                record.get(CATEGORY_ACTIVE),
+                record.get(CATEGORY_CREATED_AT)
         );
     }
 }

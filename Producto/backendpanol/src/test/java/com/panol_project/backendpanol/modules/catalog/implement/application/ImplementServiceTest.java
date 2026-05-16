@@ -2,19 +2,17 @@ package com.panol_project.backendpanol.modules.catalog.implement.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.panol_project.backendpanol.modules.catalog.category.application.CategoriaService;
-import com.panol_project.backendpanol.modules.catalog.category.domain.Categoria;
-import com.panol_project.backendpanol.modules.catalog.category.domain.CategoriaRepository;
+import com.panol_project.backendpanol.modules.catalog.category.application.contract.CategoryValidationContract;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementItemType;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.ImplementRepository;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.Implemento;
 import com.panol_project.backendpanol.modules.catalog.implement.domain.StockStatusFilter;
-import com.panol_project.backendpanol.modules.catalog.location.application.LocationService;
-import com.panol_project.backendpanol.modules.catalog.location.domain.LocationRepository;
+import com.panol_project.backendpanol.modules.catalog.location.application.contract.LocationValidationContract;
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.error.NotFoundException;
 import java.sql.SQLException;
@@ -35,18 +33,16 @@ class ImplementServiceTest {
     private ImplementRepository repository;
 
     @Mock
-    private CategoriaRepository categoriaRepository;
+    private CategoryValidationContract categoryValidationContract;
 
     @Mock
-    private LocationRepository locationRepository;
+    private LocationValidationContract locationValidationContract;
 
     private ImplementService service;
 
     @BeforeEach
     void setUp() {
-        var categoriaService = new CategoriaService(categoriaRepository);
-        var locationService = new LocationService(locationRepository);
-        service = new ImplementService(repository, categoriaService, locationService);
+        service = new ImplementService(repository, categoryValidationContract, locationValidationContract);
     }
 
     @Test
@@ -57,16 +53,14 @@ class ImplementServiceTest {
         UUID locationUuid = UUID.randomUUID();
         Implemento created = new Implemento(implementUuid, "Guantes", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null, true, now, now);
 
-        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
-        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
         when(repository.create("Guantes", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null)).thenReturn(created);
         when(repository.updateMinStockByImplementUuid(implementUuid, 3)).thenReturn(1);
 
         Implemento result = service.crear("Guantes", null, categoryUuid, locationUuid, "reusable", 3, " ", null, null);
 
         assertEquals(implementUuid, result.uuid());
-        verify(categoriaRepository).findActiveByUuid(categoryUuid);
-        verify(locationRepository).existsByUuid(locationUuid);
+        verify(categoryValidationContract).validarCategoriaActivaParaImplemento(categoryUuid);
+        verify(locationValidationContract).validarLocationExistente(locationUuid);
         verify(repository).updateMinStockByImplementUuid(implementUuid, 3);
     }
 
@@ -74,7 +68,9 @@ class ImplementServiceTest {
     void crearDebeFallarSiCategoriaInactivaONoExiste() {
         UUID categoryUuid = UUID.randomUUID();
         UUID locationUuid = UUID.randomUUID();
-        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.empty());
+        doThrow(new BadRequestException("CATEGORY_INACTIVE_OR_NOT_FOUND", "categoria invalida"))
+                .when(categoryValidationContract)
+                .validarCategoriaActivaParaImplemento(categoryUuid);
 
         assertThrows(BadRequestException.class, () ->
                 service.crear("Guantes", null, categoryUuid, locationUuid, "consumable", 5, null, null, null));
@@ -92,10 +88,8 @@ class ImplementServiceTest {
 
     @Test
     void crearDebeFallarSiItemTypeNoEsValido() {
-        OffsetDateTime now = OffsetDateTime.now();
         UUID categoryUuid = UUID.randomUUID();
         UUID locationUuid = UUID.randomUUID();
-        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
                 service.crear("Guantes", null, categoryUuid, locationUuid, "otro", 5, null, null, null));
 
@@ -104,11 +98,8 @@ class ImplementServiceTest {
 
     @Test
     void crearDebeFallarConBadRequestSiNombreActivoYaExiste() {
-        OffsetDateTime now = OffsetDateTime.now();
         UUID categoryUuid = UUID.randomUUID();
         UUID locationUuid = UUID.randomUUID();
-        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
-        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
         when(repository.existsActiveByNameIgnoreCase("Guantes")).thenReturn(true);
 
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
@@ -119,11 +110,8 @@ class ImplementServiceTest {
 
     @Test
     void crearDebeRetornarBadRequestSiNombreDuplicadoPorConstraintUnico() {
-        OffsetDateTime now = OffsetDateTime.now();
         UUID categoryUuid = UUID.randomUUID();
         UUID locationUuid = UUID.randomUUID();
-        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
-        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
         when(repository.create("Guantes", null, categoryUuid, locationUuid, ImplementItemType.CONSUMABLE, null, null, null))
                 .thenThrow(new DataIntegrityViolationException("unique violation", new SQLException("duplicate key", "23505")));
 
@@ -151,8 +139,6 @@ class ImplementServiceTest {
         Implemento existing = new Implemento(implementUuid, "Existente", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null, true, now, now);
         Implemento updated = new Implemento(implementUuid, "Nuevo", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, "Obs", null, null, true, now, now);
 
-        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
-        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
         when(repository.findByUuid(implementUuid)).thenReturn(Optional.of(existing));
         when(repository.update(implementUuid, "Nuevo", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, "Obs", null, null)).thenReturn(updated);
         when(repository.updateMinStockByImplementUuid(implementUuid, 1)).thenReturn(1);
@@ -160,8 +146,8 @@ class ImplementServiceTest {
         Implemento result = service.editar(implementUuid, "Nuevo", null, categoryUuid, locationUuid, "reusable", 1, "Obs", null, null);
 
         assertEquals(categoryUuid, result.categoriaUuid());
-        verify(categoriaRepository).findActiveByUuid(categoryUuid);
-        verify(locationRepository).existsByUuid(locationUuid);
+        verify(categoryValidationContract).validarCategoriaActivaParaImplemento(categoryUuid);
+        verify(locationValidationContract).validarLocationExistente(locationUuid);
         verify(repository).updateMinStockByImplementUuid(implementUuid, 1);
     }
 
@@ -198,8 +184,6 @@ class ImplementServiceTest {
         UUID categoryUuid = UUID.randomUUID();
         UUID locationUuid = UUID.randomUUID();
         Implemento existing = new Implemento(implementUuid, "Existente", null, categoryUuid, locationUuid, ImplementItemType.REUSABLE, null, null, null, true, now, now);
-        when(categoriaRepository.findActiveByUuid(categoryUuid)).thenReturn(Optional.of(new Categoria(categoryUuid, "Cat", null, true, now)));
-        when(locationRepository.existsByUuid(locationUuid)).thenReturn(true);
         when(repository.findByUuid(implementUuid)).thenReturn(Optional.of(existing));
         when(repository.existsActiveByNameIgnoreCaseAndUuidNot("Guantes", implementUuid)).thenReturn(true);
 

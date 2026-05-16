@@ -1,10 +1,9 @@
-package com.panol_project.backendpanol.modules.auth.infrastructure;
+package com.panol_project.backendpanol.modules.auth.domain;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-public interface TokenRevocationRepository {
+public interface TokenRevocationPort {
     void revokeToken(String jti, UUID userUuid, OffsetDateTime expiresAt);
     boolean isRevoked(String jti);
 }
-

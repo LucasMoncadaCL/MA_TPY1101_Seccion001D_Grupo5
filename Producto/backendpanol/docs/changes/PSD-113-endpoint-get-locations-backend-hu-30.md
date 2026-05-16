@@ -1,4 +1,8 @@
-# PSD-113 — Endpoint GET `/api/locations` (Backend) — HU-30
+﻿- Estado del documento: historico
+- Ultima verificacion: 2026-05-15
+- Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
+
+# PSD-113 â€” Endpoint GET `/api/locations` (Backend) â€” HU-30
 
 Fecha: 2026-04-29
 
@@ -12,19 +16,19 @@ Implementar el endpoint `GET /api/locations` que retorne todas las ubicaciones r
 Condiciones:
 
 - No filtra por estado (`active`) porque las ubicaciones son predefinidas y no se desactivan en esta etapa.
-- Debe retornar un array vacío (`[]`) si no existen ubicaciones (sin error).
+- Debe retornar un array vacÃ­o (`[]`) si no existen ubicaciones (sin error).
 - Debe validar JWT cuando `app.security.enabled=true`.
-- Accesible para todos los roles (catálogo de solo lectura).
+- Accesible para todos los roles (catÃ¡logo de solo lectura).
 
-## Implementación
+## ImplementaciÃ³n
 
 ### API
 
 - Se expone `GET /api/locations` en `LocationController`.
 - La respuesta usa el DTO `LocationSelectorResponse` con `id` y `name`.
-- Seguridad: el método queda con `@PreAuthorize("isAuthenticated()")`.
-  - Con `app.security.enabled=false` (config actual), Spring Security está deshabilitado y el endpoint queda público.
-  - Con `app.security.enabled=true`, requiere JWT válido.
+- Seguridad: el mÃ©todo queda con `@PreAuthorize("isAuthenticated()")`.
+  - Con `app.security.enabled=false` (config actual), Spring Security estÃ¡ deshabilitado y el endpoint queda pÃºblico.
+  - Con `app.security.enabled=true`, requiere JWT vÃ¡lido.
 
 Archivos:
 
@@ -33,8 +37,8 @@ Archivos:
 
 ### Servicio y repositorio
 
-- `LocationService.listarSelector()` mantiene la obtención de todas las ubicaciones.
-- `LocationJooqRepository.findAll()` ahora selecciona únicamente `LOCATION.ID` y `LOCATION.NAME` y ordena por `NAME`.
+- `LocationService.listarSelector()` mantiene la obtenciÃ³n de todas las ubicaciones.
+- `LocationJooqRepository.findAll()` ahora selecciona Ãºnicamente `LOCATION.ID` y `LOCATION.NAME` y ordena por `NAME`.
 
 Archivos:
 
@@ -52,9 +56,9 @@ Ejemplo:
 ]
 ```
 
-## Cómo probar
+## CÃ³mo probar
 
-Con el stack “Producto” levantado:
+Con el stack â€œProductoâ€ levantado:
 
 ```powershell
 Invoke-RestMethod -Method Get -Uri "http://localhost:18080/api/locations"
@@ -69,11 +73,24 @@ Invoke-RestMethod -Method Get -Uri "http://localhost:18080/api/locations" `
 
 ## Rebuild (Docker)
 
-Se reconstruyó la imagen del backend con:
+Se reconstruyÃ³ la imagen del backend con:
 
 ```powershell
 cd Producto
 docker compose build backend
 docker compose up -d backend
 ```
+
+
+
+## Advertencia historica
+
+Este documento conserva contexto tecnico de una etapa anterior. No debe usarse como guia operativa primaria sin contrastar con la documentacion vigente.
+
+## Estado actual (vigente)
+
+- Contratos publicos: solo /api/v2/**.
+- Seguridad: permitAll solo en POST /api/v2/auth/login (+ health/info).
+- Eventos: outbox operativo con estados PENDING/PROCESSED/FAILED.
+- Compose principal: Producto/docker-compose.yaml (frontend + backend, sin postgres local).
 
