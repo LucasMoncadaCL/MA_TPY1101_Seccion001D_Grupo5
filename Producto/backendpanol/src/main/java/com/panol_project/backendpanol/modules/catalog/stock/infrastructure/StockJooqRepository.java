@@ -60,10 +60,13 @@ public class StockJooqRepository implements StockRepository {
 
     @Override
     public Optional<StockCounters> findStockByImplementUuid(UUID implementUuid) {
+        Long implementId = findImplementIdByUuid(implementUuid);
+        if (implementId == null) {
+            return Optional.empty();
+        }
         return dsl.select(STOCK.TOTAL_STOCK, STOCK.MIN_STOCK, STOCK.AVAILABLE, STOCK.RESERVED, STOCK.LOANED, STOCK.DAMAGED)
                 .from(STOCK)
-                .join(IMPLEMENT).on(IMPLEMENT.ID.eq(STOCK.IMPLEMENT_ID))
-                .where(IMPLEMENT.UUID.eq(implementUuid))
+                .where(STOCK.IMPLEMENT_ID.eq(implementId))
                 .fetchOptional(record -> new StockCounters(
                         record.get(STOCK.TOTAL_STOCK),
                         record.get(STOCK.MIN_STOCK),
@@ -76,9 +79,13 @@ public class StockJooqRepository implements StockRepository {
 
     @Override
     public List<IndividualItem> findActiveIndividualsByImplementUuid(UUID implementUuid) {
+        Long implementId = findImplementIdByUuid(implementUuid);
+        if (implementId == null) {
+            return List.of();
+        }
+
         return dsl.select(
                         INDIVIDUAL.UUID,
-                        IMPLEMENT.UUID,
                         INDIVIDUAL.ASSET_CODE,
                         INDIVIDUAL.STATUS,
                         INDIVIDUAL.CONDITION,
@@ -87,13 +94,12 @@ public class StockJooqRepository implements StockRepository {
                         INDIVIDUAL.ACTIVE
                 )
                 .from(INDIVIDUAL)
-                .join(IMPLEMENT).on(IMPLEMENT.ID.eq(INDIVIDUAL.IMPLEMENT_ID))
                 .leftJoin(LOCATION).on(LOCATION.ID.eq(INDIVIDUAL.CURRENT_LOCATION_ID))
-                .where(IMPLEMENT.UUID.eq(implementUuid).and(INDIVIDUAL.ACTIVE.isTrue()))
+                .where(INDIVIDUAL.IMPLEMENT_ID.eq(implementId).and(INDIVIDUAL.ACTIVE.isTrue()))
                 .orderBy(INDIVIDUAL.UUID.asc())
                 .fetch(record -> new IndividualItem(
                         record.get(INDIVIDUAL.UUID),
-                        record.get(IMPLEMENT.UUID),
+                        implementUuid,
                         record.get(INDIVIDUAL.ASSET_CODE),
                         record.get(INDIVIDUAL.STATUS) == null ? null : record.get(INDIVIDUAL.STATUS).getLiteral(),
                         record.get(INDIVIDUAL.CONDITION) == null ? null : record.get(INDIVIDUAL.CONDITION).getLiteral(),
@@ -109,9 +115,13 @@ public class StockJooqRepository implements StockRepository {
             return List.of();
         }
 
+        Long implementId = findImplementIdByUuid(implementUuid);
+        if (implementId == null) {
+            return List.of();
+        }
+
         return dsl.select(
                         INDIVIDUAL.UUID,
-                        IMPLEMENT.UUID,
                         INDIVIDUAL.ASSET_CODE,
                         INDIVIDUAL.STATUS,
                         INDIVIDUAL.CONDITION,
@@ -120,15 +130,14 @@ public class StockJooqRepository implements StockRepository {
                         INDIVIDUAL.ACTIVE
                 )
                 .from(INDIVIDUAL)
-                .join(IMPLEMENT).on(IMPLEMENT.ID.eq(INDIVIDUAL.IMPLEMENT_ID))
                 .leftJoin(LOCATION).on(LOCATION.ID.eq(INDIVIDUAL.CURRENT_LOCATION_ID))
-                .where(IMPLEMENT.UUID.eq(implementUuid)
+                .where(INDIVIDUAL.IMPLEMENT_ID.eq(implementId)
                         .and(INDIVIDUAL.ACTIVE.isTrue())
                         .and(INDIVIDUAL.UUID.in(individualUuids)))
                 .orderBy(INDIVIDUAL.UUID.asc())
                 .fetch(record -> new IndividualItem(
                         record.get(INDIVIDUAL.UUID),
-                        record.get(IMPLEMENT.UUID),
+                        implementUuid,
                         record.get(INDIVIDUAL.ASSET_CODE),
                         record.get(INDIVIDUAL.STATUS) == null ? null : record.get(INDIVIDUAL.STATUS).getLiteral(),
                         record.get(INDIVIDUAL.CONDITION) == null ? null : record.get(INDIVIDUAL.CONDITION).getLiteral(),

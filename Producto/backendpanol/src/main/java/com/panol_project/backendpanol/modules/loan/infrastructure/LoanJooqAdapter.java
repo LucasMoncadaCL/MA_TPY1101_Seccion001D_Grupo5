@@ -374,6 +374,11 @@ public class LoanJooqAdapter implements LoanRepositoryPort {
                 throw new BadRequestException("LOAN_RETURN_INDIVIDUAL_DUPLICATE", "No puedes repetir individuales en el mismo retorno");
             }
 
+            Long individualId = findIndividualIdByUuid(returned.individualUuid());
+            if (individualId == null) {
+                throw new BadRequestException("LOAN_RETURN_INDIVIDUAL_NOT_FOUND", "El individual no pertenece a este prestamo");
+            }
+
             IndividualConditionEnum returnCondition = IndividualConditionEnum.lookupLiteral(normalizeCondition(returned.returnCondition()));
             if (returnCondition == null) {
                 throw new BadRequestException("LOAN_RETURN_CONDITION_INVALID", "return_condition debe ser good, fair o poor");
@@ -384,15 +389,13 @@ public class LoanJooqAdapter implements LoanRepositoryPort {
                             LOAN_DETAIL_INDIVIDUAL.IMPLEMENT_ID,
                             LOAN_DETAIL_INDIVIDUAL.INDIVIDUAL_ID,
                             LOAN_DETAIL_INDIVIDUAL.RETURNED_AT,
-                            IMPLEMENT.UUID,
-                            INDIVIDUAL.UUID
+                            IMPLEMENT.UUID
                     )
                     .from(LOAN_DETAIL_INDIVIDUAL)
-                    .join(INDIVIDUAL).on(INDIVIDUAL.ID.eq(LOAN_DETAIL_INDIVIDUAL.INDIVIDUAL_ID))
                     .join(IMPLEMENT).on(IMPLEMENT.ID.eq(LOAN_DETAIL_INDIVIDUAL.IMPLEMENT_ID))
                     .where(
                             LOAN_DETAIL_INDIVIDUAL.LOAN_ID.eq(current.loanId())
-                                    .and(INDIVIDUAL.UUID.eq(returned.individualUuid()))
+                                    .and(LOAN_DETAIL_INDIVIDUAL.INDIVIDUAL_ID.eq(individualId))
                     )
                     .forUpdate()
                     .fetchOne();
@@ -420,7 +423,7 @@ public class LoanJooqAdapter implements LoanRepositoryPort {
                     key,
                     ignored -> new GroupedReturnMovement(implementUuid, conditionLiteral, new ArrayList<>())
             );
-            grouped.individualUuids().add(link.get(INDIVIDUAL.UUID));
+            grouped.individualUuids().add(returned.individualUuid());
         }
 
         for (GroupedReturnMovement grouped : groupedNoFungibleReturns.values()) {
@@ -750,6 +753,16 @@ public class LoanJooqAdapter implements LoanRepositoryPort {
             throw new IllegalStateException("No se pudo resolver implement_id para loan_detail");
         }
         return implementId;
+    }
+
+    private Long findIndividualIdByUuid(UUID individualUuid) {
+        if (individualUuid == null) {
+            return null;
+        }
+        return dsl.select(INDIVIDUAL.ID)
+                .from(INDIVIDUAL)
+                .where(INDIVIDUAL.UUID.eq(individualUuid))
+                .fetchOne(INDIVIDUAL.ID);
     }
 
     private LoanStatus toDomainStatus(LoanStatusEnum statusEnum) {

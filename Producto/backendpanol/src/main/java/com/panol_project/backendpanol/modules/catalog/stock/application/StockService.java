@@ -77,7 +77,10 @@ public class StockService implements StockMovementContract {
 
         repository.ensureStockRow(implementUuid);
 
-        if (context.itemType() == StockItemType.NO_FUNGIBLE) {
+        boolean shouldCreateIndividuals = context.itemType() == StockItemType.NO_FUNGIBLE
+                || (assetCodes != null && !assetCodes.isEmpty());
+
+        if (shouldCreateIndividuals) {
             List<String> normalizedCodes = normalizeAssetCodes(assetCodes, qty);
             try {
                 repository.createIndividuals(implementUuid, context.locationUuid(), normalizedCodes);
@@ -452,10 +455,13 @@ public class StockService implements StockMovementContract {
         Throwable current = throwable;
         while (current != null) {
             String message = current.getMessage();
-            if (message != null
-                    && message.contains("no se pueden crear unidades individuales")
-                    && message.contains("fungible")) {
-                return true;
+            if (message != null) {
+                String normalized = message.toLowerCase();
+                if (normalized.contains("individual_no_fungible")
+                        || normalized.contains("trg_guard_individual_no_fungible")
+                        || normalized.contains("fn_guard_individual_no_fungible")) {
+                    return true;
+                }
             }
             current = current.getCause();
         }

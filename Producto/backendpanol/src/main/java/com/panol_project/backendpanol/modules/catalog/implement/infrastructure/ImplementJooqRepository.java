@@ -240,10 +240,14 @@ public class ImplementJooqRepository implements ImplementRepository {
 
     @Override
     public Optional<Integer> findMinStockByImplementUuid(UUID implementUuid) {
+        Long implementId = findImplementIdByUuid(implementUuid);
+        if (implementId == null) {
+            return Optional.empty();
+        }
+
         return dsl.select(STOCK.MIN_STOCK)
                 .from(STOCK)
-                .join(IMPLEMENT).on(IMPLEMENT.ID.eq(STOCK.IMPLEMENT_ID))
-                .where(IMPLEMENT.UUID.eq(implementUuid))
+                .where(STOCK.IMPLEMENT_ID.eq(implementId))
                 .fetchOptional(STOCK.MIN_STOCK);
     }
 
