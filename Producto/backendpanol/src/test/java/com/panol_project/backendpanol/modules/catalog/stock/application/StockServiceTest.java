@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.panol_project.backendpanol.modules.catalog.stock.domain.IndividualItem;
+import com.panol_project.backendpanol.modules.catalog.stock.domain.InventoryMovementRepository;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockCounters;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockDetail;
 import com.panol_project.backendpanol.modules.catalog.stock.domain.StockItemType;
@@ -26,30 +27,33 @@ class StockServiceTest {
     @Mock
     private OutboxService outboxService;
 
+    @Mock
+    private InventoryMovementRepository inventoryMovementRepository;
+
     @Test
-    void getStockDetailDebeUsarStockItemTypeLocalYDerivarContadoresDeIndividuales() {
+    void getStockDetailDebeUsarStockItemTypeLocalYRetornarStockPersistido() {
         UUID implementUuid = UUID.randomUUID();
         UUID locationUuid = UUID.randomUUID();
         when(repository.findImplementContext(implementUuid))
                 .thenReturn(Optional.of(new StockRepository.ImplementStockContext(
                         implementUuid,
                         locationUuid,
-                        StockItemType.INDIVIDUAL,
+                        StockItemType.NO_FUNGIBLE,
                         true
                 )));
         when(repository.findStockByImplementUuid(implementUuid))
-                .thenReturn(Optional.of(new StockCounters(0, 2, 0, 0, 0, 0)));
+                .thenReturn(Optional.of(new StockCounters(3, 2, 1, 1, 0, 1)));
         when(repository.findActiveIndividualsByImplementUuid(implementUuid))
                 .thenReturn(List.of(
-                        new IndividualItem(UUID.randomUUID(), implementUuid, "A1", "available", "good", locationUuid, true),
-                        new IndividualItem(UUID.randomUUID(), implementUuid, "A2", "blocked", "good", locationUuid, true),
-                        new IndividualItem(UUID.randomUUID(), implementUuid, "A3", "damaged", "damaged_no_diagnosis", locationUuid, true)
+                        new IndividualItem(UUID.randomUUID(), implementUuid, "A1", "available", "good", null, locationUuid, true),
+                        new IndividualItem(UUID.randomUUID(), implementUuid, "A2", "loaned", "fair", null, locationUuid, true),
+                        new IndividualItem(UUID.randomUUID(), implementUuid, "A3", "damaged", "poor", null, locationUuid, true)
                 ));
 
-        StockService service = new StockService(repository, outboxService);
+        StockService service = new StockService(repository, outboxService, inventoryMovementRepository);
         StockDetail detail = service.getStockDetail(implementUuid);
 
-        assertEquals(StockItemType.INDIVIDUAL, detail.itemType());
+        assertEquals(StockItemType.NO_FUNGIBLE, detail.itemType());
         assertEquals(3, detail.stock().totalStock());
         assertEquals(1, detail.stock().available());
         assertEquals(1, detail.stock().reserved());

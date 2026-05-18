@@ -28,8 +28,9 @@ public class OutboxWorker {
     public void publishPending() {
         outboxRepository.findPending(50).forEach(event -> {
             try {
+                outboxRepository.markProcessing(event.eventId());
                 outboxPublisher.publish(event);
-                outboxRepository.markProcessed(event.eventId(), OffsetDateTime.now());
+                outboxRepository.markSent(event.eventId(), OffsetDateTime.now());
                 observabilityService.recordPublishSuccess();
                 LOG.info("outbox_event_published event_id={} aggregate_id={} event_type={}",
                         event.eventId(), event.aggregateId(), event.eventType());

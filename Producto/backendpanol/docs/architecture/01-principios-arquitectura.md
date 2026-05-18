@@ -1,5 +1,5 @@
 ﻿- Estado del documento: vigente
-- Ultima verificacion: 2026-05-15
+- Ultima verificacion: 2026-05-16
 - Fuente de verdad: ver matriz canonica vigente y codigo fuente actual
 
 # 01 - Principios de Arquitectura
@@ -25,12 +25,12 @@ Asegurar que cada incremento preserve decisiones base:
 - Entidades transaccionales críticas se resuelven en PostgreSQL.
 
 4. **Eventos para integración, no para verdad transaccional**
-- `outbox_event` y el transporte eventual habilitan integración/trazabilidad.
-- La verdad transaccional principal está en PostgreSQL.
+- `outbox_event` habilita integración eventual y trazabilidad operacional.
+- La consulta primaria de estado transaccional sigue en PostgreSQL.
 
 5. **Migraciones por corte controlado**
-- Priorizar cambios incrementales por módulo, con feature parity.
-- Los cambios masivos de esquema deben ir con plan de corte, rollback y validación (ej. `db/migration/v25/V25__schema_alignment_big_bang.sql`).
+- Priorizar cambios incrementales por módulo con feature parity.
+- Los cambios masivos de refactor de esquema deben ejecutarse con plan de corte, rollback y verificación (ej. `db/migration/v25/V25__schema_alignment_big_bang.sql`).
 
 ## Regla de oro
 

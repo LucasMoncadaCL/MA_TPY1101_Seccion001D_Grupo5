@@ -37,8 +37,8 @@ public class UserAdminService {
         String role = normalizeRole(command.role());
         String normalizedRut = normalizeRut(command.rut());
         String normalizedEmail = normalizeEmail(command.email());
-        UUID roleUuid = repository.findRoleUuid(role);
-        if (roleUuid == null) {
+        Long roleId = repository.findRoleId(role);
+        if (roleId == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ROLE_NOT_SUPPORTED", "Rol invalido");
         }
 
@@ -51,7 +51,7 @@ public class UserAdminService {
                 normalizedRut,
                 normalizedEmail,
                 BCrypt.hashpw(command.password(), BCrypt.gensalt()),
-                roleUuid,
+                roleId,
                 true
         );
 
@@ -62,11 +62,11 @@ public class UserAdminService {
     @Transactional
     public void changeRole(UUID userUuid, String roleInput, Jwt jwt) {
         String role = normalizeRole(roleInput);
-        UUID roleUuid = repository.findRoleUuid(role);
-        if (roleUuid == null) {
+        Long roleId = repository.findRoleId(role);
+        if (roleId == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ROLE_NOT_SUPPORTED", "Rol invalido");
         }
-        int updated = repository.updateUserRole(userUuid, roleUuid);
+        int updated = repository.updateUserRole(userUuid, roleId);
 
         if (updated == 0) {
             throw new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Usuario no encontrado");
@@ -196,4 +196,3 @@ public class UserAdminService {
         }
     }
 }
-

@@ -1,8 +1,9 @@
 ﻿# 00 - Matriz Canonica Vigente
 
 - Estado del documento: vigente
-- Ultima verificacion: 2026-05-15
-- Fuente de verdad: controllers V2, `SecurityConfig`, `application.yaml`, compose files, `ArchitectureTest`
+- Ultima verificacion: 2026-05-17
+- Fuente de verdad: `db/migration/v25/V25__schema_alignment_big_bang.sql`, controllers V2, `SecurityConfig`,
+  `application.yaml`, compose files, `ArchitectureTest`
 
 ## Rutas publicas vigentes
 
@@ -23,9 +24,11 @@
 ## Flujo de datos vigente
 
 1. SQL como estado canonico.
-2. Evento outbox en misma transaccion cuando aplica.
-3. Worker publica proyecciones/eventos a Mongo.
-4. Reintentos y estado `PENDING/PROCESSED/FAILED` en `outbox_events`.
+2. Identidad de datos: `id` interno en DB/jOOQ, `uuid` externo en API/frontend.
+3. Evento outbox en misma transaccion cuando aplica.
+4. Worker publica eventos al destino de integración/observabilidad.
+5. Reintentos y estado en `public.outbox_event` con estados canónicos:
+   `PENDING`, `PROCESSING`, `SENT`, `FAILED` (compatibilidad: vista `outbox_events`).
 
 ## Compose vigente
 
@@ -40,4 +43,3 @@
   - `Ultima verificacion`
   - `Fuente de verdad`
   - `Estado del documento`
-

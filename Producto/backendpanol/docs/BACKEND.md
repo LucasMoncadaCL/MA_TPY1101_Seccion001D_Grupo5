@@ -1,12 +1,27 @@
 ﻿# Backend Docs
 
 - Estado del documento: vigente
-- Ultima verificacion: 2026-05-15
+- Ultima verificacion: 2026-05-17
 - Fuente de verdad: controllers V2, SecurityConfig, application.yaml
 
 ## Alcance
 
 Guia operativa del backend para rutas publicas, seguridad, errores y convenciones de uso entre frontend y backend.
+
+### Modelo de datos vigente
+
+- Estado canónico de dominio: **PostgreSQL (Supabase en producción/desarrollo según APP_DB_ENV)**.
+- El catálogo de implementos usa `item_type` con valores:
+  - `fungible`
+  - `no_fungible`
+- El flujo de integración asíncrona usa tabla `public.outbox_event`
+  (estados `PENDING`, `PROCESSING`, `SENT`, `FAILED`).
+
+### Regla de identidad de datos
+
+- Persistencia interna (DB/jOOQ): `id` numerico.
+- Contrato externo (API/frontend/logs de cliente): `uuid`.
+- No se exponen ids internos en payloads publicos.
 
 ## API publica actual
 
@@ -56,6 +71,14 @@ Base publica: `/api/v2/**`
 - `PUT /api/v2/implements/{implementUuid}/stock/individuals/{individualUuid}`
 - `GET /api/v2/implements/{implementUuid}/labels/pdf`
 
+Valores canónicos de `movement_type`/`action`:
+- `STOCK_IN`
+- `STOCK_OUT`
+- `LOAN_DELIVERY`
+- `LOAN_RETURN`
+- `DAMAGE_REPORT`
+- `MANUAL_ADJUSTMENT`
+
 ## Seguridad vigente
 
 - `permitAll`: solo `POST /api/v2/auth/login` + `/actuator/health` y `/actuator/info`.
@@ -75,4 +98,3 @@ Base publica: `/api/v2/**`
 ## Nota de compatibilidad
 
 No se deben usar rutas legacy (`/api/categorias`, `/api/implements`, `/api/v1/**`) en clientes nuevos ni en documentacion operativa vigente.
-

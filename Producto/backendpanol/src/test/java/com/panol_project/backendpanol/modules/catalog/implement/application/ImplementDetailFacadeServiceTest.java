@@ -32,7 +32,7 @@ class ImplementDetailFacadeServiceTest {
         InventoryMovementView movement = new InventoryMovementView(
                 "m1",
                 implementUuid,
-                "INGRESO",
+                "STOCK_IN",
                 3,
                 userUuid,
                 Instant.now(),

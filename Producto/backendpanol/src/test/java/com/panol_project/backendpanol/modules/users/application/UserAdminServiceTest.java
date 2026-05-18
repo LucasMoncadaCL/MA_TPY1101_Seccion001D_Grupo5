@@ -14,7 +14,6 @@ import com.panol_project.backendpanol.shared.outbox.application.OutboxService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -36,14 +35,14 @@ class UserAdminServiceTest {
     void createUserDebeRegistrarAuditoriaYOutbox() {
         UserAdminService service = new UserAdminService(repository, auditLogPort, outboxService);
         CreateUserCommand command = new CreateUserCommand("Ana", "12.345.678-9", "ana@test.cl", "COORDINADOR", "secret");
-        UUID roleUuid = UUID.randomUUID();
+        Long roleId = 2L;
 
-        when(repository.findRoleUuid("COORDINADOR")).thenReturn(roleUuid);
+        when(repository.findRoleId("COORDINADOR")).thenReturn(roleId);
         when(repository.countUsersByRutOrEmail("123456789", "ana@test.cl")).thenReturn(0);
 
         service.createUser(command, null);
 
-        verify(repository).createUser(eq("Ana"), eq("123456789"), eq("ana@test.cl"), anyString(), eq(roleUuid), eq(true));
+        verify(repository).createUser(eq("Ana"), eq("123456789"), eq("ana@test.cl"), anyString(), eq(roleId), eq(true));
         verify(auditLogPort).log("user_created", null, null, Map.of("rut", "123456789", "email", "ana@test.cl", "role", "COORDINADOR"));
         verify(outboxService).enqueue("user", null, "UserCreated", null, Map.of("rut", "123456789", "email", "ana@test.cl", "role", "COORDINADOR"));
     }

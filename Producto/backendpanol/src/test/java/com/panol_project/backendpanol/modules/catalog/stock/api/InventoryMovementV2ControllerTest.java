@@ -33,7 +33,7 @@ class InventoryMovementV2ControllerTest {
         UUID userUuid = UUID.randomUUID();
         InventoryMovement movement = new InventoryMovement(
                 implementUuid,
-                MovementAction.INGRESO,
+                MovementAction.STOCK_IN,
                 2,
                 userUuid,
                 Instant.now(),
