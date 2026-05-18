@@ -19,12 +19,12 @@ import com.panol_project.backendpanol.modules.catalog.stock.domain.StockReposito
 import com.panol_project.backendpanol.shared.error.BadRequestException;
 import com.panol_project.backendpanol.shared.outbox.application.OutboxService;
 import com.panol_project.backendpanol.shared.security.CurrentUserUuidResolver;
+import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.jooq.exception.DataAccessException;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -86,7 +86,7 @@ class StockServiceTest {
                         true
                 )));
 
-        doThrow(new DataAccessException(
+        doThrow(newJooqDataAccessException(
                 "ERROR: raised by trigger trg_guard_individual_no_fungible (individual_no_fungible)"
         )).when(repository).createIndividuals(eq(implementUuid), eq(locationUuid), any());
 
@@ -114,16 +114,32 @@ class StockServiceTest {
                         true
                 )));
 
-        doThrow(new DataAccessException("timeout while writing to database"))
+        doThrow(newJooqDataAccessException("timeout while writing to database"))
                 .when(repository).createIndividuals(eq(implementUuid), eq(locationUuid), any());
 
         StockService service = new StockService(repository, outboxService, inventoryMovementRepository, currentUserUuidResolver);
 
-        assertThrows(
-                DataAccessException.class,
+        RuntimeException thrown = assertThrows(
+                RuntimeException.class,
                 () -> service.addEntry(implementUuid, 1, List.of("SER-002"))
         );
+        assertEquals("timeout while writing to database", thrown.getMessage());
 
         verify(repository, never()).updateStock(eq(implementUuid), anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
+    }
+
+    private RuntimeException newJooqDataAccessException(String message) {
+        try {
+            Class<?> type = Class.forName("org.jooq.exception.DataAccessException");
+            Constructor<?> constructor = type.getDeclaredConstructor(String.class);
+            constructor.setAccessible(true);
+            Object instance = constructor.newInstance(message);
+            if (instance instanceof RuntimeException runtimeException) {
+                return runtimeException;
+            }
+            throw new IllegalStateException("org.jooq.exception.DataAccessException no es RuntimeException");
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("No se pudo crear la excepción de jOOQ para la prueba", ex);
+        }
     }
 }

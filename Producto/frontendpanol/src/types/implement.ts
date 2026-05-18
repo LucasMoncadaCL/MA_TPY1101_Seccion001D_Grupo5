@@ -1,5 +1,5 @@
 export interface InventoryMovementDetail {
-  id: string;
+  uuid: string;
   action: string;
   quantity: number;
   timestamp: string;

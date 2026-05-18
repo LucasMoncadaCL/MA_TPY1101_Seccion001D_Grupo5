@@ -735,7 +735,7 @@ export function InventoryItemDetailPage({
                           <tr><td colSpan={4} style={{ textAlign: "center" }}>No hay movimientos recientes registrados</td></tr>
                         ) : (
                           implement.recent_movements.map((mov) => (
-                            <tr key={mov.id}>
+                            <tr key={mov.uuid}>
                               <td>{new Date(mov.timestamp).toLocaleString()}</td>
                               <td><span className="badge badge--inactive">{mov.action}</span></td>
                               <td>{mov.quantity}</td>
@@ -1205,4 +1205,3 @@ export function InventoryItemDetailPage({
 
   return <InventoryLayout activeSection="items">{content}</InventoryLayout>;
 }
-
